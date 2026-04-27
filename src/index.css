@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+body {
+  @apply bg-surface text-ink min-h-screen;
+}
