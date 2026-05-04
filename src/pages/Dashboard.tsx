@@ -289,7 +289,7 @@ export default function Dashboard() {
             </colgroup>
             <thead className="sticky top-0 z-10 bg-white text-left text-xs font-semibold uppercase tracking-wide text-ink-muted shadow-[0_1px_0_0_rgba(226,232,240,0.9)]">
               <tr>
-                <th className="h-12 px-4 align-middle sm:px-6 lg:px-8">Cliente</th>
+                <th className="h-12 px-4 align-middle sm:px-6 lg:px-8">Sucursal</th>
                 <th className="h-12 px-4 align-middle sm:px-5">Monto</th>
                 <th className="h-12 px-4 align-middle sm:px-5">Vencimiento</th>
                 <th className="h-12 px-4 align-middle sm:px-5">Estado</th>

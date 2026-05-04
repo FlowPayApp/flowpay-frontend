@@ -11,6 +11,9 @@ api.interceptors.request.use((config) => {
   if (t) {
     config.headers.Authorization = `Bearer ${t}`;
   }
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 
@@ -39,6 +42,7 @@ export interface ChargeDTO {
   due_date: string;
   paid_at?: string | null;
   created_at: string;
+  /** En cobros: texto mostrado como deudor (solo sucursal). */
   client_name?: string;
   client_email?: string | null;
   client_phone?: string | null;
@@ -51,9 +55,19 @@ export interface ChargeDTO {
 export interface ClientDTO {
   id: number;
   company_id: number;
+  /** Encargado del local (columna NOMBRE en import). */
   name: string;
   email?: string | null;
   phone?: string | null;
+  /** Clave única de import (sucursal|CODIGO). */
+  external_code?: string | null;
+  address?: string | null;
+  /** CODIGO en planilla. */
+  client_code?: string | null;
+  /** Nombre de la sucursal (SUCURSAL). */
+  branch_name?: string | null;
+  /** Método de pago (columna MPAGO en plantilla). */
+  payment_terms?: string | null;
   /** Si falta (API antigua), se asume activo. */
   is_active?: boolean;
   /** Preferencia de seguimiento automático: all|email|whatsapp|none. */
@@ -62,6 +76,8 @@ export interface ClientDTO {
   risk_level: "low" | "medium" | "high";
   total_owed: number;
   overdue_count: number;
+  /** Cantidad de cobros asociados al cliente (0 = aún sin cobros). */
+  charge_count?: number;
 }
 
 export interface DashboardTotals {
@@ -131,17 +147,6 @@ export interface Reminder {
   sent_at?: string | null;
 }
 
-export interface MessageDTO {
-  id: number;
-  company_id: number;
-  from_number: string;
-  to_number: string;
-  content: string;
-  direction: "inbound" | "outbound";
-  status: "sent" | "delivered" | "failed" | "received";
-  created_at: string;
-}
-
 export interface MyProfileDTO {
   user_id: number;
   email: string;
@@ -171,6 +176,10 @@ export async function fetchCharge(id: number) {
   return data;
 }
 
+export async function deleteCharge(id: number) {
+  await api.delete(`/api/charges/${id}`);
+}
+
 export async function patchCharge(
   id: number,
   body: {
@@ -189,6 +198,15 @@ export async function fetchClients() {
   return data;
 }
 
+export async function fetchClient(id: number) {
+  const { data } = await api.get<ClientDTO>(`/api/clients/${id}`);
+  return data;
+}
+
+export async function deleteClient(id: number) {
+  await api.delete(`/api/clients/${id}`);
+}
+
 export async function createCharge(payload: {
   client_id: number;
   amount: number;
@@ -200,18 +218,69 @@ export async function createCharge(payload: {
 
 export async function createClient(payload: {
   name: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  client_code?: string;
+  branch_name?: string;
+  payment_terms?: string;
 }) {
   const { data } = await api.post<{ id: number }>("/api/clients", payload);
   return data;
 }
 
-export async function updateClient(
-  clientId: number,
-  payload: { is_active?: boolean; followup_channel?: "all" | "email" | "whatsapp" | "none" },
-) {
+export type UpdateClientPayload = {
+  is_active?: boolean;
+  followup_channel?: "all" | "email" | "whatsapp" | "none";
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  client_code?: string;
+  branch_name?: string;
+  payment_terms?: string;
+};
+
+export async function updateClient(clientId: number, payload: UpdateClientPayload) {
   await api.patch(`/api/clients/${clientId}`, payload);
+}
+
+export interface ImportDistributorResult {
+  created: number;
+  updated: number;
+  errors: { line: number; message: string }[];
+}
+
+export async function importClientsDistributorRows(rows: string[][], filename?: string) {
+  const { data } = await api.post<ImportDistributorResult>("/api/clients/import-distributor-rows", {
+    rows,
+    ...(filename ? { filename } : {}),
+  });
+  return data;
+}
+
+export interface ClientImportBatchListItem {
+  id: number;
+  created_at: string;
+  source: string;
+  filename?: string | null;
+  created_count: number;
+  updated_count: number;
+  error_count: number;
+}
+
+export interface ClientImportBatchDetail extends ClientImportBatchListItem {
+  errors: { line: number; message: string }[];
+}
+
+export async function fetchClientImportBatches() {
+  const { data } = await api.get<ClientImportBatchListItem[]>("/api/clients/import-batches");
+  return data;
+}
+
+export async function fetchClientImportBatch(id: number) {
+  const { data } = await api.get<ClientImportBatchDetail>(`/api/clients/import-batches/${id}`);
+  return data;
 }
 
 export async function fetchReminders(chargeId: number) {
@@ -221,17 +290,6 @@ export async function fetchReminders(chargeId: number) {
 
 export async function sendReminderNow(chargeId: number) {
   await api.post(`/api/charges/${chargeId}/reminders`);
-}
-
-export async function fetchMessages(limit = 50, offset = 0, phone?: string) {
-  const { data } = await api.get<MessageDTO[]>("/api/messages", {
-    params: { limit, offset, ...(phone ? { phone } : {}) },
-  });
-  return data;
-}
-
-export async function sendMessage(payload: { to: string; message: string }) {
-  await api.post("/api/messages/send", payload);
 }
 
 export async function recordPayment(chargeId: number, amount: number) {

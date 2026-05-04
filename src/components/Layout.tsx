@@ -6,8 +6,8 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  MessageCircle,
   Receipt,
+  Upload,
   UserCog,
   Users,
   X,
@@ -23,19 +23,36 @@ import LoadingOverlay from "./LoadingOverlay";
 import PasswordInput from "./PasswordInput";
 
 const SIDEBAR_COLLAPSED_KEY = "flowpay-sidebar-collapsed";
+const CLIENTS_NAV_EXPANDED_KEY = "flowpay-nav-clients-expanded";
+
+function readClientsSubOpenInitial(): boolean {
+  try {
+    const p = window.location.pathname;
+    if (p.startsWith("/clients/")) return true;
+    return localStorage.getItem(CLIENTS_NAV_EXPANDED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 type NavItem = {
   to: string;
   end?: boolean;
   label: string;
   icon: LucideIcon;
+  subItems?: { to: string; label: string; icon: LucideIcon }[];
 };
 
 const companyNav: NavItem[] = [
   { to: "/", end: true, label: "Inicio", icon: LayoutDashboard },
   { to: "/cobros", label: "Cobros", icon: Receipt },
-  { to: "/clients", label: "Clientes", icon: Users },
-  { to: "/messages", label: "Mensajes", icon: MessageCircle },
+  {
+    to: "/clients",
+    end: true,
+    label: "Clientes",
+    icon: Users,
+    subItems: [{ to: "/clients/cargas", label: "Carga de clientes", icon: Upload }],
+  },
 ];
 
 const platformNav: NavItem[] = [
@@ -85,9 +102,29 @@ export default function Layout() {
     confirmPassword: "",
   });
   const [profileError, setProfileError] = useState<string | null>(null);
+  /** Submenú Clientes (solo vista expandida / móvil). */
+  const [clientsSubOpen, setClientsSubOpen] = useState(readClientsSubOpenInitial);
   const routeTimer = useRef<number | null>(null);
   const mobileDrawerTimer = useRef<number | null>(null);
   const items = isPlatformAdmin ? platformNav : companyNav;
+
+  const toggleClientsSub = useCallback(() => {
+    setClientsSubOpen((o) => {
+      const n = !o;
+      try {
+        localStorage.setItem(CLIENTS_NAV_EXPANDED_KEY, n ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return n;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/clients/")) {
+      setClientsSubOpen(true);
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     setRouteLoading(true);
@@ -145,6 +182,13 @@ export default function Layout() {
       isActive
         ? "bg-gradient-to-r from-brand-soft to-indigo-50 text-brand shadow-sm ring-1 ring-indigo-100"
         : "text-ink-muted hover:bg-white hover:text-ink hover:shadow-sm",
+    ].join(" ");
+
+  /** Subítems del acordeón Clientes: más chicos y más a la derecha. */
+  const subNavClass = ({ isActive }: { isActive: boolean }) =>
+    [
+      linkClass({ isActive }, false),
+      "ml-4 mr-0 max-w-[calc(100%-0.75rem)] rounded-lg py-1.5 pl-4 text-[11px] font-medium leading-tight sm:text-xs",
     ].join(" ");
 
   const openProfile = async () => {
@@ -343,15 +387,75 @@ export default function Layout() {
             </p>
             <nav className="flex flex-col gap-1" onClick={closeMobileMenu}>
               {items.map((item) => (
-                <NavLink
-                  key={item.to + (item.end ? "-e" : "")}
-                  to={item.to}
-                  end={item.end}
-                  className={(p) => linkClass(p, false)}
-                >
-                  <item.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
-                  <span>{item.label}</span>
-                </NavLink>
+                <div key={item.to + (item.end ? "-e" : "")} className="flex flex-col gap-1">
+                  {item.subItems?.length ? (
+                    <>
+                      {(() => {
+                        const rowActive =
+                          location.pathname === item.to ||
+                          (item.subItems?.some((s) => location.pathname === s.to) ?? false);
+                        return (
+                          <div
+                            className={[linkClass({ isActive: rowActive }, false), "w-full min-w-0"].join(" ")}
+                          >
+                            <NavLink
+                              to={item.to}
+                              end={item.end}
+                              className="flex min-w-0 flex-1 items-center gap-3 text-inherit outline-none ring-0"
+                            >
+                              <item.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
+                              <span className="truncate">{item.label}</span>
+                            </NavLink>
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-white/80"
+                              aria-expanded={clientsSubOpen}
+                              aria-label="Desplegar sección Clientes"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleClientsSub();
+                              }}
+                            >
+                              <ChevronRight
+                                className={[
+                                  "h-3.5 w-3.5 transition-transform duration-300 ease-out motion-reduce:transition-none",
+                                  clientsSubOpen ? "rotate-90" : "",
+                                ].join(" ")}
+                                strokeWidth={2}
+                              />
+                            </button>
+                          </div>
+                        );
+                      })()}
+                      <div
+                        className={[
+                          "grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none motion-reduce:duration-0",
+                          clientsSubOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                        ].join(" ")}
+                      >
+                        <div className="min-h-0 overflow-hidden">
+                          <div className="flex flex-col gap-1 pt-0.5">
+                            {item.subItems.map((sub) => (
+                              <NavLink key={sub.to} to={sub.to} className={(p) => subNavClass(p)}>
+                                <sub.icon className="h-3.5 w-3.5 shrink-0 opacity-90" strokeWidth={2} />
+                                <span className="truncate">{sub.label}</span>
+                              </NavLink>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      className={(p) => linkClass(p, false)}
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  )}
+                </div>
               ))}
             </nav>
             {accountSection(false, true)}
@@ -421,16 +525,98 @@ export default function Layout() {
         )}
         <nav className={`mt-2 flex flex-col gap-1 ${sidebarCollapsed ? "items-stretch" : ""}`}>
           {items.map((item) => (
-            <NavLink
-              key={item.to + (item.end ? "-e" : "")}
-              to={item.to}
-              end={item.end}
-              title={sidebarCollapsed ? item.label : undefined}
-              className={(p) => linkClass(p, sidebarCollapsed)}
-            >
-              <item.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
-              {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-            </NavLink>
+            <div key={item.to + (item.end ? "-e" : "")} className="flex flex-col gap-1">
+              {item.subItems?.length && sidebarCollapsed ? (
+                <>
+                  <NavLink
+                    to={item.to}
+                    end={item.end}
+                    title={item.label}
+                    className={(p) => {
+                      const childActive = item.subItems?.some((s) => location.pathname === s.to) ?? false;
+                      return linkClass({ isActive: p.isActive || childActive }, true);
+                    }}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
+                  </NavLink>
+                  {item.subItems.map((sub) => (
+                    <NavLink
+                      key={sub.to}
+                      to={sub.to}
+                      title={sub.label}
+                      className={(p) => linkClass(p, true)}
+                    >
+                      <sub.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
+                    </NavLink>
+                  ))}
+                </>
+              ) : item.subItems?.length ? (
+                <>
+                  {(() => {
+                    const rowActive =
+                      location.pathname === item.to ||
+                      (item.subItems?.some((s) => location.pathname === s.to) ?? false);
+                    return (
+                      <div
+                        className={[linkClass({ isActive: rowActive }, false), "w-full min-w-0"].join(" ")}
+                      >
+                        <NavLink
+                          to={item.to}
+                          end={item.end}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-inherit outline-none ring-0"
+                        >
+                          <item.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
+                          <span className="truncate">{item.label}</span>
+                        </NavLink>
+                        <button
+                          type="button"
+                          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-white/80"
+                          aria-expanded={clientsSubOpen}
+                          aria-label="Desplegar sección Clientes"
+                          title={clientsSubOpen ? "Ocultar submenú" : "Mostrar submenú"}
+                          onClick={toggleClientsSub}
+                        >
+                          <ChevronRight
+                            className={[
+                              "h-3.5 w-3.5 transition-transform duration-300 ease-out motion-reduce:transition-none",
+                              clientsSubOpen ? "rotate-90" : "",
+                            ].join(" ")}
+                            strokeWidth={2}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })()}
+                  <div
+                    className={[
+                      "grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none motion-reduce:duration-0",
+                      clientsSubOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                    ].join(" ")}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="flex flex-col gap-1 pt-0.5">
+                        {item.subItems!.map((sub) => (
+                          <NavLink key={sub.to} to={sub.to} className={(p) => subNavClass(p)}>
+                            <sub.icon className="h-3.5 w-3.5 shrink-0 opacity-90" strokeWidth={2} />
+                            <span className="truncate">{sub.label}</span>
+                          </NavLink>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <NavLink
+                  to={item.to}
+                  end={item.end}
+                  title={sidebarCollapsed ? item.label : undefined}
+                  className={(p) => linkClass(p, sidebarCollapsed)}
+                >
+                  <item.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
+                  {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+                </NavLink>
+              )}
+            </div>
           ))}
         </nav>
 

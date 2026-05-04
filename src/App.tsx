@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import Layout from "./components/Layout";
 import { getSessionClaims } from "./lib/auth";
+import ClientDetail from "./pages/ClientDetail";
+import ClientLoads from "./pages/ClientLoads";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import ChargeDetail from "./pages/ChargeDetail";
@@ -10,7 +12,6 @@ import Register from "./pages/Register";
 import PlatformOverview from "./pages/PlatformOverview";
 import PlatformCompanies from "./pages/PlatformCompanies";
 import PlatformAdmins from "./pages/PlatformAdmins";
-import Messages from "./pages/Messages";
 
 /** Compatibilidad con enlaces antiguos /invoices */
 function LegacyInvoicesRedirect() {
@@ -39,7 +40,8 @@ export default function App() {
         <Route path="invoices" element={<Navigate to="/cobros" replace />} />
         <Route path="invoices/:id" element={<LegacyInvoicesRedirect />} />
         <Route path="clients" element={<Clients />} />
-        <Route path="messages" element={<Messages />} />
+        <Route path="clients/cargas" element={<ClientLoads />} />
+        <Route path="clients/:id" element={<ClientDetail />} />
         <Route path="platform" element={<PlatformOverview />} />
         <Route path="platform/companies" element={<PlatformCompanies />} />
         <Route path="platform/admins" element={<PlatformAdmins />} />

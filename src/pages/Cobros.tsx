@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { Filter, Plus } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Eye, Filter, Plus } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { createCharge, fetchCharges, fetchClients } from "../api";
 import type { ChargeDTO, ClientDTO } from "../api";
 import AppModal from "../components/AppModal";
 import { StatusBadge } from "../components/Badge";
+import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
 
 function normalizeClpInput(value: string) {
@@ -19,6 +19,9 @@ function parseClpInput(value: string) {
   if (!digits) return 0;
   return Number(digits);
 }
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
 export default function Cobros() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -36,6 +39,8 @@ export default function Cobros() {
     status: queryStatus,
   });
   const [error, setError] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<PageSize>(10);
+  const [page, setPage] = useState(1);
 
   const load = () =>
     fetchCharges()
@@ -67,19 +72,47 @@ export default function Cobros() {
 
   const filteredRows = useMemo(() => {
     const q = filters.client.trim().toLowerCase();
-    return rows.filter((row) => {
-      const byClientID = queryClientID <= 0 || row.client_id === queryClientID;
-      const clientOk = q === "" || (row.client_name ?? "").toLowerCase().includes(q);
-      const statusOk = filters.status === "all" || row.status === filters.status;
-      return byClientID && clientOk && statusOk;
-    });
+    return [...rows]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .filter((row) => {
+        const byClientID = queryClientID <= 0 || row.client_id === queryClientID;
+        const clientOk = q === "" || (row.client_name ?? "").toLowerCase().includes(q);
+        const statusOk = filters.status === "all" || row.status === filters.status;
+        return byClientID && clientOk && statusOk;
+      });
   }, [rows, filters, queryClientID]);
+
+  const totalFiltered = filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.client, filters.status, queryClientID]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
+  const pageClamped = Math.min(page, totalPages);
+  const rowStart = totalFiltered === 0 ? 0 : (pageClamped - 1) * pageSize + 1;
+  const rowEnd = Math.min(pageClamped * pageSize, totalFiltered);
+
+  const paginatedRows = useMemo(() => {
+    const start = (pageClamped - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, pageClamped, pageSize]);
 
   const activeClients = useMemo(() => clients.filter((c) => c.is_active !== false), [clients]);
 
   return (
-    <div className="max-w-6xl space-y-6">
-      {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+    <div className="mx-auto w-full max-w-[100rem] space-y-6">
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 whitespace-pre-wrap">{error}</div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-surface-border bg-white shadow-soft">
         <div className="border-b border-surface-border px-5 py-4">
@@ -107,10 +140,10 @@ export default function Cobros() {
           {openFilters && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="text-sm text-ink-muted">
-                Cliente
+                Sucursal
                 <input
                   className="mt-1 w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-ink"
-                  placeholder="Buscar por cliente..."
+                  placeholder="Buscar por sucursal…"
                   value={filters.client}
                   onChange={(e) => setFilters((f) => ({ ...f, client: e.target.value }))}
                 />
@@ -138,7 +171,7 @@ export default function Cobros() {
           {queryClientID > 0 && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-900">
               <span>
-                Viendo cobros del cliente: <span className="font-semibold">{queryClientName || `#${queryClientID}`}</span>
+                Viendo cobros de: <span className="font-semibold">{queryClientName || `#${queryClientID}`}</span>
               </span>
               <button
                 type="button"
@@ -153,57 +186,112 @@ export default function Cobros() {
             </div>
           )}
         </div>
-        <table className="w-full min-w-[760px] table-fixed text-xs sm:text-sm">
-          <colgroup>
-            <col className="w-[32%]" />
-            <col className="w-[19%]" />
-            <col className="w-[20%]" />
-            <col className="w-[17%]" />
-            <col className="w-[12%]" />
-          </colgroup>
-          <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            <tr>
-              <th className="px-6 py-3">Cliente</th>
-              <th className="px-6 py-3">Monto</th>
-              <th className="px-6 py-3">Vencimiento</th>
-              <th className="px-6 py-3">Estado</th>
-              <th className="px-6 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-surface-border">
-            {loading ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[896px] table-fixed text-xs sm:text-sm">
+            <thead className="bg-surface/80 text-left text-[10px] font-semibold uppercase tracking-wide text-ink-muted sm:text-xs">
               <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-ink-muted">
-                  Cargando…
-                </td>
+                <th className="min-w-[88px] whitespace-nowrap px-3 py-3 text-center">Código</th>
+                <th className="min-w-[180px] whitespace-nowrap px-3 py-3">Sucursal</th>
+                <th className="min-w-[120px] whitespace-nowrap px-3 py-3">Monto</th>
+                <th className="min-w-[120px] whitespace-nowrap px-3 py-3">Vencimiento</th>
+                <th className="min-w-[100px] whitespace-nowrap px-3 py-3">Estado</th>
+                <th className="min-w-[140px] whitespace-nowrap border-l border-surface-border px-3 py-3 pl-6 text-center">
+                  Acciones
+                </th>
               </tr>
-            ) : (
-              (filteredRows.length === 0 ? (
+            </thead>
+            <tbody className="divide-y divide-surface-border bg-white">
+              {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-ink-muted">
+                  <td colSpan={6} className="px-4 py-10 text-center text-ink-muted">
+                    Cargando…
+                  </td>
+                </tr>
+              ) : filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-10 text-center text-ink-muted">
                     No hay cobros para los filtros seleccionados.
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((row) => (
+                paginatedRows.map((row) => (
                   <tr key={row.id} className="hover:bg-surface/40">
-                    <td className="px-6 py-4 font-medium">{row.client_name}</td>
-                    <td className="px-6 py-4">{formatMoney(row.amount)}</td>
-                    <td className="px-6 py-4 text-ink-muted">{formatDate(row.due_date)}</td>
-                    <td className="px-6 py-4">
+                    <td className="whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] text-ink tabular-nums">
+                      {row.id}
+                    </td>
+                    <td className="truncate px-3 py-3 font-medium text-ink" title={row.client_name ?? ""}>
+                      {row.client_name}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 tabular-nums">{formatMoney(row.amount)}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-ink-muted">{formatDate(row.due_date)}</td>
+                    <td className="whitespace-nowrap px-3 py-3">
                       <StatusBadge status={row.status} />
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link className="text-sm font-medium text-brand hover:underline" to={`/cobros/${row.id}`}>
-                        Abrir
-                      </Link>
+                    <td className="min-w-[140px] whitespace-nowrap border-l border-surface-border px-3 py-3 pl-6 align-middle">
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <Link
+                          to={`/cobros/${row.id}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-surface-border px-2.5 py-1.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink"
+                        >
+                          <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+                          Abrir
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))
-              ))
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {!loading && totalFiltered > 0 && (
+          <div className="flex flex-col gap-3 border-t border-surface-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink-muted">
+              Mostrando{" "}
+              <span className="font-medium text-ink">
+                {rowStart}–{rowEnd}
+              </span>{" "}
+              de <span className="font-medium text-ink">{totalFiltered}</span>
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-ink-muted">
+                Filas por página
+                <select
+                  className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm text-ink"
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={pageClamped <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Anterior
+                </button>
+                <span className="px-2 text-sm text-ink-muted">
+                  Página {pageClamped} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={pageClamped >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {open && (
@@ -213,7 +301,7 @@ export default function Cobros() {
             <p className="mt-1 text-sm text-ink-muted">Registra un monto esperado para activar recordatorios.</p>
             <form className="mt-6 space-y-4" onSubmit={onSubmit}>
               <label className="block text-sm font-medium text-ink">
-                Cliente
+                Sucursal
                 <select
                   required
                   className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
@@ -223,7 +311,7 @@ export default function Cobros() {
                   <option value="">Selecciona…</option>
                   {activeClients.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
+                      {chargeCounterpartyLabel(c)}
                     </option>
                   ))}
                 </select>

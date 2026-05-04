@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { firstPasswordChange } from "../api";
 import LoadingOverlay from "../components/LoadingOverlay";
 import PasswordInput from "../components/PasswordInput";
 import { getDefaultHomePath, setToken } from "../lib/auth";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
+
+type ToastNotice = { text: string; tone: "success" | "error" | "info" };
 
 export default function Login() {
   const nav = useNavigate();
@@ -14,7 +16,14 @@ export default function Login() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastNotice | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 4200);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,7 +77,8 @@ export default function Login() {
       setPassword(newPassword);
       setNewPassword("");
       setConfirmNewPassword("");
-      setErr("Contraseña actualizada. Inicia sesión nuevamente.");
+      setErr(null);
+      setToast({ text: "Contraseña actualizada. Inicia sesión nuevamente.", tone: "success" });
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "No se pudo actualizar la contraseña");
     } finally {
@@ -78,6 +88,33 @@ export default function Login() {
 
   return (
     <div className="flex min-h-dvh w-full items-center justify-center bg-surface px-4 py-8 sm:px-6 sm:py-12">
+      {toast && (
+        <div
+          className={[
+            "fixed right-4 top-4 z-[140] max-w-[24rem] rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur-sm transition-all",
+            toast.tone === "success" && "border-emerald-200 bg-emerald-50/95 text-emerald-800",
+            toast.tone === "error" && "border-rose-200 bg-rose-50/95 text-rose-800",
+            toast.tone === "info" && "border-sky-200 bg-sky-50/95 text-sky-800",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-current opacity-70" />
+            <p className="leading-5">{toast.text}</p>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="ml-auto rounded-md px-1.5 py-0.5 text-xs font-semibold opacity-70 hover:bg-black/5 hover:opacity-100"
+              aria-label="Cerrar aviso"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       {loading && <LoadingOverlay message="Procesando acceso..." />}
       <div className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-6 shadow-soft sm:p-8">
         <h1 className="text-center text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Iniciar sesión</h1>

@@ -1,18 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import {
-  fetchCharge,
-  fetchClients,
-  fetchMessages,
-  fetchReminders,
-  patchCharge,
-  recordPayment,
-  sendMessage,
-  sendReminderNow,
-} from "../api";
-import type { ChargeDTO, ClientDTO, MessageDTO, Reminder } from "../api";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { deleteCharge, fetchCharge, fetchClients, fetchReminders, patchCharge, recordPayment, sendReminderNow } from "../api";
+import type { ChargeDTO, ClientDTO, Reminder } from "../api";
 import AppModal from "../components/AppModal";
 import { StatusBadge } from "../components/Badge";
+import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
 
 function normalizeClpInput(value: string) {
@@ -37,14 +29,7 @@ function timelineLabel(r: Reminder) {
   return r.kind;
 }
 
-type TimelineItem =
-  | { kind: "reminder"; at: string; id: string; reminder: Reminder }
-  | { kind: "message"; at: string; id: string; message: MessageDTO };
-
-function timelineMessageLabel(m: MessageDTO) {
-  if (m.direction === "inbound") return "Respuesta del cliente (WhatsApp)";
-  return m.status === "failed" ? "WhatsApp saliente con error" : "WhatsApp enviado";
-}
+type TimelineItem = { kind: "reminder"; at: string; id: string; reminder: Reminder };
 
 type ToastNotice = {
   text: string;
@@ -53,10 +38,10 @@ type ToastNotice = {
 
 export default function ChargeDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const chargeId = Number(id);
   const [ch, setCh] = useState<ChargeDTO | null>(null);
   const [rems, setRems] = useState<Reminder[]>([]);
-  const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastNotice | null>(null);
@@ -68,9 +53,7 @@ export default function ChargeDetail() {
   /** keep = no tocar pagos; paid = marcar cobrado; unpaid = reabrir */
   const [payAction, setPayAction] = useState<"keep" | "paid" | "unpaid">("keep");
   const [savingEdit, setSavingEdit] = useState(false);
-  const [manualMessage, setManualMessage] = useState("");
-  const [sendingManual, setSendingManual] = useState(false);
-
+  const [deleting, setDeleting] = useState(false);
   const load = async () => {
     setLoading(true);
     setLoadError(null);
@@ -82,17 +65,6 @@ export default function ChargeDetail() {
         setRems(Array.isArray(r) ? r : []);
       } catch {
         setRems([]);
-      }
-      try {
-        const clientPhone = i.client_phone?.trim();
-        if (!clientPhone) {
-          setMessages([]);
-        } else {
-          const wa = await fetchMessages(200, 0, clientPhone);
-          setMessages(Array.isArray(wa) ? wa : []);
-        }
-      } catch {
-        setMessages([]);
       }
     } catch {
       setCh(null);
@@ -190,30 +162,23 @@ export default function ChargeDetail() {
     }
   }
 
-  async function onSendManualWhatsApp(e: React.FormEvent) {
-    e.preventDefault();
-    if (!ch) return;
-    const to = ch.client_phone?.trim() ?? "";
-    const content = manualMessage.trim();
-    if (!to) {
-      setToast({ text: "Este cobro no tiene teléfono de cliente.", tone: "error" });
+  async function onDeleteCharge() {
+    if (
+      !confirm(
+        "¿Eliminar este cobro? También se eliminarán pagos y recordatorios asociados. Esta acción no se puede deshacer.",
+      )
+    ) {
       return;
     }
-    if (!content) {
-      setToast({ text: "Escribe un mensaje para enviar.", tone: "error" });
-      return;
-    }
-    setSendingManual(true);
+    setDeleting(true);
     setToast(null);
     try {
-      await sendMessage({ to, message: content });
-      setManualMessage("");
-      setToast({ text: "Mensaje enviado al cliente.", tone: "success" });
-      await load();
+      await deleteCharge(chargeId);
+      navigate("/cobros");
     } catch {
-      setToast({ text: "No se pudo enviar el mensaje.", tone: "error" });
+      setToast({ text: "No se pudo eliminar el cobro.", tone: "error" });
     } finally {
-      setSendingManual(false);
+      setDeleting(false);
     }
   }
 
@@ -248,21 +213,12 @@ export default function ChargeDetail() {
   }
 
   const reminderList = Array.isArray(rems) ? rems : [];
-  const messageList = Array.isArray(messages) ? messages : [];
-  const timelineItems: TimelineItem[] = [
-    ...reminderList.map((r) => ({
-      kind: "reminder" as const,
-      at: r.created_at,
-      id: `rem-${r.id}`,
-      reminder: r,
-    })),
-    ...messageList.map((m) => ({
-      kind: "message" as const,
-      at: m.created_at,
-      id: `msg-${m.id}`,
-      message: m,
-    })),
-  ];
+  const timelineItems: TimelineItem[] = reminderList.map((r) => ({
+    kind: "reminder" as const,
+    at: r.created_at,
+    id: `rem-${r.id}`,
+    reminder: r,
+  }));
   /** Más reciente arriba, más antiguo abajo */
   const timelineOrdered = [...timelineItems].sort((a, b) => {
     const ta = new Date(a.at).getTime();
@@ -317,8 +273,9 @@ export default function ChargeDetail() {
                   <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Cobro #{ch.id}</h1>
                   <StatusBadge status={ch.status} />
                 </div>
-                <p className="text-sm text-ink-muted sm:text-base">
-                  {ch.client_name} · Vence el {formatDate(ch.due_date)}
+                <p className="text-sm sm:text-base">
+                  <span className="block font-medium text-ink">{ch.client_name}</span>
+                  <span className="mt-0.5 block text-ink-muted">Vence el {formatDate(ch.due_date)}</span>
                 </p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
@@ -347,11 +304,11 @@ export default function ChargeDetail() {
           <section className="rounded-2xl border border-surface-border bg-white p-4 shadow-soft sm:p-6">
             <h2 className="text-lg font-semibold text-ink">Editar cobro</h2>
             <p className="mt-1 text-sm text-ink-muted">
-              Actualiza los datos clave para mantener la cobranza al día: cliente, fecha, monto y estado operativo.
+              Actualiza sucursal o punto de venta, fecha, monto y estado operativo.
             </p>
             <form className="mt-5 grid gap-4 lg:grid-cols-12" onSubmit={onSaveEdit}>
               <label className="block text-sm font-medium text-ink lg:col-span-6">
-                Cliente
+                Sucursal
                 <select
                   required
                   className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
@@ -360,7 +317,7 @@ export default function ChargeDetail() {
                 >
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
+                      {chargeCounterpartyLabel(c)}
                     </option>
                   ))}
                 </select>
@@ -438,7 +395,7 @@ export default function ChargeDetail() {
         <section className="w-full min-w-0 rounded-2xl border border-surface-border bg-white p-4 shadow-soft sm:p-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
           <h2 className="text-lg font-semibold text-ink">Línea de tiempo</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Lo más reciente arriba. Aquí ves recordatorios automáticos y mensajes WhatsApp del cliente de este cobro.
+            Lo más reciente arriba. Aquí ves los recordatorios automáticos asociados a este cobro.
           </p>
           {/* Scroll solo vertical: padding izquierdo para que los puntos (absolute -left) no queden fuera del área de recorte */}
           <div className="mt-6 max-h-[min(55vh,26rem)] min-h-0 w-full min-w-0 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/80 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/90">
@@ -450,37 +407,18 @@ export default function ChargeDetail() {
                   timelineOrdered.map((item) => (
                     <li key={item.id} className="relative min-w-0 max-w-full">
                       <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-white ring-2 ring-brand sm:-left-[33px]" />
-                      {item.kind === "reminder" ? (
-                        <>
-                          <div className="break-words text-sm font-medium text-ink">{timelineLabel(item.reminder)}</div>
-                          <div className="mt-1 break-words text-xs text-ink-muted">
-                            {formatDate(item.reminder.created_at)} · {item.reminder.kind} · {item.reminder.channel}
-                          </div>
-                          {item.reminder.status === "sent" && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedReminder(item.reminder)}
-                              className="mt-2 max-w-full rounded-lg border border-surface-border bg-white px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
-                            >
-                              {item.reminder.channel === "email" ? "Ver email enviado" : "Ver WhatsApp enviado"}
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <div className="break-words text-sm font-medium text-ink">{timelineMessageLabel(item.message)}</div>
-                          <div className="mt-1 break-words text-xs text-ink-muted">
-                            {formatDate(item.message.created_at)} · {item.message.direction} · {item.message.status}
-                          </div>
-                          <div className="mt-2 rounded-lg border border-surface-border bg-surface/40 p-2 text-sm text-ink">
-                            {item.message.content || "(sin texto)"}
-                          </div>
-                          <div className="mt-1 break-all font-mono text-[11px] text-ink-muted">
-                            {item.message.direction === "inbound"
-                              ? `${item.message.from_number} -> ${item.message.to_number}`
-                              : `${item.message.from_number} -> ${item.message.to_number}`}
-                          </div>
-                        </>
+                      <div className="break-words text-sm font-medium text-ink">{timelineLabel(item.reminder)}</div>
+                      <div className="mt-1 break-words text-xs text-ink-muted">
+                        {formatDate(item.reminder.created_at)} · {item.reminder.kind} · {item.reminder.channel}
+                      </div>
+                      {item.reminder.status === "sent" && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedReminder(item.reminder)}
+                          className="mt-2 max-w-full rounded-lg border border-surface-border bg-white px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
+                        >
+                          {item.reminder.channel === "email" ? "Ver email enviado" : "Ver WhatsApp enviado"}
+                        </button>
                       )}
                     </li>
                   ))
@@ -492,28 +430,6 @@ export default function ChargeDetail() {
           <div className="mt-6 border-t border-surface-border pt-6">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Acciones rápidas</h3>
             <p className="mt-2 text-sm text-ink-muted">Gestiona este cobro desde aquí.</p>
-            <form className="mt-4 space-y-2" onSubmit={(e) => void onSendManualWhatsApp(e)}>
-              <label className="block text-xs font-medium uppercase tracking-wide text-ink-muted">Enviar WhatsApp al cliente</label>
-              <textarea
-                className="w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
-                rows={3}
-                placeholder={
-                  ch.client_phone?.trim()
-                    ? `Mensaje a ${ch.client_phone}`
-                    : "Este cobro no tiene teléfono de cliente"
-                }
-                value={manualMessage}
-                onChange={(e) => setManualMessage(e.target.value)}
-                disabled={sendingManual || !ch.client_phone?.trim()}
-              />
-              <button
-                type="submit"
-                disabled={sendingManual || !ch.client_phone?.trim()}
-                className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-              >
-                {sendingManual ? "Enviando mensaje..." : "Enviar mensaje al cliente"}
-              </button>
-            </form>
             {!isPaid ? (
               <div className="mt-4 grid gap-2">
                 <button
@@ -536,6 +452,16 @@ export default function ChargeDetail() {
                 Este cobro ya está marcado como cobrado.
               </p>
             )}
+            <div className="mt-6 border-t border-surface-border pt-4">
+              <button
+                type="button"
+                onClick={() => void onDeleteCharge()}
+                disabled={deleting}
+                className="w-full rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+              >
+                {deleting ? "Eliminando…" : "Eliminar cobro"}
+              </button>
+            </div>
           </div>
         </section>
       </div>
