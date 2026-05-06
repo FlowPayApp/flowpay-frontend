@@ -147,6 +147,19 @@ export interface Reminder {
   sent_at?: string | null;
 }
 
+/** Mensaje WhatsApp entrante asociado al cobro (respuesta del cliente). */
+export interface ChargeInboundWhatsApp {
+  id: number;
+  company_id: number;
+  charge_id?: number | null;
+  from_number: string;
+  to_number: string;
+  content: string;
+  direction: string;
+  status: string;
+  created_at: string;
+}
+
 export interface MyProfileDTO {
   user_id: number;
   email: string;
@@ -286,6 +299,60 @@ export async function fetchClientImportBatch(id: number) {
 export async function fetchReminders(chargeId: number) {
   const { data } = await api.get<Reminder[] | null>(`/api/charges/${chargeId}/reminders`);
   return data ?? [];
+}
+
+export async function fetchChargeInboundWhatsApp(chargeId: number) {
+  try {
+    const { data } = await api.get<ChargeInboundWhatsApp[]>(`/api/charges/${chargeId}/inbound-whatsapp`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Demo: inserta un WhatsApp entrante vinculado al cobro (misma línea de tiempo que Twilio real). */
+export async function simulateChargeInboundWhatsApp(chargeId: number, text?: string) {
+  const { data } = await api.post<ChargeInboundWhatsApp>(`/api/charges/${chargeId}/inbound-whatsapp/simulate`, {
+    ...(text != null && text.trim() !== "" ? { text: text.trim() } : {}),
+  });
+  return data;
+}
+
+export interface ReminderTemplateRowDTO {
+  id?: number;
+  company_id?: number;
+  phase: string;
+  day_min: number;
+  day_max: number;
+  sort_order: number;
+  email_subject: string;
+  body: string;
+}
+
+export interface MessagingSettingsDTO {
+  transfer_instructions: string;
+  payment_url_template: string;
+  templates: ReminderTemplateRowDTO[];
+}
+
+export async function fetchCompanyMessaging() {
+  const { data } = await api.get<MessagingSettingsDTO>("/api/company/messaging");
+  return data;
+}
+
+export async function saveCompanyMessaging(payload: {
+  transfer_instructions: string;
+  payment_url_template: string;
+  templates: {
+    phase: string;
+    day_min: number;
+    day_max: number;
+    sort_order: number;
+    email_subject: string;
+    body: string;
+  }[];
+}) {
+  await api.put("/api/company/messaging", payload);
 }
 
 export async function sendReminderNow(chargeId: number) {

@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   Receipt,
   Upload,
   UserCog,
@@ -46,6 +47,7 @@ type NavItem = {
 const companyNav: NavItem[] = [
   { to: "/", end: true, label: "Inicio", icon: LayoutDashboard },
   { to: "/cobros", label: "Cobros", icon: Receipt },
+  { to: "/mensajes", label: "Mensajes", icon: MessageSquare },
   {
     to: "/clients",
     end: true,

@@ -26,3 +26,19 @@ export function formatDate(iso: string | undefined | null) {
     day: "numeric",
   });
 }
+
+/** Fecha y hora local (p. ej. respuestas WhatsApp del cliente). */
+export function formatDateTime(iso: string | undefined | null) {
+  if (iso == null || typeof iso !== "string" || iso.length < 8) {
+    return "—";
+  }
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "—";
+  return new Date(t).toLocaleString("es-CL", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
