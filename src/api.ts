@@ -532,13 +532,11 @@ export async function updateMyProfile(payload: { email: string; name: string; pa
 }
 
 export interface PaymentPortalCompany {
-  id: number;
   name: string;
   transfer_instructions?: string;
 }
 
 export interface PaymentPortalClient {
-  id: number;
   label: string;
 }
 
@@ -548,12 +546,20 @@ export interface PaymentPortalTotals {
   paid: number;
 }
 
+export interface PortalCharge {
+  ref: string;
+  amount: number;
+  due_date: string;
+  status?: ChargeStatus;
+  attachment_token?: string | null;
+}
+
 export interface PaymentPortalResponse {
   token_status: string;
   issued_at: string;
   company: PaymentPortalCompany;
   client: PaymentPortalClient;
-  charges: ChargeDTO[];
+  charges: PortalCharge[];
   totals: PaymentPortalTotals;
 }
 

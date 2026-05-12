@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CreditCard, ShieldCheck } from "lucide-react";
 import { fetchPaymentPortal } from "../api";
-import type { ChargeDTO, PaymentPortalResponse } from "../api";
+import type { PaymentPortalResponse, PortalCharge } from "../api";
 import { StatusBadge } from "../components/Badge";
 import { formatDate, formatMoney } from "../lib/format";
 
 type ChargeStatusKey = "pending" | "paid" | "overdue";
 
-function statusKey(row: ChargeDTO): ChargeStatusKey {
+function statusKey(row: PortalCharge): ChargeStatusKey {
   if (row.status === "paid") return "paid";
   if (row.status === "overdue") return "overdue";
   return "pending";
@@ -19,7 +19,7 @@ export default function PayPage() {
   const [data, setData] = useState<PaymentPortalResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const raw = token?.trim() ?? "";
@@ -40,7 +40,9 @@ export default function PayPage() {
       .then((d) => {
         setData(d);
         setError(null);
-        const initial = new Set<number>(d.charges.filter((c) => statusKey(c) !== "paid").map((c) => c.id));
+        const initial = new Set<string>(
+          d.charges.filter((c) => statusKey(c) !== "paid").map((c) => c.ref),
+        );
         setSelected(initial);
       })
       .catch((err: unknown) => {
@@ -52,7 +54,7 @@ export default function PayPage() {
 
   const sortedCharges = useMemo(() => {
     if (!data?.charges) return [];
-    const rank: Record<string, number> = { overdue: 0, pending: 1, paid: 2 };
+    const rank: Record<ChargeStatusKey, number> = { overdue: 0, pending: 1, paid: 2 };
     return [...data.charges].sort((a, b) => {
       const ra = rank[statusKey(a)];
       const rb = rank[statusKey(b)];
@@ -67,7 +69,7 @@ export default function PayPage() {
   );
 
   const selectedCharges = useMemo(
-    () => payableCharges.filter((c) => selected.has(c.id)),
+    () => payableCharges.filter((c) => selected.has(c.ref)),
     [payableCharges, selected],
   );
 
@@ -77,33 +79,37 @@ export default function PayPage() {
   );
 
   const allSelected =
-    payableCharges.length > 0 && payableCharges.every((c) => selected.has(c.id));
+    payableCharges.length > 0 && payableCharges.every((c) => selected.has(c.ref));
   const someSelected = selectedCharges.length > 0 && !allSelected;
 
-  function toggleOne(id: number) {
+  function toggleOne(ref: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(ref)) next.delete(ref);
+      else next.add(ref);
       return next;
     });
   }
 
   function toggleAll() {
     setSelected((prev) => {
-      if (payableCharges.every((c) => prev.has(c.id))) return new Set();
-      return new Set(payableCharges.map((c) => c.id));
+      if (payableCharges.every((c) => prev.has(c.ref))) return new Set();
+      return new Set(payableCharges.map((c) => c.ref));
     });
   }
 
   function onPagar() {
     if (selectedCharges.length === 0) return;
-    const ids = selectedCharges.map((c) => c.id).join(", ");
+    const refs = selectedCharges.map((c) => c.ref).join(", ");
     window.alert(
       `Aún no conectamos la pasarela.\n\nVas a pagar ${selectedCharges.length} cobro(s) por ${formatMoney(
         selectedTotal,
-      )}.\nIDs: ${ids}`,
+      )}.\nRefs: ${refs}`,
     );
+  }
+
+  function shortRef(ref: string) {
+    return ref.length > 8 ? ref.slice(0, 8) : ref;
   }
 
   return (
@@ -140,15 +146,11 @@ export default function PayPage() {
           <div className="space-y-6">
             <section className="rounded-2xl border border-surface-border bg-white p-6 shadow-soft">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Empresa que cobra</p>
-              <h2 className="mt-1 text-xl font-semibold text-ink">
-                {data.company.name || `Empresa #${data.company.id}`}
-              </h2>
+              <h2 className="mt-1 text-xl font-semibold text-ink">{data.company.name || "Empresa"}</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Sucursal</p>
-                  <p className="mt-1 text-sm font-medium text-ink">
-                    {data.client.label || `Cliente #${data.client.id}`}
-                  </p>
+                  <p className="mt-1 text-sm font-medium text-ink">{data.client.label || "Cliente"}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Total por pagar</p>
@@ -198,10 +200,10 @@ export default function PayPage() {
                 <ul className="divide-y divide-surface-border">
                   {sortedCharges.map((row) => {
                     const paid = statusKey(row) === "paid";
-                    const checked = selected.has(row.id);
+                    const checked = selected.has(row.ref);
                     return (
                       <li
-                        key={row.id}
+                        key={row.ref}
                         className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 ${
                           checked ? "bg-indigo-50/40" : ""
                         }`}
@@ -212,10 +214,10 @@ export default function PayPage() {
                             className="h-4 w-4 shrink-0 rounded border-surface-border text-brand focus:ring-brand disabled:cursor-not-allowed disabled:opacity-40"
                             checked={checked}
                             disabled={paid}
-                            onChange={() => toggleOne(row.id)}
+                            onChange={() => toggleOne(row.ref)}
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="font-mono text-[11px] text-ink-muted">Cobro #{row.id}</p>
+                            <p className="font-mono text-[11px] text-ink-muted">Ref {shortRef(row.ref)}</p>
                             <p className="mt-0.5 text-sm font-medium text-ink">{formatMoney(row.amount)}</p>
                             <p className="mt-0.5 text-xs text-ink-muted">Vence: {formatDate(row.due_date)}</p>
                           </div>
