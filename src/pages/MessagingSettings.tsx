@@ -306,7 +306,7 @@ export default function MessagingSettings() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-xl bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60"
+          className="rounded-xl bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
         >
           {saving ? "Guardando…" : "Guardar configuración"}
         </button>

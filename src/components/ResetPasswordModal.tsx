@@ -59,7 +59,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-600 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
                 onClick={onGenerate}
                 disabled={loading}
               >
@@ -102,7 +102,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
               </button>
               <button
                 type="button"
-                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-600"
+                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
                 onClick={onClose}
               >
                 Cerrar

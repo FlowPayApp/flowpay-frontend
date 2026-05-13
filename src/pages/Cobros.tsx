@@ -130,7 +130,7 @@ export default function Cobros() {
               <button
                 type="button"
                 onClick={() => setOpen(true)}
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
               >
                 <Plus className="h-4 w-4" strokeWidth={2.5} />
                 Crear
@@ -357,7 +357,7 @@ export default function Cobros() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600"
+                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
                 >
                   Guardar
                 </button>

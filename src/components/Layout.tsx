@@ -692,7 +692,7 @@ export default function Layout() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60"
+                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
                   disabled={profileLoading}
                 >
                   {profileLoading ? "Guardando..." : "Guardar perfil"}

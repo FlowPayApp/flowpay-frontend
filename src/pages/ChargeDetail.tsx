@@ -512,7 +512,7 @@ export default function ChargeDetail() {
                 <button
                   type="button"
                   onClick={onRemind}
-                  className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-600"
+                  className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
                 >
                   Enviar recordatorio ahora
                 </button>

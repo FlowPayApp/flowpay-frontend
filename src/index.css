@@ -26,7 +26,8 @@
   --color-surface-border: 51 65 85;
   --color-ink: 248 250 252;
   --color-ink-muted: 148 163 184;
-  --color-brand: 129 140 248;
+  /** Mismo peso que en claro: el indigo claro (400) en CTAs llenos se veía demasiado luminoso. */
+  --color-brand: 79 70 229;
   --color-brand-soft: 55 48 163;
   --color-field: 15 23 42;
 }
@@ -53,6 +54,73 @@
 :root.dark select optgroup {
   background-color: rgb(var(--color-field) / 1);
   color: rgb(var(--color-ink) / 1);
+}
+
+/** Checkboxes y radios en oscuro: el nativo suele pintar el interior casi negro; estilo explícito. */
+:root.dark input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  margin: 0;
+  border: 1px solid rgb(var(--color-ink-muted) / 0.5);
+  background-color: transparent;
+  background-image: none;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+
+:root.dark input[type="checkbox"]:focus-visible {
+  outline: 2px solid rgb(var(--color-brand) / 0.45);
+  outline-offset: 2px;
+}
+
+:root.dark input[type="checkbox"]:checked,
+:root.dark input[type="checkbox"]:indeterminate {
+  border-color: rgb(var(--color-brand) / 1);
+  background-color: rgb(var(--color-brand) / 1);
+  background-size: 0.7rem;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+:root.dark input[type="checkbox"]:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M3.75 8 6.5 10.75 12.25 5'/%3E%3C/svg%3E");
+}
+
+:root.dark input[type="checkbox"]:indeterminate {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%23fff' stroke-linecap='round' stroke-width='2.5' d='M4 8h8'/%3E%3C/svg%3E");
+}
+
+:root.dark input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  margin: 0;
+  border: 1px solid rgb(var(--color-ink-muted) / 0.5);
+  background-color: transparent;
+  cursor: pointer;
+  border-radius: 9999px;
+}
+
+:root.dark input[type="radio"]:focus-visible {
+  outline: 2px solid rgb(var(--color-brand) / 0.45);
+  outline-offset: 2px;
+}
+
+:root.dark input[type="radio"]:checked {
+  border-color: rgb(var(--color-brand) / 1);
+  background-image: radial-gradient(
+    circle at center,
+    rgb(var(--color-brand) / 1) 0,
+    rgb(var(--color-brand) / 1) 32%,
+    transparent 33%
+  );
+}
+
+:root.dark input[type="checkbox"]:disabled,
+:root.dark input[type="radio"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 html {

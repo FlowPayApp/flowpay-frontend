@@ -376,7 +376,7 @@ export default function ClientDetail() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60"
+              className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
             >
               {saving ? "Guardando…" : "Guardar cambios"}
             </button>

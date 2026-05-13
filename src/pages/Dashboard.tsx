@@ -134,7 +134,7 @@ export default function Dashboard() {
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             to="/cobros"
-            className="inline-flex items-center justify-center rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-600"
+            className="inline-flex items-center justify-center rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700"
           >
             Ver cobros
           </Link>

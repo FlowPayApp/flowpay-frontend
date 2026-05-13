@@ -210,7 +210,7 @@ export default function PlatformAdmins() {
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
                 onClick={() => {
                   setError(null);
                   setOpenCreateModal(true);
@@ -400,7 +400,7 @@ export default function PlatformAdmins() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-600 disabled:opacity-60"
+                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
                   disabled={editBusy}
                 >
                   {editBusy ? "Guardando…" : "Guardar cambios"}
@@ -445,7 +445,7 @@ export default function PlatformAdmins() {
                 <button type="button" className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface" onClick={() => setOpenCreateModal(false)}>
                   Cancelar
                 </button>
-                <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600" type="submit">
+                <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">
                   <Plus className="h-4 w-4" />
                   Crear admin
                 </button>

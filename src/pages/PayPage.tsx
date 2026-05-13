@@ -41,10 +41,7 @@ export default function PayPage() {
       .then((d) => {
         setData(d);
         setError(null);
-        const initial = new Set<string>(
-          d.charges.filter((c) => statusKey(c) !== "paid").map((c) => c.ref),
-        );
-        setSelected(initial);
+        setSelected(new Set());
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "No se pudo cargar la página de pago");
@@ -114,7 +111,7 @@ export default function PayPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-b from-surface to-surface-card px-4 py-10 pb-32 text-ink">
+    <div className="relative min-h-screen bg-gradient-to-b from-surface to-surface-card px-4 py-10 pb-32 text-ink dark:to-surface">
       <div className="fixed right-4 top-4 z-20 sm:right-6 sm:top-6">
         <ThemeToggle compact />
       </div>
@@ -277,7 +274,7 @@ export default function PayPage() {
               type="button"
               onClick={onPagar}
               disabled={selectedCharges.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-surface-border disabled:text-ink-muted dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-surface-border disabled:text-ink-muted dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
             >
               <CreditCard className="h-4 w-4" />
               Pagar {selectedCharges.length > 0 ? formatMoney(selectedTotal) : ""}
