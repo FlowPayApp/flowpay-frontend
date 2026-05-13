@@ -252,8 +252,8 @@ export default function Layout() {
     return (
       <div
         className={[
-          "mt-auto space-y-2 rounded-xl border border-dashed border-surface-border bg-surface p-3 text-xs text-ink-muted",
-          collapsed ? "p-2" : "",
+          "mt-auto space-y-2 rounded-xl border border-dashed border-surface-border bg-surface text-xs text-ink-muted",
+          collapsed ? "p-2.5" : "p-3",
         ].join(" ")}
       >
         {hasToken ? (
@@ -263,13 +263,13 @@ export default function Layout() {
                 type="button"
                 title="Perfil"
                 aria-label="Perfil"
-                className="mb-2 flex w-full items-center justify-center rounded-lg border border-surface-border bg-surface-card p-2.5 text-ink-muted hover:bg-surface hover:text-ink"
+                className="flex w-full min-h-[2.75rem] items-center justify-center rounded-lg border border-surface-border bg-surface-card py-2.5 text-ink-muted hover:bg-surface hover:text-ink"
                 onClick={() => {
                   if (compact) closeMobileMenu();
                   void openProfile();
                 }}
               >
-                <CircleUserRound className="h-5 w-5" strokeWidth={2} />
+                <CircleUserRound className="h-4 w-4" strokeWidth={2} />
               </button>
             ) : (
               <button
@@ -289,13 +289,13 @@ export default function Layout() {
                 type="button"
                 title="Cerrar sesión"
                 aria-label="Cerrar sesión"
-                className="flex w-full items-center justify-center rounded-lg bg-slate-900 p-2.5 text-white hover:bg-slate-800"
+                className="flex w-full min-h-[2.75rem] items-center justify-center rounded-lg bg-slate-900 py-2.5 text-white hover:bg-slate-800"
                 onClick={() => {
                   logout();
                   nav("/login", { replace: true });
                 }}
               >
-                <LogOut className="h-5 w-5" strokeWidth={2} />
+                <LogOut className="h-4 w-4 shrink-0" strokeWidth={2} />
               </button>
             ) : (
               <button
