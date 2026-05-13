@@ -2,15 +2,18 @@ export function StatusBadge({ status }: { status: "pending" | "paid" | "overdue"
   const map: Record<string, { label: string; className: string }> = {
     pending: {
       label: "Pendiente",
-      className: "bg-amber-50 text-amber-800 ring-1 ring-amber-200/70",
+      className:
+        "bg-amber-50 text-amber-800 ring-1 ring-amber-200/70 dark:bg-amber-950/45 dark:text-amber-200 dark:ring-amber-500/25",
     },
     paid: {
       label: "Cobrado",
-      className: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/70",
+      className:
+        "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/70 dark:bg-emerald-950/45 dark:text-emerald-200 dark:ring-emerald-500/25",
     },
     overdue: {
       label: "Vencido",
-      className: "bg-rose-50 text-rose-800 ring-1 ring-rose-200/70",
+      className:
+        "bg-rose-50 text-rose-800 ring-1 ring-rose-200/70 dark:bg-rose-950/45 dark:text-rose-200 dark:ring-rose-500/25",
     },
   };
   const m = status && map[status] ? map[status] : map.pending;
