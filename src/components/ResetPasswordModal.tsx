@@ -35,7 +35,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
 
   return (
     <AppModal onBackdropClick={loading ? undefined : onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
         {state.phase === "confirm" ? (
           <>
             <div className="flex items-center gap-2">
@@ -85,7 +85,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
             <div className="mt-6 flex flex-wrap justify-end gap-2">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-white px-4 py-2 text-sm font-medium text-ink shadow-sm transition hover:bg-surface"
+                className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-card px-4 py-2 text-sm font-medium text-ink shadow-sm transition hover:bg-surface"
                 onClick={() => void copyPassword(state.temporary_password)}
               >
                 {copied ? (

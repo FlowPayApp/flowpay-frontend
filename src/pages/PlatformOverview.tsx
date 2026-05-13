@@ -57,7 +57,7 @@ export default function PlatformOverview() {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-6xl px-0">
-        <div className="rounded-2xl border border-surface-border bg-white px-5 py-4 text-sm text-ink-muted shadow-soft">
+        <div className="rounded-2xl border border-surface-border bg-surface-card px-5 py-4 text-sm text-ink-muted shadow-soft">
           Cargando vista global...
         </div>
       </div>
@@ -125,11 +125,11 @@ export default function PlatformOverview() {
         />
       </section>
 
-      <section className="rounded-2xl border border-surface-border bg-white shadow-soft">
+      <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
         <div className="border-b border-surface-border px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-ink">Comparativa por empresa</h2>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               Ordenado por mayor deuda total
             </span>
           </div>
@@ -213,7 +213,7 @@ function Kpi({
   trend?: React.ReactNode;
 }) {
   const toneClasses: Record<KpiTone, string> = {
-    default: "border-surface-border bg-white",
+    default: "border-surface-border bg-surface-card",
     success: "border-emerald-100 bg-emerald-50/40",
     warning: "border-amber-100 bg-amber-50/50",
     danger: "border-rose-100 bg-rose-50/50",

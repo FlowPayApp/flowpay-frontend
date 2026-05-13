@@ -169,7 +169,7 @@ export default function ClientDetail() {
   }
   if (loadError || !c) {
     return (
-      <div className="max-w-lg rounded-2xl border border-rose-200 bg-white p-6 text-rose-900 shadow-soft">
+      <div className="max-w-lg rounded-2xl border border-rose-200 bg-surface-card p-6 text-rose-900 shadow-soft">
         <p>{loadError ?? "Sin datos."}</p>
         <Link to="/clients" className="mt-4 inline-block text-sm font-medium text-brand hover:underline">
           Volver a clientes
@@ -193,7 +193,7 @@ export default function ClientDetail() {
         ← Volver a clientes
       </Link>
 
-      <section className="rounded-2xl border border-surface-border bg-gradient-to-br from-white to-slate-50 p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-surface-border bg-gradient-to-br from-surface-card to-surface p-5 shadow-soft sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
           <div className="min-w-0 space-y-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Cliente</p>
@@ -230,13 +230,13 @@ export default function ClientDetail() {
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
+          <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
             <div className="text-xs uppercase tracking-wide text-ink-muted">Encargado</div>
             <div className="mt-1 truncate text-sm font-semibold text-ink" title={c.name}>
               {c.name}
             </div>
           </div>
-          <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
+          <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
             <div className="text-xs uppercase tracking-wide text-ink-muted">Contacto</div>
             <div className="mt-1 truncate text-sm text-ink" title={c.email ?? ""}>
               {dash(c.email)}
@@ -245,19 +245,19 @@ export default function ClientDetail() {
               {dash(c.phone)}
             </div>
           </div>
-          <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
+          <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
             <div className="text-xs uppercase tracking-wide text-ink-muted">Método de pago</div>
             <div className="mt-1 text-sm font-semibold text-ink">{dash(c.payment_terms)}</div>
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-surface-border bg-white px-4 py-3">
+        <div className="mt-4 rounded-xl border border-surface-border bg-surface-card px-4 py-3">
           <div className="text-xs uppercase tracking-wide text-ink-muted">Dirección</div>
           <div className="mt-1 text-sm text-ink">{dash(c.address)}</div>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-surface-border bg-white px-4 py-4">
+          <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Estado del cliente</h3>
             <p className="mt-1 text-xs text-ink-muted">Activá o desactivá el cliente para cobros y recordatorios.</p>
             <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -270,7 +270,7 @@ export default function ClientDetail() {
               <span className="text-sm text-ink">{isClientActive(c) ? "Activo" : "Inactivo"}</span>
             </div>
           </div>
-          <div className="rounded-xl border border-surface-border bg-white px-4 py-4">
+          <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Seguimiento automático</h3>
             <p className="mt-1 text-xs text-ink-muted">Canal preferido para recordatorios automáticos.</p>
             <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
@@ -283,7 +283,7 @@ export default function ClientDetail() {
               <div className="relative min-w-[10rem] max-w-[15.5rem] flex-1 sm:flex-initial">
                 <select
                   id="client-followup-channel"
-                  className="w-full cursor-pointer appearance-none rounded-lg border border-surface-border bg-white py-2 pl-2.5 pr-8 text-sm text-ink shadow-sm outline-none transition hover:border-slate-300 focus:border-brand focus:ring-2 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full cursor-pointer appearance-none rounded-lg border border-surface-border bg-surface-card py-2 pl-2.5 pr-8 text-sm text-ink shadow-sm outline-none transition hover:border-slate-300 focus:border-brand focus:ring-2 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-slate-500"
                   value={c.followup_channel ?? "all"}
                   disabled={followupSaving}
                   onChange={(e) =>
@@ -307,7 +307,7 @@ export default function ClientDetail() {
 
       </section>
 
-      <section className="rounded-2xl border border-surface-border bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-surface-border bg-surface-card p-5 shadow-soft sm:p-6">
         <h2 className="text-lg font-semibold text-ink">Editar datos</h2>
         <p className="mt-1 text-sm text-ink-muted">Los cambios reemplazan la ficha completa del cliente.</p>
         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={onSave}>
@@ -390,7 +390,7 @@ export default function ClientDetail() {
         <button
           type="button"
           onClick={() => setDeleteModalOpen(true)}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 py-2.5 text-sm font-semibold text-rose-800 hover:bg-rose-50"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-surface-card px-4 py-2.5 text-sm font-semibold text-rose-800 hover:bg-rose-50"
         >
           <Trash2 className="h-4 w-4" strokeWidth={2} />
           Eliminar cliente
@@ -399,7 +399,7 @@ export default function ClientDetail() {
 
       {deleteModalOpen && c && (
         <AppModal onBackdropClick={deleting ? undefined : () => setDeleteModalOpen(false)}>
-          <div className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
             <h2 className="text-lg font-semibold text-ink">¿Eliminar este cliente?</h2>
             <p className="mt-2 text-sm text-ink-muted">
               Se eliminará <span className="font-semibold text-ink">{chargeCounterpartyLabel(c)}</span>
