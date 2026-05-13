@@ -486,9 +486,9 @@ function MiniKpi({
 }) {
   const toneClass =
     tone === "success"
-      ? "border-emerald-100 bg-emerald-50/50 text-emerald-700"
+      ? "border-emerald-100 bg-emerald-50/50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/45 dark:text-emerald-300"
       : tone === "danger"
-        ? "border-rose-100 bg-rose-50/50 text-rose-700"
+        ? "border-rose-100 bg-rose-50/50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/45 dark:text-rose-300"
         : "border-surface-border bg-surface-card text-ink-muted";
 
   return (
