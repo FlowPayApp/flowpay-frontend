@@ -403,7 +403,7 @@ export default function ChargeDetail() {
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                  className="w-full rounded-xl border border-transparent bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-60 dark:border-slate-500/50 dark:bg-slate-800 dark:shadow-none dark:hover:border-slate-400/70 dark:hover:bg-slate-700"
                 >
                   {savingEdit ? "Guardando…" : "Guardar cambios"}
                 </button>
@@ -525,7 +525,7 @@ export default function ChargeDetail() {
                 </button>
               </div>
             ) : (
-              <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-200">
                 Este cobro ya está marcado como cobrado.
               </p>
             )}
@@ -534,7 +534,7 @@ export default function ChargeDetail() {
                 type="button"
                 onClick={() => void onDeleteCharge()}
                 disabled={deleting}
-                className="w-full rounded-xl border border-rose-200 bg-surface-card px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                className="w-full rounded-xl border border-rose-200 bg-surface-card px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-500/35 dark:text-rose-300 dark:hover:bg-rose-950/40"
               >
                 {deleting ? "Eliminando…" : "Eliminar cobro"}
               </button>

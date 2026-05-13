@@ -125,10 +125,10 @@ export default function Dashboard() {
   return (
     <div className="mx-auto max-w-6xl space-y-8 sm:space-y-10">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/70 p-5 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.12)] dark:border-indigo-900/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/80 dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.35)] sm:p-8 lg:p-10">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-brand/5 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-violet-200/20 blur-2xl" />
-        <p className="text-sm font-medium capitalize text-brand">{todayLabel}</p>
+      <section className="relative overflow-hidden rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/70 p-5 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.12)] dark:border-indigo-900/40 dark:bg-none dark:bg-slate-900 dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.35)] sm:p-8 lg:p-10">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-brand/5 blur-3xl dark:hidden" />
+        <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-violet-200/20 blur-2xl dark:hidden" />
+        <p className="text-sm font-medium capitalize text-brand dark:text-indigo-300">{todayLabel}</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl lg:text-4xl">Resumen de cobranza</h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink-muted">{data.tagline}</p>
         <div className="mt-6 flex flex-wrap gap-3">
@@ -158,35 +158,39 @@ export default function Dashboard() {
               </div>
               <div className="mt-2 text-sm text-ink-muted">{totals.pending_count} cobros pendientes</div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-brand">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-brand dark:bg-indigo-950/55 dark:text-indigo-300">
               <IconWallet className="h-6 w-6" />
             </div>
           </div>
         </div>
-        <div className="group relative overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50 to-orange-50/50 p-6 shadow-soft transition hover:shadow-md">
+        <div className="group relative overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50 to-orange-50/50 p-6 shadow-soft transition hover:shadow-md dark:border-amber-500/25 dark:from-amber-950/45 dark:to-orange-950/35 dark:shadow-none">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-amber-900/70">Vencido</div>
-              <div className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-amber-950">
+              <div className="text-xs font-semibold uppercase tracking-wider text-amber-900/70 dark:text-amber-200/90">
+                Vencido
+              </div>
+              <div className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-amber-950 dark:text-amber-50">
                 {formatMoney(totals.overdue_amount)}
               </div>
-              <div className="mt-2 text-sm text-amber-900/70">{totals.overdue_count} a recuperar ya</div>
+              <div className="mt-2 text-sm text-amber-900/70 dark:text-amber-200/85">{totals.overdue_count} a recuperar ya</div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100/80 text-amber-700">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100/80 text-amber-700 dark:bg-amber-900/45 dark:text-amber-300">
               <IconAlert className="h-6 w-6" />
             </div>
           </div>
         </div>
-        <div className="group relative overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-6 shadow-soft transition hover:shadow-md">
+        <div className="group relative overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-6 shadow-soft transition hover:shadow-md dark:border-emerald-500/25 dark:from-emerald-950/45 dark:to-teal-950/35 dark:shadow-none">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-emerald-900/70">Cobrado</div>
-              <div className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-emerald-950">
+              <div className="text-xs font-semibold uppercase tracking-wider text-emerald-900/70 dark:text-emerald-200/90">
+                Cobrado
+              </div>
+              <div className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-emerald-950 dark:text-emerald-50">
                 {formatMoney(totals.paid_amount)}
               </div>
-              <div className="mt-2 text-sm text-emerald-900/70">{totals.paid_count} cerradas</div>
+              <div className="mt-2 text-sm text-emerald-900/70 dark:text-emerald-200/85">{totals.paid_count} cerradas</div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100/80 text-emerald-700">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100/80 text-emerald-700 dark:bg-emerald-900/45 dark:text-emerald-300">
               <IconCheck className="h-6 w-6" />
             </div>
           </div>
@@ -211,23 +215,23 @@ export default function Dashboard() {
                 <p className="w-full text-[11px] text-ink-muted">Una sola cifra: todo lo registrado en FlowPay (suma de los tres widgets).</p>
               </div>
 
-              <div className="mt-4 space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-ink">
+              <div className="mt-4 space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-ink dark:border-slate-600/70 dark:bg-slate-800/55">
                 <p>
                   <span className="font-semibold text-ink">Saldo activo (te deben):</span>{" "}
                   <span className="tabular-nums font-medium">{formatMoney(activeTotal)}</span>
-                  <span className="text-ink-muted"> — por cobrar + vencido</span>
+                  <span className="text-ink-muted dark:text-slate-300/95"> — por cobrar + vencido</span>
                 </p>
                 {activeTotal > 0 && totals.overdue_amount > 0 && (
-                  <p className="text-ink-muted">
+                  <p className="text-ink-muted dark:text-slate-300/95">
                     Del dinero que aún deben recolectar,{" "}
-                    <span className="font-semibold text-amber-900">{pctOfActiveOverdue}%</span> está en cobros vencidos
-                    (prioriza eso en la cobranza).
+                    <span className="font-semibold text-amber-900 dark:text-amber-300">{pctOfActiveOverdue}%</span>{" "}
+                    está en cobros vencidos (prioriza eso en la cobranza).
                   </p>
                 )}
                 {totals.paid_amount > 0 && (
-                  <p className="text-ink-muted">
+                  <p className="text-ink-muted dark:text-slate-300/95">
                     Del volumen total histórico, ya recuperaste{" "}
-                    <span className="font-semibold text-emerald-800">{pctRecovered}%</span>.
+                    <span className="font-semibold text-emerald-800 dark:text-emerald-300">{pctRecovered}%</span>.
                   </p>
                 )}
               </div>
@@ -326,7 +330,7 @@ export default function Dashboard() {
                     <td className="px-4 py-3 text-right align-middle sm:pr-6 lg:pr-8">
                       <Link
                         to={`/cobros/${row.id}`}
-                        className="inline-flex h-8 items-center rounded-lg px-2.5 text-sm font-semibold text-brand hover:bg-brand-soft"
+                        className="inline-flex h-8 items-center rounded-lg px-2.5 text-sm font-semibold text-brand transition-colors hover:bg-brand-soft dark:text-indigo-200 dark:hover:bg-indigo-500/25 dark:hover:text-white"
                       >
                         Abrir
                       </Link>
