@@ -56,26 +56,46 @@
   color: rgb(var(--color-ink) / 1);
 }
 
-/** Checkboxes y radios en oscuro: el nativo suele pintar el interior casi negro; estilo explícito. */
-:root.dark input[type="checkbox"] {
+/** Checkboxes y radios: mismo patrón claro/oscuro (appearance + SVG), tokens del tema. */
+input[type="checkbox"],
+input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
   margin: 0;
-  border: 1px solid rgb(var(--color-ink-muted) / 0.5);
-  background-color: transparent;
-  background-image: none;
   cursor: pointer;
+}
+
+input[type="checkbox"] {
   border-radius: 0.25rem;
 }
 
-:root.dark input[type="checkbox"]:focus-visible {
+input[type="radio"] {
+  border-radius: 9999px;
+}
+
+html:not(.dark) input[type="checkbox"]:not(:checked):not(:indeterminate),
+html:not(.dark) input[type="radio"]:not(:checked) {
+  border: 1px solid rgb(var(--color-surface-border) / 1);
+  background-color: transparent;
+  background-image: none;
+}
+
+:root.dark input[type="checkbox"]:not(:checked):not(:indeterminate),
+:root.dark input[type="radio"]:not(:checked) {
+  border: 1px solid rgb(var(--color-ink-muted) / 0.5);
+  background-color: transparent;
+  background-image: none;
+}
+
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
   outline: 2px solid rgb(var(--color-brand) / 0.45);
   outline-offset: 2px;
 }
 
-:root.dark input[type="checkbox"]:checked,
-:root.dark input[type="checkbox"]:indeterminate {
+input[type="checkbox"]:checked,
+input[type="checkbox"]:indeterminate {
   border-color: rgb(var(--color-brand) / 1);
   background-color: rgb(var(--color-brand) / 1);
   background-size: 0.7rem;
@@ -83,32 +103,17 @@
   background-repeat: no-repeat;
 }
 
-:root.dark input[type="checkbox"]:checked {
+input[type="checkbox"]:checked {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M3.75 8 6.5 10.75 12.25 5'/%3E%3C/svg%3E");
 }
 
-:root.dark input[type="checkbox"]:indeterminate {
+input[type="checkbox"]:indeterminate {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%23fff' stroke-linecap='round' stroke-width='2.5' d='M4 8h8'/%3E%3C/svg%3E");
 }
 
-:root.dark input[type="radio"] {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  margin: 0;
-  border: 1px solid rgb(var(--color-ink-muted) / 0.5);
-  background-color: transparent;
-  cursor: pointer;
-  border-radius: 9999px;
-}
-
-:root.dark input[type="radio"]:focus-visible {
-  outline: 2px solid rgb(var(--color-brand) / 0.45);
-  outline-offset: 2px;
-}
-
-:root.dark input[type="radio"]:checked {
+input[type="radio"]:checked {
   border-color: rgb(var(--color-brand) / 1);
+  background-color: transparent;
   background-image: radial-gradient(
     circle at center,
     rgb(var(--color-brand) / 1) 0,
@@ -117,8 +122,8 @@
   );
 }
 
-:root.dark input[type="checkbox"]:disabled,
-:root.dark input[type="radio"]:disabled {
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
