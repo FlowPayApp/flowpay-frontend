@@ -223,11 +223,15 @@ export default function ChargeDetail() {
   }, [toast]);
 
   if (loading) {
-    return <div className="text-ink-muted">Cargando…</div>;
+    return (
+      <div className="mx-auto flex min-h-[30vh] w-full max-w-6xl items-center justify-center text-ink-muted">
+        Cargando…
+      </div>
+    );
   }
   if (loadError) {
     return (
-      <div className="max-w-lg rounded-2xl border border-rose-200 bg-surface-card p-6 text-rose-900 shadow-soft">
+      <div className="mx-auto max-w-lg rounded-2xl border border-rose-200 bg-surface-card p-6 text-rose-900 shadow-soft">
         <p>{loadError}</p>
         <Link to="/cobros" className="mt-4 inline-block text-sm font-medium text-brand hover:underline">
           Volver a cobros
@@ -237,7 +241,7 @@ export default function ChargeDetail() {
   }
   if (!ch) {
     return (
-      <div className="text-ink-muted">
+      <div className="mx-auto max-w-lg text-center text-ink-muted">
         Sin datos.{" "}
         <Link to="/cobros" className="font-medium text-brand hover:underline">
           Volver
@@ -275,7 +279,7 @@ export default function ChargeDetail() {
   const dueLabel = isPaid ? "Cobrado" : isOverdue ? "Vencido" : "Al día";
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       {toast && (
         <div
           className={[
