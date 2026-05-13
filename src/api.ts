@@ -530,3 +530,47 @@ export async function updateMyProfile(payload: { email: string; name: string; pa
   });
   if (!res.ok) throw new Error(await res.text());
 }
+
+export interface PaymentPortalCompany {
+  name: string;
+  transfer_instructions?: string;
+}
+
+export interface PaymentPortalClient {
+  label: string;
+}
+
+export interface PaymentPortalTotals {
+  pending: number;
+  overdue: number;
+  paid: number;
+}
+
+export interface PortalCharge {
+  ref: string;
+  amount: number;
+  due_date: string;
+  status?: ChargeStatus;
+  attachment_token?: string | null;
+}
+
+export interface PaymentPortalResponse {
+  token_status: string;
+  issued_at: string;
+  company: PaymentPortalCompany;
+  client: PaymentPortalClient;
+  charges: PortalCharge[];
+  totals: PaymentPortalTotals;
+}
+
+export async function fetchPaymentPortal(token: string) {
+  const res = await fetch(`/api/public/pay/${encodeURIComponent(token)}`);
+  if (res.status === 404) {
+    throw new Error("Token de pago no encontrado o expirado");
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "No se pudo cargar la página de pago");
+  }
+  return res.json() as Promise<PaymentPortalResponse>;
+}
