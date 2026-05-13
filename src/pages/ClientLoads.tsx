@@ -121,7 +121,7 @@ export default function ClientLoads() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-white px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-surface"
+            className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-card px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-surface"
             onClick={() => void downloadClientImportTemplateXlsx()}
           >
             <Download className="h-4 w-4" strokeWidth={2} />
@@ -129,7 +129,7 @@ export default function ClientLoads() {
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-white px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-surface"
+            className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-card px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-surface"
             onClick={() => importInputRef.current?.click()}
           >
             <Upload className="h-4 w-4" strokeWidth={2} />
@@ -148,7 +148,7 @@ export default function ClientLoads() {
           />
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-white px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-surface"
+            className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-card px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-surface"
             onClick={() => void load()}
             disabled={loading || importBusy}
           >
@@ -173,7 +173,7 @@ export default function ClientLoads() {
       {loading && !rows.length ? (
         <LoadingOverlay message="Cargando historial..." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-surface-border bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
@@ -238,7 +238,7 @@ export default function ClientLoads() {
 
       {errorsModal && (
         <AppModal onBackdropClick={() => (errorsModal.loading ? undefined : setErrorsModal(null))}>
-          <div className="w-full max-w-lg rounded-2xl border border-surface-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
             <h2 className="text-lg font-semibold text-ink">Errores de la importación</h2>
             <p className="mt-1 text-sm text-ink-muted">
               Filas que no se pudieron procesar (número de fila en el archivo según la plantilla).
@@ -260,7 +260,7 @@ export default function ClientLoads() {
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                className="rounded-xl border border-surface-border bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-surface"
+                className="rounded-xl border border-surface-border bg-surface-card px-4 py-2 text-sm font-medium text-ink hover:bg-surface"
                 onClick={() => setErrorsModal(null)}
                 disabled={errorsModal.loading}
               >

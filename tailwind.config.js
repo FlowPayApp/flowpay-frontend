@@ -1,21 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
         surface: {
-          DEFAULT: "#fafafa",
-          card: "#ffffff",
-          border: "#e8e8ec",
+          DEFAULT: "rgb(var(--color-surface) / <alpha-value>)",
+          card: "rgb(var(--color-surface-card) / <alpha-value>)",
+          border: "rgb(var(--color-surface-border) / <alpha-value>)",
         },
         ink: {
-          DEFAULT: "#0f172a",
-          muted: "#64748b",
+          DEFAULT: "rgb(var(--color-ink) / <alpha-value>)",
+          muted: "rgb(var(--color-ink-muted) / <alpha-value>)",
         },
         brand: {
-          DEFAULT: "#4f46e5",
-          soft: "#eef2ff",
+          DEFAULT: "rgb(var(--color-brand) / <alpha-value>)",
+          soft: "rgb(var(--color-brand-soft) / <alpha-value>)",
         },
         accent: {
           amber: "#f59e0b",

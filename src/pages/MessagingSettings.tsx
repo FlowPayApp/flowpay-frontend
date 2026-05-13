@@ -127,7 +127,7 @@ export default function MessagingSettings() {
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{ok}</div>
       )}
 
-      <section className="rounded-2xl border border-surface-border bg-white p-4 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
         <h2 className="text-lg font-semibold text-ink">Datos comunes</h2>
         <p className="mt-1 text-sm text-ink-muted">
           La URL de pago admite sustitución: <code className="text-xs">{"{{charge_id}}"}</code>,{" "}
@@ -156,7 +156,7 @@ export default function MessagingSettings() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-surface-border bg-white p-4 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-ink">Plantillas por fase</h2>
@@ -170,7 +170,7 @@ export default function MessagingSettings() {
           <button
             type="button"
             onClick={() => setRows((r) => [...r, newRow()])}
-            className="rounded-xl border border-surface-border bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-surface"
+            className="rounded-xl border border-surface-border bg-surface-card px-4 py-2 text-sm font-semibold text-ink hover:bg-surface"
           >
             Agregar plantilla
           </button>
@@ -199,7 +199,7 @@ export default function MessagingSettings() {
                   <label className="block text-sm font-medium text-ink sm:col-span-6">
                     Fase
                     <select
-                      className="mt-1 w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm"
+                      className="mt-1 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm"
                       value={row.phase}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -228,7 +228,7 @@ export default function MessagingSettings() {
                     Prioridad (sort_order)
                     <input
                       type="number"
-                      className="mt-1 w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm"
+                      className="mt-1 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm"
                       value={row.sort_order}
                       onChange={(e) =>
                         setRows((r) =>
@@ -244,7 +244,7 @@ export default function MessagingSettings() {
                         <input
                           type="number"
                           min={0}
-                          className="mt-1 w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm"
+                          className="mt-1 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm"
                           value={row.day_min}
                           onChange={(e) =>
                             setRows((r) =>
@@ -258,7 +258,7 @@ export default function MessagingSettings() {
                         <input
                           type="number"
                           min={0}
-                          className="mt-1 w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm"
+                          className="mt-1 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm"
                           value={row.day_max}
                           onChange={(e) =>
                             setRows((r) =>
@@ -277,7 +277,7 @@ export default function MessagingSettings() {
                     Asunto email (opcional; si queda vacío se usa el predeterminado del sistema)
                     <input
                       type="text"
-                      className="mt-1 w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm"
+                      className="mt-1 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm"
                       value={row.email_subject}
                       onChange={(e) =>
                         setRows((r) => r.map((x) => (x.key === row.key ? { ...x, email_subject: e.target.value } : x)))
@@ -287,7 +287,7 @@ export default function MessagingSettings() {
                   <label className="block text-sm font-medium text-ink sm:col-span-12">
                     Cuerpo (email y WhatsApp)
                     <textarea
-                      className="mt-1 min-h-[10rem] w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm font-mono"
+                      className="mt-1 min-h-[10rem] w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-mono"
                       value={row.body}
                       onChange={(e) =>
                         setRows((r) => r.map((x) => (x.key === row.key ? { ...x, body: e.target.value } : x)))
@@ -313,7 +313,7 @@ export default function MessagingSettings() {
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface"
+          className="rounded-xl border border-surface-border bg-surface-card px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface"
         >
           Recargar
         </button>
