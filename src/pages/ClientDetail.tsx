@@ -384,13 +384,15 @@ export default function ClientDetail() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-rose-200 bg-rose-50/40 p-5 shadow-soft sm:p-6">
-        <h2 className="text-lg font-semibold text-rose-900">Zona de peligro</h2>
-        <p className="mt-1 text-sm text-rose-800/90">Eliminar el cliente borra también todos sus cobros asociados.</p>
+      <section className="rounded-2xl border border-rose-200 bg-rose-50/40 p-5 shadow-soft sm:p-6 dark:border-rose-500/35 dark:bg-rose-950/25 dark:shadow-none">
+        <h2 className="text-lg font-semibold text-rose-900 dark:text-rose-100">Zona de peligro</h2>
+        <p className="mt-1 text-sm text-rose-800/90 dark:text-rose-300">
+          Eliminar el cliente borra también todos sus cobros asociados.
+        </p>
         <button
           type="button"
           onClick={() => setDeleteModalOpen(true)}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-surface-card px-4 py-2.5 text-sm font-semibold text-rose-800 hover:bg-rose-50"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-surface-card px-4 py-2.5 text-sm font-semibold text-rose-800 hover:bg-rose-50 dark:border-rose-400/45 dark:bg-rose-950/55 dark:text-rose-100 dark:hover:border-rose-300/55 dark:hover:bg-rose-900/70"
         >
           <Trash2 className="h-4 w-4" strokeWidth={2} />
           Eliminar cliente
@@ -415,7 +417,7 @@ export default function ClientDetail() {
             <div className="mt-6 flex flex-wrap justify-end gap-2">
               <button
                 type="button"
-                className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface disabled:opacity-50"
+                className="rounded-xl border border-transparent px-4 py-2 text-sm font-medium text-ink-muted transition hover:bg-surface disabled:opacity-50 dark:border-slate-500/45 dark:hover:border-slate-400/55 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 disabled={deleting}
                 onClick={() => setDeleteModalOpen(false)}
               >
@@ -423,7 +425,7 @@ export default function ClientDetail() {
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60 dark:border-rose-700/50 dark:bg-rose-800 dark:shadow-none dark:hover:bg-rose-700 dark:hover:border-rose-600/55"
                 disabled={deleting}
                 onClick={() => void confirmDeleteClient()}
               >
