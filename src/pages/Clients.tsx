@@ -176,14 +176,14 @@ export default function Clients() {
       {error && !open && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 whitespace-pre-wrap">{error}</div>
       )}
-      <div className="overflow-hidden rounded-2xl border border-surface-border bg-white shadow-soft">
+      <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
         <div className="border-b border-surface-border px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-ink">Clientes registrados</h2>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink"
+                className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink"
                 onClick={() => setOpenFilters((v) => !v)}
               >
                 <Filter className="h-4 w-4" />
@@ -192,7 +192,7 @@ export default function Clients() {
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
               >
                 <Plus className="h-4 w-4" strokeWidth={2.5} />
                 Crear
@@ -262,7 +262,7 @@ export default function Clients() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-border bg-white">
+            <tbody className="divide-y divide-surface-border bg-surface-card">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-ink-muted">
@@ -335,7 +335,7 @@ export default function Clients() {
               <label className="flex items-center gap-2 text-sm text-ink-muted">
                 Filas por página
                 <select
-                  className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm text-ink"
+                  className="rounded-lg border border-surface-border bg-surface-card px-2 py-1.5 text-sm text-ink"
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
                 >
@@ -374,7 +374,7 @@ export default function Clients() {
 
       {open && (
         <AppModal onBackdropClick={closeClientModal}>
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-surface-card p-6 shadow-2xl">
             <h2 className="text-lg font-semibold text-ink">Nuevo cliente</h2>
             <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={onSubmit}>
               <label className="block text-sm font-medium text-ink">
@@ -447,7 +447,7 @@ export default function Clients() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600"
+                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
                 >
                   Guardar
                 </button>

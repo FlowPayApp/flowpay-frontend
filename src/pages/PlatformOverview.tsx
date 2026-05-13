@@ -57,7 +57,7 @@ export default function PlatformOverview() {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-6xl px-0">
-        <div className="rounded-2xl border border-surface-border bg-white px-5 py-4 text-sm text-ink-muted shadow-soft">
+        <div className="rounded-2xl border border-surface-border bg-surface-card px-5 py-4 text-sm text-ink-muted shadow-soft">
           Cargando vista global...
         </div>
       </div>
@@ -70,14 +70,14 @@ export default function PlatformOverview() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-0">
-      <section className="relative overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 px-6 py-6 text-white shadow-soft sm:px-8">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/20 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-cyan-300/20 blur-2xl" />
+      <section className="relative overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 px-6 py-6 text-white shadow-soft dark:border-indigo-800/50 dark:from-indigo-950 dark:via-indigo-900 dark:to-slate-900 sm:px-8">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/20 blur-2xl dark:bg-indigo-400/10" />
+        <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-cyan-300/20 blur-2xl dark:bg-cyan-500/10" />
 
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Inicio Superadmin</h1>
-            <p className="mt-1 text-sm text-indigo-100">
+            <p className="mt-1 text-sm text-indigo-100 dark:text-indigo-200/90">
               Panorama global en tiempo real para priorizar gestión de cobranza por empresa.
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-xs">
@@ -125,11 +125,11 @@ export default function PlatformOverview() {
         />
       </section>
 
-      <section className="rounded-2xl border border-surface-border bg-white shadow-soft">
+      <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
         <div className="border-b border-surface-border px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-ink">Comparativa por empresa</h2>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               Ordenado por mayor deuda total
             </span>
           </div>
@@ -168,16 +168,16 @@ export default function PlatformOverview() {
                       <div className="mt-0.5 text-[11px] text-ink-muted">100%</div>
                     </td>
                     <td className="px-3 py-3 text-right sm:px-5">
-                      <div className="tabular-nums text-emerald-700">{formatMoney(c.paid_amount)}</div>
-                      <div className="mt-0.5 text-[11px] text-emerald-700">{paidPct.toFixed(1)}%</div>
+                      <div className="tabular-nums text-emerald-700 dark:text-emerald-400">{formatMoney(c.paid_amount)}</div>
+                      <div className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-400">{paidPct.toFixed(1)}%</div>
                     </td>
                     <td className="px-3 py-3 text-right sm:px-5">
-                      <div className="tabular-nums text-amber-700">{formatMoney(c.pending_amount)}</div>
-                      <div className="mt-0.5 text-[11px] text-amber-700">{pendingPct.toFixed(1)}%</div>
+                      <div className="tabular-nums text-amber-700 dark:text-amber-400">{formatMoney(c.pending_amount)}</div>
+                      <div className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">{pendingPct.toFixed(1)}%</div>
                     </td>
                     <td className="px-3 py-3 text-right sm:px-5">
-                      <div className="tabular-nums text-rose-700">{formatMoney(c.overdue_amount)}</div>
-                      <div className="mt-0.5 text-[11px] text-rose-700">{overduePct.toFixed(1)}%</div>
+                      <div className="tabular-nums text-rose-700 dark:text-rose-400">{formatMoney(c.overdue_amount)}</div>
+                      <div className="mt-0.5 text-[11px] text-rose-700 dark:text-rose-400">{overduePct.toFixed(1)}%</div>
                     </td>
                   </tr>
                 );
@@ -213,10 +213,12 @@ function Kpi({
   trend?: React.ReactNode;
 }) {
   const toneClasses: Record<KpiTone, string> = {
-    default: "border-surface-border bg-white",
-    success: "border-emerald-100 bg-emerald-50/40",
-    warning: "border-amber-100 bg-amber-50/50",
-    danger: "border-rose-100 bg-rose-50/50",
+    default: "border-surface-border bg-surface-card",
+    success:
+      "border-emerald-100 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-950/45",
+    warning:
+      "border-amber-100 bg-amber-50/50 dark:border-amber-500/30 dark:bg-amber-950/45",
+    danger: "border-rose-100 bg-rose-50/50 dark:border-rose-500/30 dark:bg-rose-950/45",
   };
 
   return (

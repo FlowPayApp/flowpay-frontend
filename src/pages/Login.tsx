@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { firstPasswordChange } from "../api";
 import LoadingOverlay from "../components/LoadingOverlay";
 import PasswordInput from "../components/PasswordInput";
+import ThemeToggle from "../components/ThemeToggle";
 import { getDefaultHomePath, setToken } from "../lib/auth";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
 
@@ -88,6 +89,9 @@ export default function Login() {
 
   return (
     <div className="flex min-h-dvh w-full items-center justify-center bg-surface px-4 py-8 sm:px-6 sm:py-12">
+      <div className="fixed right-4 top-4 z-[160] sm:right-6 sm:top-6">
+        <ThemeToggle compact />
+      </div>
       {toast && (
         <div
           className={[
@@ -116,7 +120,7 @@ export default function Login() {
         </div>
       )}
       {loading && <LoadingOverlay message="Procesando acceso..." />}
-      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-6 shadow-soft sm:p-8">
+      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-soft sm:p-8">
         <h1 className="text-center text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Iniciar sesión</h1>
         <form className="mt-8 space-y-4" onSubmit={mustChangePassword ? onFirstChangePassword : onSubmit}>
         <label className="block text-sm font-medium text-ink">
@@ -162,7 +166,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-600 disabled:opacity-60"
+          className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
         >
           {loading ? "Procesando…" : mustChangePassword ? "Actualizar contraseña" : "Entrar"}
         </button>

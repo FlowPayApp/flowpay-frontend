@@ -195,14 +195,14 @@ export default function PlatformAdmins() {
         <MiniKpi icon={<Users className="h-4 w-4" />} label="Empresas" value={String(stats.companiesCovered)} />
       </section>
 
-      <section className="rounded-2xl border border-surface-border bg-white shadow-soft">
+      <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
         <div className="border-b border-surface-border px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-ink">Admins registrados</h2>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink"
+                className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink"
                 onClick={() => setOpenFilters((v) => !v)}
               >
                 <Filter className="h-4 w-4" />
@@ -210,7 +210,7 @@ export default function PlatformAdmins() {
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
                 onClick={() => {
                   setError(null);
                   setOpenCreateModal(true);
@@ -362,7 +362,7 @@ export default function PlatformAdmins() {
 
       {editModal && (
         <AppModal onBackdropClick={editBusy ? undefined : () => setEditModal(null)}>
-          <div className="w-full max-w-xl rounded-2xl border border-surface-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-xl rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
                 <Pencil className="h-5 w-5" strokeWidth={2} />
@@ -400,7 +400,7 @@ export default function PlatformAdmins() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-600 disabled:opacity-60"
+                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
                   disabled={editBusy}
                 >
                   {editBusy ? "Guardando…" : "Guardar cambios"}
@@ -413,7 +413,7 @@ export default function PlatformAdmins() {
 
       {openCreateModal && (
         <AppModal>
-            <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-surface-card p-6 shadow-2xl">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-ink">Crear admin</h2>
             </div>
@@ -445,7 +445,7 @@ export default function PlatformAdmins() {
                 <button type="button" className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface" onClick={() => setOpenCreateModal(false)}>
                   Cancelar
                 </button>
-                <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600" type="submit">
+                <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">
                   <Plus className="h-4 w-4" />
                   Crear admin
                 </button>
@@ -486,10 +486,10 @@ function MiniKpi({
 }) {
   const toneClass =
     tone === "success"
-      ? "border-emerald-100 bg-emerald-50/50 text-emerald-700"
+      ? "border-emerald-100 bg-emerald-50/50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/45 dark:text-emerald-300"
       : tone === "danger"
-        ? "border-rose-100 bg-rose-50/50 text-rose-700"
-        : "border-surface-border bg-white text-ink-muted";
+        ? "border-rose-100 bg-rose-50/50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/45 dark:text-rose-300"
+        : "border-surface-border bg-surface-card text-ink-muted";
 
   return (
     <div className={`rounded-2xl border px-3 py-3 shadow-soft sm:px-4 ${toneClass}`}>

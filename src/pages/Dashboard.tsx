@@ -99,7 +99,7 @@ export default function Dashboard() {
 
   if (err) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-white p-6 text-rose-800 shadow-soft">
+      <div className="rounded-2xl border border-rose-200 bg-surface-card p-6 text-rose-800 shadow-soft dark:border-rose-900/60 dark:bg-rose-950/25 dark:text-rose-200">
         {err}. ¿Está corriendo el API en <code className="font-mono">:8080</code>?
       </div>
     );
@@ -125,7 +125,7 @@ export default function Dashboard() {
   return (
     <div className="mx-auto max-w-6xl space-y-8 sm:space-y-10">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/70 p-5 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.12)] sm:p-8 lg:p-10">
+      <section className="relative overflow-hidden rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/70 p-5 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.12)] dark:border-indigo-900/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/80 dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.35)] sm:p-8 lg:p-10">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-brand/5 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-violet-200/20 blur-2xl" />
         <p className="text-sm font-medium capitalize text-brand">{todayLabel}</p>
@@ -134,13 +134,13 @@ export default function Dashboard() {
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             to="/cobros"
-            className="inline-flex items-center justify-center rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-600"
+            className="inline-flex items-center justify-center rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700"
           >
             Ver cobros
           </Link>
           <Link
             to="/clients"
-            className="inline-flex items-center justify-center rounded-xl border border-surface-border bg-white/80 px-5 py-2.5 text-sm font-semibold text-ink backdrop-blur hover:bg-white"
+            className="inline-flex items-center justify-center rounded-xl border border-surface-border bg-surface-card/80 px-5 py-2.5 text-sm font-semibold text-ink backdrop-blur hover:bg-surface-card"
           >
             Clientes
           </Link>
@@ -149,7 +149,7 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <section className="grid gap-4 sm:grid-cols-3">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-soft transition hover:shadow-md">
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-surface-card p-6 shadow-soft transition hover:shadow-md dark:border-slate-600/80">
           <div className="flex items-start justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Por cobrar</div>
@@ -195,7 +195,7 @@ export default function Dashboard() {
 
       {/* Distribución visual + clientes riesgo */}
       <section className="grid gap-6 lg:grid-cols-5">
-        <div className="rounded-2xl border border-surface-border bg-white p-6 shadow-soft lg:col-span-2">
+        <div className="rounded-2xl border border-surface-border bg-surface-card p-6 shadow-soft lg:col-span-2">
           <h2 className="text-sm font-semibold text-ink">Lectura sobre tus números</h2>
           <p className="mt-1 text-xs leading-relaxed text-ink-muted">
             Los montos por estado están arriba; aquí solo indicadores que salen de combinar esos datos (prioridad de
@@ -235,7 +235,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-surface-border bg-white p-6 shadow-soft lg:col-span-3">
+        <div className="rounded-2xl border border-surface-border bg-surface-card p-6 shadow-soft lg:col-span-3">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-sm font-semibold text-ink">Clientes que mirar hoy</h2>
@@ -270,8 +270,8 @@ export default function Dashboard() {
       </section>
 
       {/* Tabla prioridad */}
-      <section className="overflow-hidden rounded-2xl border border-surface-border bg-white shadow-[0_8px_40px_-12px_rgba(15,23,42,0.08)]">
-        <div className="border-b border-surface-border bg-gradient-to-r from-slate-50/80 to-white px-6 py-4 sm:px-8">
+      <section className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-[0_8px_40px_-12px_rgba(15,23,42,0.08)]">
+        <div className="border-b border-surface-border bg-gradient-to-r from-surface to-surface-card px-6 py-4 sm:px-8">
           <h2 className="text-lg font-semibold text-ink">Cobros que necesitan foco</h2>
           <p className="mt-1 text-sm text-ink-muted">
             Vencidos y próximos a vencer — tu lista de acción para cobrar a tiempo.
@@ -287,7 +287,7 @@ export default function Dashboard() {
               <col className="w-[15%]" />
               <col className="w-[15%]" />
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-white text-left text-xs font-semibold uppercase tracking-wide text-ink-muted shadow-[0_1px_0_0_rgba(226,232,240,0.9)]">
+            <thead className="sticky top-0 z-10 bg-surface-card text-left text-xs font-semibold uppercase tracking-wide text-ink-muted shadow-[0_1px_0_0_rgba(226,232,240,0.9)] dark:shadow-[0_1px_0_0_rgba(51,65,85,0.95)]">
               <tr>
                 <th className="h-12 px-4 align-middle sm:px-6 lg:px-8">Sucursal</th>
                 <th className="h-12 px-4 align-middle sm:px-5">Monto</th>
@@ -311,7 +311,7 @@ export default function Dashboard() {
                 </tr>
               ) : (
                 attentionRows.map((row) => (
-                  <tr key={row.id} className="h-[68px] hover:bg-indigo-50/30">
+                  <tr key={row.id} className="h-[68px] hover:bg-indigo-50/30 dark:hover:bg-indigo-950/25">
                     <td className="max-w-0 px-4 py-3 align-middle font-medium text-ink sm:px-6 lg:px-8">
                       <span className="block truncate">{row.client_name}</span>
                     </td>

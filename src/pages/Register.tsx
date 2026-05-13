@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import LoadingOverlay from "../components/LoadingOverlay";
 import PasswordInput from "../components/PasswordInput";
+import ThemeToggle from "../components/ThemeToggle";
 import { getDefaultHomePath, setToken } from "../lib/auth";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
 
@@ -59,8 +60,11 @@ export default function Register() {
 
   return (
     <div className="flex min-h-dvh w-full items-center justify-center bg-surface px-4 py-8 sm:px-6 sm:py-12">
+      <div className="fixed right-4 top-4 z-[160] sm:right-6 sm:top-6">
+        <ThemeToggle compact />
+      </div>
       {loading && <LoadingOverlay message="Creando cuenta..." />}
-      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-6 shadow-soft sm:p-8">
+      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-soft sm:p-8">
         <h1 className="text-center text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Crear cuenta</h1>
         <p className="mt-3 text-center text-sm text-ink-muted">
           Registras tu empresa en FlowPay y tu usuario admin. {PASSWORD_POLICY_HINT}
@@ -115,7 +119,7 @@ export default function Register() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-600 disabled:opacity-60"
+          className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
         >
           {loading ? "Creando…" : "Registrarme"}
         </button>

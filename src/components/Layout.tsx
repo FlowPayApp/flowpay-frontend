@@ -22,6 +22,7 @@ import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPol
 import AppModal from "./AppModal";
 import LoadingOverlay from "./LoadingOverlay";
 import PasswordInput from "./PasswordInput";
+import ThemeToggle from "./ThemeToggle";
 
 const SIDEBAR_COLLAPSED_KEY = "flowpay-sidebar-collapsed";
 const CLIENTS_NAV_EXPANDED_KEY = "flowpay-nav-clients-expanded";
@@ -182,8 +183,8 @@ export default function Layout() {
       "group relative flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-200",
       collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5",
       isActive
-        ? "bg-gradient-to-r from-brand-soft to-indigo-50 text-brand shadow-sm ring-1 ring-indigo-100"
-        : "text-ink-muted hover:bg-white hover:text-ink hover:shadow-sm",
+        ? "bg-gradient-to-r from-brand-soft to-indigo-50 text-brand shadow-sm ring-1 ring-indigo-100 dark:from-indigo-950/90 dark:to-slate-800 dark:text-indigo-200 dark:ring-indigo-700/40"
+        : "text-ink-muted hover:bg-surface-card hover:text-ink hover:shadow-sm",
     ].join(" ");
 
   /** Subítems del acordeón Clientes: más chicos y más a la derecha. */
@@ -251,8 +252,8 @@ export default function Layout() {
     return (
       <div
         className={[
-          "mt-auto space-y-2 rounded-xl border border-dashed border-surface-border bg-surface p-3 text-xs text-ink-muted",
-          collapsed ? "p-2" : "",
+          "mt-auto space-y-2 rounded-xl border border-dashed border-surface-border bg-surface text-xs text-ink-muted",
+          collapsed ? "p-2.5" : "p-3",
         ].join(" ")}
       >
         {hasToken ? (
@@ -262,18 +263,18 @@ export default function Layout() {
                 type="button"
                 title="Perfil"
                 aria-label="Perfil"
-                className="mb-2 flex w-full items-center justify-center rounded-lg border border-surface-border bg-white p-2.5 text-ink-muted hover:bg-surface hover:text-ink"
+                className="flex w-full min-h-[2.75rem] items-center justify-center rounded-lg border border-surface-border bg-surface-card py-2.5 text-ink-muted hover:bg-surface hover:text-ink"
                 onClick={() => {
                   if (compact) closeMobileMenu();
                   void openProfile();
                 }}
               >
-                <CircleUserRound className="h-5 w-5" strokeWidth={2} />
+                <CircleUserRound className="h-4 w-4" strokeWidth={2} />
               </button>
             ) : (
               <button
                 type="button"
-                className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-surface-border bg-white px-3 py-2 text-xs font-semibold text-ink-muted hover:bg-surface hover:text-ink"
+                className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-xs font-semibold text-ink-muted hover:bg-surface hover:text-ink"
                 onClick={() => {
                   if (compact) closeMobileMenu();
                   void openProfile();
@@ -288,13 +289,13 @@ export default function Layout() {
                 type="button"
                 title="Cerrar sesión"
                 aria-label="Cerrar sesión"
-                className="flex w-full items-center justify-center rounded-lg bg-slate-900 p-2.5 text-white hover:bg-slate-800"
+                className="flex w-full min-h-[2.75rem] items-center justify-center rounded-lg bg-slate-900 py-2.5 text-white hover:bg-slate-800"
                 onClick={() => {
                   logout();
                   nav("/login", { replace: true });
                 }}
               >
-                <LogOut className="h-5 w-5" strokeWidth={2} />
+                <LogOut className="h-4 w-4 shrink-0" strokeWidth={2} />
               </button>
             ) : (
               <button
@@ -335,7 +336,7 @@ export default function Layout() {
       {routeLoading && <LoadingOverlay message="Cargando pantalla..." />}
 
       {/* Barra superior móvil / tablet */}
-      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-surface-border bg-white/95 px-4 shadow-sm backdrop-blur lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-surface-border bg-surface-card/95 px-4 shadow-sm backdrop-blur lg:hidden">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -347,8 +348,9 @@ export default function Layout() {
           >
             <Menu className="h-5 w-5" strokeWidth={2} />
           </button>
-          <span className="text-base font-bold tracking-tight text-slate-900">FlowPay</span>
+          <span className="text-base font-bold tracking-tight text-ink">FlowPay</span>
         </div>
+        <ThemeToggle compact />
       </header>
 
       {/* Drawer móvil: montado solo al abrir/cerrar, con desliz sutil del panel */}
@@ -363,13 +365,13 @@ export default function Layout() {
         <aside
           id="mobile-drawer"
           className={[
-            "flex h-full w-[min(18rem,88vw)] shrink-0 flex-col border-r border-surface-border bg-white shadow-lg",
+            "flex h-full w-[min(18rem,88vw)] shrink-0 flex-col border-r border-surface-border bg-surface-card shadow-lg",
             "transition-transform duration-200 ease-out motion-reduce:transition-none",
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
           ].join(" ")}
         >
           <div className="flex items-center justify-between border-b border-surface-border px-4 py-4">
-            <h2 id="mobile-drawer-title" className="text-lg font-bold tracking-tight text-slate-900">
+            <h2 id="mobile-drawer-title" className="text-lg font-bold tracking-tight text-ink">
               FlowPay
             </h2>
             <button
@@ -410,7 +412,7 @@ export default function Layout() {
                             </NavLink>
                             <button
                               type="button"
-                              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-white/80"
+                              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-card/80"
                               aria-expanded={clientsSubOpen}
                               aria-label="Desplegar sección Clientes"
                               onClick={(e) => {
@@ -479,7 +481,7 @@ export default function Layout() {
       {/* Sidebar escritorio: ancho dinámico, colapsable */}
       <aside
         className={[
-          "hidden shrink-0 flex-col border-r border-surface-border bg-gradient-to-b from-white to-slate-50/70 transition-[width] duration-200 ease-out lg:sticky lg:top-0 lg:flex lg:h-dvh lg:overflow-hidden",
+          "hidden shrink-0 flex-col border-r border-surface-border bg-gradient-to-b from-surface-card to-surface transition-[width] duration-200 ease-out lg:sticky lg:top-0 lg:flex lg:h-dvh lg:overflow-hidden",
           sidebarCollapsed ? "w-[4.5rem] px-2 py-6" : "w-64 px-4 py-8",
         ].join(" ")}
       >
@@ -491,6 +493,7 @@ export default function Layout() {
             >
               F
             </div>
+            <ThemeToggle compact />
             <button
               type="button"
               title="Expandir menú"
@@ -503,20 +506,25 @@ export default function Layout() {
             </button>
           </div>
         ) : (
-          <div className="flex w-full items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="w-full text-center text-lg font-bold tracking-tight text-slate-900">FlowPay</div>
+          <div className="flex w-full flex-col gap-2">
+            <div className="flex w-full items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="w-full text-center text-lg font-bold tracking-tight text-ink">FlowPay</div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <ThemeToggle compact />
+                <button
+                  type="button"
+                  title="Ocultar menú"
+                  aria-expanded
+                  aria-label="Ocultar menú lateral"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-surface-border text-ink-muted transition hover:bg-surface hover:text-ink"
+                  onClick={() => setSidebarCollapsed(true)}
+                >
+                  <ChevronLeft className="h-5 w-5" strokeWidth={2} />
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              title="Ocultar menú"
-              aria-expanded
-              aria-label="Ocultar menú lateral"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-surface-border text-ink-muted transition hover:bg-surface hover:text-ink"
-              onClick={() => setSidebarCollapsed(true)}
-            >
-              <ChevronLeft className="h-5 w-5" strokeWidth={2} />
-            </button>
           </div>
         )}
 
@@ -572,7 +580,7 @@ export default function Layout() {
                         </NavLink>
                         <button
                           type="button"
-                          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-white/80"
+                          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-card/80"
                           aria-expanded={clientsSubOpen}
                           aria-label="Desplegar sección Clientes"
                           title={clientsSubOpen ? "Ocultar submenú" : "Mostrar submenú"}
@@ -631,7 +639,7 @@ export default function Layout() {
 
       {profileOpen && (
         <AppModal onBackdropClick={profileLoading ? undefined : () => setProfileOpen(false)}>
-          <div className="w-full max-w-lg rounded-2xl border border-surface-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
             <h2 className="text-lg font-semibold text-ink">Perfil</h2>
             {profileError && (
               <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-sm text-rose-700">
@@ -684,7 +692,7 @@ export default function Layout() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60"
+                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
                   disabled={profileLoading}
                 >
                   {profileLoading ? "Guardando..." : "Guardar perfil"}

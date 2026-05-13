@@ -4,6 +4,7 @@ import { CreditCard, ShieldCheck } from "lucide-react";
 import { fetchPaymentPortal } from "../api";
 import type { PaymentPortalResponse, PortalCharge } from "../api";
 import { StatusBadge } from "../components/Badge";
+import ThemeToggle from "../components/ThemeToggle";
 import { formatDate, formatMoney } from "../lib/format";
 
 type ChargeStatusKey = "pending" | "paid" | "overdue";
@@ -40,10 +41,7 @@ export default function PayPage() {
       .then((d) => {
         setData(d);
         setError(null);
-        const initial = new Set<string>(
-          d.charges.filter((c) => statusKey(c) !== "paid").map((c) => c.ref),
-        );
-        setSelected(initial);
+        setSelected(new Set());
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "No se pudo cargar la página de pago");
@@ -113,30 +111,33 @@ export default function PayPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white px-4 py-10 pb-32">
+    <div className="relative min-h-screen bg-gradient-to-b from-surface to-surface-card px-4 py-10 pb-32 text-ink dark:to-surface">
+      <div className="fixed right-4 top-4 z-20 sm:right-6 sm:top-6">
+        <ThemeToggle compact />
+      </div>
       <div className="mx-auto w-full max-w-3xl">
-        <header className="mb-8 flex items-center justify-between">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">FlowPay</p>
             <h1 className="mt-1 text-2xl font-bold text-ink sm:text-3xl">Portal de pago</h1>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950/45 dark:text-emerald-300 dark:ring-emerald-500/30">
             <ShieldCheck className="h-3.5 w-3.5" />
             Acceso seguro
           </span>
         </header>
 
         {loading && (
-          <div className="rounded-2xl border border-surface-border bg-white p-10 text-center text-ink-muted shadow-soft">
+          <div className="rounded-2xl border border-surface-border bg-surface-card p-10 text-center text-ink-muted shadow-soft">
             Cargando…
           </div>
         )}
 
         {!loading && error && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center shadow-soft">
-            <p className="text-base font-semibold text-rose-900">No pudimos cargar tu cartola</p>
-            <p className="mt-2 text-sm text-rose-800/90">{error}</p>
-            <p className="mt-4 text-xs text-rose-800/70">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center shadow-soft dark:border-rose-900/50 dark:bg-rose-950/35 dark:shadow-none">
+            <p className="text-base font-semibold text-rose-900 dark:text-rose-200">No pudimos cargar tu cartola</p>
+            <p className="mt-2 text-sm text-rose-800/90 dark:text-rose-300/95">{error}</p>
+            <p className="mt-4 text-xs text-rose-800/70 dark:text-rose-400/90">
               Si recibiste este link de tu proveedor, pídele que te genere uno nuevo.
             </p>
           </div>
@@ -144,7 +145,7 @@ export default function PayPage() {
 
         {!loading && !error && data && (
           <div className="space-y-6">
-            <section className="rounded-2xl border border-surface-border bg-white p-6 shadow-soft">
+            <section className="rounded-2xl border border-surface-border bg-surface-card p-6 shadow-soft">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Empresa que cobra</p>
               <h2 className="mt-1 text-xl font-semibold text-ink">{data.company.name || "Empresa"}</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -160,13 +161,13 @@ export default function PayPage() {
                 </div>
               </div>
               {data.company.transfer_instructions && (
-                <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900 whitespace-pre-wrap">
+                <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900 whitespace-pre-wrap dark:border-indigo-800/60 dark:bg-indigo-950/40 dark:text-indigo-200">
                   {data.company.transfer_instructions}
                 </div>
               )}
             </section>
 
-            <section className="rounded-2xl border border-surface-border bg-white shadow-soft">
+            <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-border px-5 py-4">
                 <div>
                   <h3 className="text-base font-semibold text-ink">Cobros asociados</h3>
@@ -205,7 +206,7 @@ export default function PayPage() {
                       <li
                         key={row.ref}
                         className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 ${
-                          checked ? "bg-indigo-50/40" : ""
+                          checked ? "bg-indigo-50/40 dark:bg-indigo-950/35" : ""
                         }`}
                       >
                         <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
@@ -256,7 +257,7 @@ export default function PayPage() {
       </div>
 
       {!loading && !error && data && payableCharges.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-surface-border bg-white/95 px-4 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-surface-border bg-surface-card/95 px-4 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur dark:shadow-[0_-8px_28px_rgba(0,0,0,0.35)]">
           <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">A pagar ahora</p>
@@ -273,7 +274,7 @@ export default function PayPage() {
               type="button"
               onClick={onPagar}
               disabled={selectedCharges.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-surface-border disabled:text-ink-muted"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-surface-border disabled:text-ink-muted dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
             >
               <CreditCard className="h-4 w-4" />
               Pagar {selectedCharges.length > 0 ? formatMoney(selectedTotal) : ""}
@@ -289,9 +290,11 @@ type Tone = "amber" | "rose" | "emerald";
 
 function SummaryItem({ label, value, tone }: { label: string; value: string; tone: Tone }) {
   const toneClass: Record<Tone, string> = {
-    amber: "bg-amber-50 text-amber-900 ring-amber-200/70",
-    rose: "bg-rose-50 text-rose-900 ring-rose-200/70",
-    emerald: "bg-emerald-50 text-emerald-900 ring-emerald-200/70",
+    amber:
+      "bg-amber-50 text-amber-900 ring-amber-200/70 dark:bg-amber-950/45 dark:text-amber-200 dark:ring-amber-500/25",
+    rose: "bg-rose-50 text-rose-900 ring-rose-200/70 dark:bg-rose-950/45 dark:text-rose-200 dark:ring-rose-500/25",
+    emerald:
+      "bg-emerald-50 text-emerald-900 ring-emerald-200/70 dark:bg-emerald-950/45 dark:text-emerald-200 dark:ring-emerald-500/25",
   };
   return (
     <div className={`rounded-xl px-4 py-3 ring-1 ${toneClass[tone]}`}>

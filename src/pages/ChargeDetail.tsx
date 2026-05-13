@@ -227,7 +227,7 @@ export default function ChargeDetail() {
   }
   if (loadError) {
     return (
-      <div className="max-w-lg rounded-2xl border border-rose-200 bg-white p-6 text-rose-900 shadow-soft">
+      <div className="max-w-lg rounded-2xl border border-rose-200 bg-surface-card p-6 text-rose-900 shadow-soft">
         <p>{loadError}</p>
         <Link to="/cobros" className="mt-4 inline-block text-sm font-medium text-brand hover:underline">
           Volver a cobros
@@ -309,7 +309,7 @@ export default function ChargeDetail() {
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-12">
         <div className="min-w-0 space-y-6 xl:col-span-7">
-          <section className="min-h-[220px] rounded-2xl border border-surface-border bg-gradient-to-br from-white to-slate-50 p-4 shadow-soft sm:p-6">
+          <section className="min-h-[220px] rounded-2xl border border-surface-border bg-gradient-to-br from-surface-card to-surface p-4 shadow-soft sm:p-6">
             <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
               <div className="space-y-4 lg:col-span-12">
                 <div className="flex flex-wrap items-center gap-2">
@@ -321,20 +321,20 @@ export default function ChargeDetail() {
                   <span className="mt-0.5 block text-ink-muted">Vence el {formatDate(ch.due_date)}</span>
                 </p>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
+                  <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Monto</div>
                     <div className="mt-1 truncate text-xl font-semibold text-ink">{formatMoney(ch.amount)}</div>
                   </div>
-                  <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
+                  <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Estado</div>
                     <div className="mt-1 text-sm font-semibold text-ink">{dueLabel}</div>
                   </div>
-                  <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
+                  <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Recordatorios</div>
                     <div className="mt-1 text-sm font-semibold text-ink">{scheduled.length} en cola</div>
                   </div>
                 </div>
-                <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
+                <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                   <div className="text-xs uppercase tracking-wide text-ink-muted">Teléfono cliente</div>
                   <div className="mt-1 text-sm font-semibold text-ink">
                     {ch.client_phone?.trim() ? ch.client_phone : "Sin teléfono registrado"}
@@ -344,7 +344,7 @@ export default function ChargeDetail() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-surface-border bg-white p-4 shadow-soft sm:p-6">
+          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
             <h2 className="text-lg font-semibold text-ink">Editar cobro</h2>
             <p className="mt-1 text-sm text-ink-muted">
               Actualiza sucursal o punto de venta, fecha, monto y estado operativo.
@@ -411,7 +411,7 @@ export default function ChargeDetail() {
             </form>
           </section>
 
-          <section className="rounded-2xl border border-surface-border bg-white p-4 shadow-soft sm:p-5">
+          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-5">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Estado del cobro</h3>
             <div className="mt-3 space-y-2.5 text-sm">
               <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2">
@@ -435,7 +435,7 @@ export default function ChargeDetail() {
           </section>
         </div>
 
-        <section className="w-full min-w-0 rounded-2xl border border-surface-border bg-white p-4 shadow-soft sm:p-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
+        <section className="w-full min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
           <h2 className="text-lg font-semibold text-ink">Línea de tiempo</h2>
           <p className="mt-1 text-sm text-ink-muted">
             Lo más reciente arriba. Incluye recordatorios automáticos y respuestas del cliente por WhatsApp (fecha y hora
@@ -446,7 +446,7 @@ export default function ChargeDetail() {
               type="button"
               disabled={simulatingReply}
               onClick={() => void onSimulateClientReply()}
-              className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-left text-sm font-semibold text-ink hover:bg-surface disabled:opacity-60"
+              className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left text-sm font-semibold text-ink hover:bg-surface disabled:opacity-60"
             >
               {simulatingReply ? "Registrando…" : "Simular respuesta del cliente (WhatsApp)"}
             </button>
@@ -465,7 +465,7 @@ export default function ChargeDetail() {
                   timelineOrdered.map((item) =>
                     item.kind === "reminder" ? (
                       <li key={item.id} className="relative min-w-0 max-w-full">
-                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-white ring-2 ring-brand sm:-left-[33px]" />
+                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-surface-card ring-2 ring-brand sm:-left-[33px]" />
                         <div className="break-words text-sm font-medium text-ink">{timelineLabel(item.reminder)}</div>
                         <div className="mt-1 break-words text-xs text-ink-muted">
                           {formatDate(item.reminder.created_at)} · {item.reminder.kind} · {item.reminder.channel}
@@ -474,7 +474,7 @@ export default function ChargeDetail() {
                           <button
                             type="button"
                             onClick={() => setTimelineModal({ mode: "reminder", reminder: item.reminder })}
-                            className="mt-2 max-w-full rounded-lg border border-surface-border bg-white px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
+                            className="mt-2 max-w-full rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
                           >
                             {item.reminder.channel === "email" ? "Ver email enviado" : "Ver WhatsApp enviado"}
                           </button>
@@ -482,7 +482,7 @@ export default function ChargeDetail() {
                       </li>
                     ) : (
                       <li key={item.id} className="relative min-w-0 max-w-full">
-                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-white ring-2 ring-emerald-500 sm:-left-[33px]" />
+                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-surface-card ring-2 ring-emerald-500 sm:-left-[33px]" />
                         <div className="break-words text-sm font-medium text-ink">Respuesta del cliente (WhatsApp)</div>
                         <div className="mt-1 break-words text-xs text-ink-muted">
                           {formatDateTime(item.reply.created_at)} · whatsapp · entrante
@@ -491,7 +491,7 @@ export default function ChargeDetail() {
                           <button
                             type="button"
                             onClick={() => setTimelineModal({ mode: "reply", reply: item.reply })}
-                            className="mt-2 max-w-full rounded-lg border border-surface-border bg-white px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
+                            className="mt-2 max-w-full rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
                           >
                             Ver mensaje
                           </button>
@@ -512,14 +512,14 @@ export default function ChargeDetail() {
                 <button
                   type="button"
                   onClick={onRemind}
-                  className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-600"
+                  className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
                 >
                   Enviar recordatorio ahora
                 </button>
                 <button
                   type="button"
                   onClick={onPay}
-                  className="w-full rounded-xl border border-surface-border bg-white px-4 py-3 text-sm font-semibold text-ink hover:bg-surface"
+                  className="w-full rounded-xl border border-surface-border bg-surface-card px-4 py-3 text-sm font-semibold text-ink hover:bg-surface"
                 >
                   Registrar pago
                 </button>
@@ -534,7 +534,7 @@ export default function ChargeDetail() {
                 type="button"
                 onClick={() => void onDeleteCharge()}
                 disabled={deleting}
-                className="w-full rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                className="w-full rounded-xl border border-rose-200 bg-surface-card px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
               >
                 {deleting ? "Eliminando…" : "Eliminar cobro"}
               </button>
@@ -545,7 +545,7 @@ export default function ChargeDetail() {
 
       {timelineModal && (
         <AppModal>
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-2xl rounded-2xl bg-surface-card p-6 shadow-2xl">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-ink">
                 {timelineModal.mode === "reminder" ? "Mensaje enviado" : "Respuesta del cliente (WhatsApp)"}
