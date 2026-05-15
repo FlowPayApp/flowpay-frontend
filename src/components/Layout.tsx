@@ -20,7 +20,6 @@ import { getMyProfile, updateMyProfile } from "../api";
 import { getSessionClaims, getToken, logout } from "../lib/auth";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
 import AppModal from "./AppModal";
-import LoadingOverlay from "./LoadingOverlay";
 import PasswordInput from "./PasswordInput";
 import ThemeToggle from "./ThemeToggle";
 
@@ -87,7 +86,6 @@ export default function Layout() {
   const hasToken = !!getToken();
   const role = getSessionClaims()?.role ?? "";
   const isPlatformAdmin = role === "platform_admin";
-  const [routeLoading, setRouteLoading] = useState(false);
   const [mobileMenuMounted, setMobileMenuMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
@@ -107,7 +105,6 @@ export default function Layout() {
   const [profileError, setProfileError] = useState<string | null>(null);
   /** Submenú Clientes (solo vista expandida / móvil). */
   const [clientsSubOpen, setClientsSubOpen] = useState(readClientsSubOpenInitial);
-  const routeTimer = useRef<number | null>(null);
   const mobileDrawerTimer = useRef<number | null>(null);
   const items = isPlatformAdmin ? platformNav : companyNav;
 
@@ -127,15 +124,6 @@ export default function Layout() {
     if (location.pathname.startsWith("/clients/")) {
       setClientsSubOpen(true);
     }
-  }, [location.pathname]);
-
-  useEffect(() => {
-    setRouteLoading(true);
-    if (routeTimer.current) window.clearTimeout(routeTimer.current);
-    routeTimer.current = window.setTimeout(() => setRouteLoading(false), 260);
-    return () => {
-      if (routeTimer.current) window.clearTimeout(routeTimer.current);
-    };
   }, [location.pathname]);
 
   useEffect(() => {
@@ -333,8 +321,6 @@ export default function Layout() {
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
-      {routeLoading && <LoadingOverlay message="Cargando pantalla..." />}
-
       {/* Barra superior móvil / tablet */}
       <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-surface-border bg-surface-card/95 px-4 shadow-sm backdrop-blur lg:hidden">
         <div className="flex items-center gap-2">

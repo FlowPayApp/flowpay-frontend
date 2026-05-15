@@ -1,6 +1,7 @@
 ﻿import { ArrowDownRight, ArrowUpRight, Building2, CircleAlert, RefreshCw, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPlatformOverview, type PlatformOverviewResponse } from "../api";
+import PageLoading from "../components/PageLoading";
 import { formatMoney } from "../lib/format";
 
 type KpiTone = "default" | "success" | "warning" | "danger";
@@ -57,9 +58,7 @@ export default function PlatformOverview() {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-6xl px-0">
-        <div className="rounded-2xl border border-surface-border bg-surface-card px-5 py-4 text-sm text-ink-muted shadow-soft">
-          Cargando vista global...
-        </div>
+        <PageLoading />
       </div>
     );
   }

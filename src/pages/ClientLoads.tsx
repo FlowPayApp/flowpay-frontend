@@ -10,7 +10,9 @@ import {
 } from "../api";
 import type { ImportDistributorResult } from "../api";
 import AppModal from "../components/AppModal";
+import LoadingIndicator from "../components/LoadingIndicator";
 import LoadingOverlay from "../components/LoadingOverlay";
+import PageLoading from "../components/PageLoading";
 import { downloadClientImportTemplateXlsx, isExcelImportFile, parseClientImportExcel } from "../lib/clientImportExcel";
 
 function sourceLabel(s: string) {
@@ -171,7 +173,7 @@ export default function ClientLoads() {
       )}
 
       {loading && !rows.length ? (
-        <LoadingOverlay message="Cargando historial..." />
+        <PageLoading />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-sm">
           <div className="overflow-x-auto">
@@ -244,7 +246,9 @@ export default function ClientLoads() {
               Filas que no se pudieron procesar (número de fila en el archivo según la plantilla).
             </p>
             {errorsModal.loading ? (
-              <p className="mt-6 text-sm text-ink-muted">Cargando…</p>
+              <div className="mt-6 flex justify-center">
+                <LoadingIndicator />
+              </div>
             ) : errorsModal.err ? (
               <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{errorsModal.err}</p>
             ) : errorsModal.detail ? (

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchClients, fetchDashboard } from "../api";
 import type { ChargeDTO, ClientDTO, DashboardResponse } from "../api";
 import { AttentionTag, RiskBadge, StatusBadge } from "../components/Badge";
+import PageLoading from "../components/PageLoading";
 import { formatDate, formatMoney } from "../lib/format";
 
 function attentionKind(row: ChargeDTO): "due_soon" | "overdue" | "auto" {
@@ -105,14 +106,7 @@ export default function Dashboard() {
     );
   }
   if (!data) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-ink-muted">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-          <span>Cargando tu panel…</span>
-        </div>
-      </div>
-    );
+    return <PageLoading />;
   }
 
   const { totals } = data;

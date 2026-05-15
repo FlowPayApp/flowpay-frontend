@@ -135,3 +135,30 @@ html {
 body {
   @apply bg-surface text-ink min-h-screen;
 }
+
+/**
+ * Selects con bordes redondeados del app: quitamos la flecha nativa (suele ir pegada al borde)
+ * y dibujamos un chevron con margen interior desde la derecha.
+ * Excluimos `appearance-none` (flecha propia en markup, p. ej. ClientDetail).
+ */
+select.rounded-lg:not([class*="appearance-none"]),
+select.rounded-xl:not([class*="appearance-none"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  padding-inline-end: 1.875rem;
+  background-repeat: no-repeat;
+  background-size: 1rem 1rem;
+  background-position: right 0.5rem center;
+}
+
+html:not(.dark) select.rounded-lg:not([class*="appearance-none"]),
+html:not(.dark) select.rounded-xl:not([class*="appearance-none"]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%2364748b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+:root.dark select.rounded-lg:not([class*="appearance-none"]),
+:root.dark select.rounded-xl:not([class*="appearance-none"]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%2394a3b8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}

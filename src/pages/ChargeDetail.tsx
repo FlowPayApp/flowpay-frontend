@@ -13,6 +13,7 @@ import {
 } from "../api";
 import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder } from "../api";
 import AppModal from "../components/AppModal";
+import PageLoading from "../components/PageLoading";
 import { StatusBadge } from "../components/Badge";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatDateTime, formatMoney } from "../lib/format";
@@ -224,8 +225,8 @@ export default function ChargeDetail() {
 
   if (loading) {
     return (
-      <div className="mx-auto flex min-h-[30vh] w-full max-w-6xl items-center justify-center text-ink-muted">
-        Cargando…
+      <div className="mx-auto w-full max-w-6xl">
+        <PageLoading />
       </div>
     );
   }
