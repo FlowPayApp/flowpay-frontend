@@ -4,6 +4,7 @@ import { CreditCard, ShieldCheck } from "lucide-react";
 import { fetchPaymentPortal } from "../api";
 import type { PaymentPortalResponse, PortalCharge } from "../api";
 import { StatusBadge } from "../components/Badge";
+import PageLoading from "../components/PageLoading";
 import ThemeToggle from "../components/ThemeToggle";
 import { formatDate, formatMoney } from "../lib/format";
 
@@ -127,11 +128,7 @@ export default function PayPage() {
           </span>
         </header>
 
-        {loading && (
-          <div className="rounded-2xl border border-surface-border bg-surface-card p-10 text-center text-ink-muted shadow-soft">
-            Cargando…
-          </div>
-        )}
+        {loading && <PageLoading />}
 
         {!loading && error && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center shadow-soft dark:border-rose-900/50 dark:bg-rose-950/35 dark:shadow-none">

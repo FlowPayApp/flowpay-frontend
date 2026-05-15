@@ -4,6 +4,7 @@ import { ChevronDown, Eye, Trash2 } from "lucide-react";
 import { deleteClient, fetchClient, updateClient } from "../api";
 import type { ClientDTO } from "../api";
 import AppModal from "../components/AppModal";
+import PageLoading from "../components/PageLoading";
 import { RiskBadge } from "../components/Badge";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
@@ -165,7 +166,7 @@ export default function ClientDetail() {
   }
 
   if (loading) {
-    return <div className="text-ink-muted">Cargando…</div>;
+    return <PageLoading />;
   }
   if (loadError || !c) {
     return (
@@ -283,7 +284,7 @@ export default function ClientDetail() {
               <div className="relative min-w-[10rem] max-w-[15.5rem] flex-1 sm:flex-initial">
                 <select
                   id="client-followup-channel"
-                  className="w-full cursor-pointer appearance-none rounded-lg border border-surface-border bg-surface-card py-2 pl-2.5 pr-8 text-sm text-ink shadow-sm outline-none transition hover:border-slate-300 focus:border-brand focus:ring-2 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-slate-500"
+                  className="w-full cursor-pointer appearance-none rounded-lg border border-surface-border bg-surface-card py-2 pl-2.5 pr-9 text-sm text-ink shadow-sm outline-none transition hover:border-slate-300 focus:border-brand focus:ring-2 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-slate-500"
                   value={c.followup_channel ?? "all"}
                   disabled={followupSaving}
                   onChange={(e) =>
@@ -296,7 +297,7 @@ export default function ClientDetail() {
                   <option value="none">Sin seguimiento</option>
                 </select>
                 <ChevronDown
-                  className={`pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted ${followupSaving ? "opacity-50" : ""}`}
+                  className={`pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted ${followupSaving ? "opacity-50" : ""}`}
                   strokeWidth={2}
                   aria-hidden
                 />

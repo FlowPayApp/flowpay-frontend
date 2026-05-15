@@ -6,6 +6,7 @@ import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import type { ClientDTO } from "../api";
 import AppModal from "../components/AppModal";
 import { RiskBadge } from "../components/Badge";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 function dash(v: string | null | undefined) {
   const s = (v ?? "").trim();
@@ -265,8 +266,10 @@ export default function Clients() {
             <tbody className="divide-y divide-surface-border bg-surface-card">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-ink-muted">
-                    Cargando…
+                  <td colSpan={6} className="px-4 py-10">
+                    <div className="flex justify-center">
+                      <LoadingIndicator />
+                    </div>
                   </td>
                 </tr>
               ) : filteredRows.length === 0 ? (

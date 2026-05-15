@@ -5,6 +5,7 @@ import { createCharge, fetchCharges, fetchClients } from "../api";
 import type { ChargeDTO, ClientDTO } from "../api";
 import AppModal from "../components/AppModal";
 import { StatusBadge } from "../components/Badge";
+import LoadingIndicator from "../components/LoadingIndicator";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
 
@@ -203,8 +204,10 @@ export default function Cobros() {
             <tbody className="divide-y divide-surface-border bg-surface-card">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-ink-muted">
-                    Cargando…
+                  <td colSpan={6} className="px-4 py-10">
+                    <div className="flex justify-center">
+                      <LoadingIndicator />
+                    </div>
                   </td>
                 </tr>
               ) : filteredRows.length === 0 ? (

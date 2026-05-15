@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchCompanyMessaging, saveCompanyMessaging } from "../api";
 import type { MessagingSettingsDTO, ReminderTemplateRowDTO } from "../api";
+import PageLoading from "../components/PageLoading";
 
 type EditableTemplate = {
   key: string;
@@ -103,7 +104,7 @@ export default function MessagingSettings() {
   }
 
   if (loading) {
-    return <div className="text-ink-muted">Cargando…</div>;
+    return <PageLoading />;
   }
 
   return (
