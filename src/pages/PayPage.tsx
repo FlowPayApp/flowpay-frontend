@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CreditCard, ShieldCheck } from "lucide-react";
-import { fetchPaymentPortal } from "../api";
-import type { PaymentPortalResponse, PortalCharge } from "../api";
+import {
+  fetchPaymentPortal,
+  isPaymentMock,
+  startPaymentCheckout,
+} from "../lib/publicPayApi";
+import type { PaymentPortalResponse, PortalCharge } from "../lib/publicPayApi";
 import { StatusBadge } from "../components/Badge";
 import PageLoading from "../components/PageLoading";
 import ThemeToggle from "../components/ThemeToggle";
@@ -22,6 +26,8 @@ export default function PayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = token?.trim() ?? "";
@@ -97,14 +103,27 @@ export default function PayPage() {
     });
   }
 
-  function onPagar() {
-    if (selectedCharges.length === 0) return;
-    const refs = selectedCharges.map((c) => c.ref).join(", ");
-    window.alert(
-      `Aún no conectamos la pasarela.\n\nVas a pagar ${selectedCharges.length} cobro(s) por ${formatMoney(
-        selectedTotal,
-      )}.\nRefs: ${refs}`,
-    );
+  async function onPagar() {
+    if (selectedCharges.length === 0 || paying) return;
+    const raw = token?.trim() ?? "";
+    let portalToken = raw;
+    try {
+      portalToken = decodeURIComponent(raw).trim();
+    } catch {
+      portalToken = raw.trim();
+    }
+    if (!portalToken) return;
+
+    setPaying(true);
+    setPayError(null);
+    try {
+      const refs = selectedCharges.map((c) => c.ref);
+      const { redirect_url } = await startPaymentCheckout(portalToken, refs);
+      window.location.assign(redirect_url);
+    } catch (err: unknown) {
+      setPayError(err instanceof Error ? err.message : "No se pudo iniciar el pago");
+      setPaying(false);
+    }
   }
 
   function shortRef(ref: string) {
@@ -127,6 +146,12 @@ export default function PayPage() {
             Acceso seguro
           </span>
         </header>
+
+        {isPaymentMock() && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+            Modo demostración Webpay (sin Transbank). Los datos son de ejemplo; al pagar simulas el flujo completo.
+          </div>
+        )}
 
         {loading && <PageLoading />}
 
@@ -266,15 +291,17 @@ export default function PayPage() {
                       selectedCharges.length === 1 ? "" : "s"
                     }`}
               </p>
+              {payError && <p className="mt-1 text-xs font-medium text-rose-600 dark:text-rose-400">{payError}</p>}
+              <p className="mt-1 text-[11px] text-ink-muted">Serás redirigido a Webpay (Transbank)</p>
             </div>
             <button
               type="button"
               onClick={onPagar}
-              disabled={selectedCharges.length === 0}
+              disabled={selectedCharges.length === 0 || paying}
               className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-surface-border disabled:text-ink-muted dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
             >
               <CreditCard className="h-4 w-4" />
-              Pagar {selectedCharges.length > 0 ? formatMoney(selectedTotal) : ""}
+              {paying ? "Redirigiendo a Webpay…" : `Pagar ${selectedCharges.length > 0 ? formatMoney(selectedTotal) : ""}`}
             </button>
           </div>
         </div>

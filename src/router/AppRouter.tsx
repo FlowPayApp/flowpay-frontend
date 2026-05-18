@@ -15,6 +15,7 @@ import PlatformOverview from '../pages/PlatformOverview';
 import PlatformCompanies from '../pages/PlatformCompanies';
 import PlatformAdmins from '../pages/PlatformAdmins';
 import PayPage from '../pages/PayPage';
+import PayReturnPage from '../pages/PayReturnPage';
 
 const AppRouter = () => {
 
@@ -35,6 +36,7 @@ const AppRouter = () => {
     <>
       <Routes>
         <Route path="/pay/:token" element={<PayPage />} />
+        <Route path="/pay/:token/return" element={<PayReturnPage />} />
         <Route path="/*" element={<PublicRoute />}>
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
