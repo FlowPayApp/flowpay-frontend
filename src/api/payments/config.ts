@@ -3,3 +3,7 @@ export function paymentsApiUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return base ? `${base}${p}` : p;
 }
+
+export function isPaymentMock(): boolean {
+  return import.meta.env.VITE_FLOWPAY_PAYMENT_MOCK === "true";
+}

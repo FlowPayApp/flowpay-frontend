@@ -5,8 +5,9 @@ import {
   fetchPaymentPortal,
   isPaymentMock,
   startPaymentCheckout,
-} from "../lib/publicPayApi";
-import type { PaymentPortalResponse, PortalCharge } from "../lib/publicPayApi";
+  type PaymentPortalResponse,
+  type PortalCharge,
+} from "../api";
 import { StatusBadge } from "../components/Badge";
 import PageLoading from "../components/PageLoading";
 import ThemeToggle from "../components/ThemeToggle";

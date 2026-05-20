@@ -1,9 +1,5 @@
-import type { ChargeStatus } from "../api";
-import { paymentsApiUrl } from "./paymentsApiBase";
-
-export function isPaymentMock(): boolean {
-  return import.meta.env.VITE_FLOWPAY_PAYMENT_MOCK === "true";
-}
+import type { ChargeStatus } from "../types";
+import { isPaymentMock, paymentsApiUrl } from "./config";
 
 export interface PaymentPortalCompany {
   name: string;
