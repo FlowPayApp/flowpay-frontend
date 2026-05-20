@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Download, Loader2, Printer, XCircle } from "lucide-react";
-import { commitPaymentReturn, fetchPaymentPortal, isPaymentMock } from "../lib/publicPayApi";
-import type { PaymentCommitResponse, PaymentPortalResponse } from "../lib/publicPayApi";
+import {
+  commitPaymentReturn,
+  fetchPaymentPortal,
+  isPaymentMock,
+  type PaymentCommitResponse,
+  type PaymentPortalResponse,
+} from "../api";
 import ThemeToggle from "../components/ThemeToggle";
 import { formatMoney } from "../lib/format";
 import {
