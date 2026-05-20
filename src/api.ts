@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getToken, setToken } from "./lib/auth";
+import { paymentsApiUrl } from "./lib/paymentsApiBase";
 
 const api = axios.create({
   baseURL: "",
@@ -361,7 +362,7 @@ export async function sendReminderNow(chargeId: number) {
 }
 
 export async function recordPayment(chargeId: number, amount: number) {
-  await api.post("/api/payments", { charge_id: chargeId, amount });
+  await api.post(paymentsApiUrl("/api/payments"), { charge_id: chargeId, amount });
 }
 
 /** PDF o imagen (máx. 8 MB). Se adjunta al WhatsApp de recordatorio si defines FLOWPAY_PUBLIC_BASE_URL en el API. */

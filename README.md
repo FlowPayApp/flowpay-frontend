@@ -13,7 +13,13 @@ npm install
 npm run dev
 ```
 
-Abre `http://127.0.0.1:5173`. El proxy de Vite reenvía `/api` al backend en `http://127.0.0.1:8080`; arranca primero la API.
+Abre `http://127.0.0.1:5173`. El proxy de Vite reenvía:
+
+- `/api/public/pay`, `/api/public/webpay`, `/api/payments`, `/api/payment-tokens` → **flowpay-payments** (`:8081`)
+- el resto de `/api` → **flowpay-backend** (`:8080`)
+- `/api/clients` y `/auth` → **flowpay-sso** (`:9090`)
+
+Arranca backend, payments y SSO antes del front. Ver `.env.example`.
 
 ## Build de producción
 
