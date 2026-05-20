@@ -1,6 +1,6 @@
 import type { ChargeStatus } from "../api";
+import { paymentsApiUrl } from "./paymentsApiBase";
 
-/** true en dev si VITE_FLOWPAY_PAYMENT_MOCK=true (simula Webpay sin backend). */
 export function isPaymentMock(): boolean {
   return import.meta.env.VITE_FLOWPAY_PAYMENT_MOCK === "true";
 }
@@ -67,7 +67,7 @@ export async function fetchPaymentPortal(token: string): Promise<PaymentPortalRe
     await delay(400);
     return mockPortal(token);
   }
-  const res = await fetch(`/api/public/pay/${encodeURIComponent(token)}`);
+  const res = await fetch(paymentsApiUrl(`/api/public/pay/${encodeURIComponent(token)}`));
   if (res.status === 404) {
     throw new Error("Token de pago no encontrado o expirado");
   }
@@ -94,7 +94,7 @@ export async function startPaymentCheckout(
       buy_order: "MOCK-DEMO",
     };
   }
-  const res = await fetch(`/api/public/pay/${encodeURIComponent(portalToken)}/checkout`, {
+  const res = await fetch(paymentsApiUrl(`/api/public/pay/${encodeURIComponent(portalToken)}/checkout`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ charge_refs: chargeRefs }),
@@ -131,7 +131,7 @@ export async function commitPaymentReturn(
       message: "Pago autorizado (modo simulación)",
     };
   }
-  const res = await fetch(`/api/public/pay/${encodeURIComponent(portalToken)}/commit`, {
+  const res = await fetch(paymentsApiUrl(`/api/public/pay/${encodeURIComponent(portalToken)}/commit`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token_ws: trimmed }),
