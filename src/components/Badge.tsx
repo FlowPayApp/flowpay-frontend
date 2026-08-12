@@ -18,7 +18,9 @@ export function StatusBadge({ status }: { status: "pending" | "paid" | "overdue"
   };
   const m = status && map[status] ? map[status] : map.pending;
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${m.className}`}>
+    <span
+      className={`inline-flex h-6 shrink-0 items-center justify-center rounded-full px-2.5 text-xs font-medium leading-none ${m.className}`}
+    >
       {m.label}
     </span>
   );
