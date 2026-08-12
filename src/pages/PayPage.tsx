@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
-import { CreditCard, ShieldCheck } from "lucide-react";
+import { ChevronDown, CreditCard, ShieldCheck } from "lucide-react";
 import {
   fetchPaymentPortal,
   isPaymentMock,
@@ -14,11 +14,16 @@ import ThemeToggle from "../components/ThemeToggle";
 import { formatDate, formatMoney } from "../lib/format";
 
 type ChargeStatusKey = "pending" | "paid" | "overdue";
+type ChargeTab = "payable" | "paid";
 
 function statusKey(row: PortalCharge): ChargeStatusKey {
   if (row.status === "paid") return "paid";
   if (row.status === "overdue") return "overdue";
   return "pending";
+}
+
+function sortByDueDate(a: PortalCharge, b: PortalCharge) {
+  return a.due_date.localeCompare(b.due_date);
 }
 
 export default function PayPage() {
@@ -29,6 +34,10 @@ export default function PayPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [openTabs, setOpenTabs] = useState<Record<ChargeTab, boolean>>({
+    payable: true,
+    paid: false,
+  });
 
   useEffect(() => {
     const raw = token?.trim() ?? "";
@@ -58,21 +67,23 @@ export default function PayPage() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  const sortedCharges = useMemo(() => {
+  const payableCharges = useMemo(() => {
     if (!data?.charges) return [];
-    const rank: Record<ChargeStatusKey, number> = { overdue: 0, pending: 1, paid: 2 };
-    return [...data.charges].sort((a, b) => {
-      const ra = rank[statusKey(a)];
-      const rb = rank[statusKey(b)];
-      if (ra !== rb) return ra - rb;
-      return a.due_date.localeCompare(b.due_date);
-    });
+    const rank: Record<"overdue" | "pending", number> = { overdue: 0, pending: 1 };
+    return data.charges
+      .filter((c) => statusKey(c) !== "paid")
+      .sort((a, b) => {
+        const ra = rank[statusKey(a) === "overdue" ? "overdue" : "pending"];
+        const rb = rank[statusKey(b) === "overdue" ? "overdue" : "pending"];
+        if (ra !== rb) return ra - rb;
+        return sortByDueDate(a, b);
+      });
   }, [data]);
 
-  const payableCharges = useMemo(
-    () => sortedCharges.filter((c) => statusKey(c) !== "paid"),
-    [sortedCharges],
-  );
+  const paidCharges = useMemo(() => {
+    if (!data?.charges) return [];
+    return data.charges.filter((c) => statusKey(c) === "paid").sort(sortByDueDate);
+  }, [data]);
 
   const selectedCharges = useMemo(
     () => payableCharges.filter((c) => selected.has(c.ref)),
@@ -87,6 +98,10 @@ export default function PayPage() {
   const allSelected =
     payableCharges.length > 0 && payableCharges.every((c) => selected.has(c.ref));
   const someSelected = selectedCharges.length > 0 && !allSelected;
+
+  function toggleTab(tab: ChargeTab) {
+    setOpenTabs((prev) => ({ ...prev, [tab]: !prev[tab] }));
+  }
 
   function toggleOne(ref: string) {
     setSelected((prev) => {
@@ -190,63 +205,126 @@ export default function PayPage() {
               )}
             </section>
 
-            <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-border px-5 py-4">
-                <div>
-                  <h3 className="text-base font-semibold text-ink">Cobros asociados</h3>
-                  <p className="text-xs text-ink-muted">
-                    {payableCharges.length === 0
-                      ? "Sin cobros pendientes"
-                      : `${payableCharges.length} por pagar · ${sortedCharges.length} en total`}
-                  </p>
-                </div>
-                {payableCharges.length > 0 && (
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-ink">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-surface-border text-brand focus:ring-brand"
-                      checked={allSelected}
-                      ref={(el) => {
-                        if (el) el.indeterminate = someSelected;
-                      }}
-                      onChange={toggleAll}
-                    />
-                    Seleccionar todos
-                  </label>
-                )}
+            <section className="space-y-3">
+              <div className="px-1">
+                <h3 className="text-base font-semibold text-ink">Cobros asociados</h3>
+                <p className="text-xs text-ink-muted">
+                  {payableCharges.length === 0
+                    ? "Sin cobros pendientes"
+                    : `${payableCharges.length} por pagar · ${paidCharges.length} ya pagado${
+                        paidCharges.length === 1 ? "" : "s"
+                      }`}
+                </p>
               </div>
 
-              {sortedCharges.length === 0 ? (
-                <div className="px-5 py-10 text-center text-sm text-ink-muted">
-                  No hay cobros registrados todavía.
-                </div>
-              ) : (
-                <ul className="divide-y divide-surface-border">
-                  {sortedCharges.map((row) => {
-                    const paid = statusKey(row) === "paid";
-                    const checked = selected.has(row.ref);
-                    return (
+              <ChargeAccordion
+                title="Por pagar"
+                subtitle={
+                  payableCharges.length === 0
+                    ? "No tienes pagos pendientes"
+                    : `${payableCharges.length} cobro${payableCharges.length === 1 ? "" : "s"} · ${formatMoney(
+                        data.totals.pending + data.totals.overdue,
+                      )}`
+                }
+                open={openTabs.payable}
+                onToggle={() => toggleTab("payable")}
+              >
+                {payableCharges.length === 0 ? (
+                  <div className="px-5 py-8 text-center text-sm text-ink-muted">
+                    Estás al día. No hay cobros por pagar.
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between gap-3 bg-surface/50 px-5 py-2.5 dark:bg-white/[0.03]">
+                      <label className="inline-flex cursor-pointer items-center gap-3 text-xs font-medium text-ink-muted transition hover:text-ink">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 shrink-0 rounded border-surface-border text-brand focus:ring-brand"
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = someSelected;
+                          }}
+                          onChange={toggleAll}
+                        />
+                        {allSelected ? "Deseleccionar todos" : "Seleccionar todos"}
+                      </label>
+                      <span className="text-[11px] tabular-nums text-ink-muted">
+                        {selectedCharges.length}/{payableCharges.length}
+                      </span>
+                    </div>
+                    <ul className="divide-y divide-surface-border border-t border-surface-border">
+                      {payableCharges.map((row) => {
+                        const checked = selected.has(row.ref);
+                        return (
+                          <li
+                            key={row.ref}
+                            className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 ${
+                              checked ? "bg-indigo-50/40 dark:bg-indigo-950/35" : ""
+                            }`}
+                          >
+                            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 shrink-0 rounded border-surface-border text-brand focus:ring-brand"
+                                checked={checked}
+                                onChange={() => toggleOne(row.ref)}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-mono text-[11px] text-ink-muted">Ref {shortRef(row.ref)}</p>
+                                <p className="mt-0.5 text-sm font-medium text-ink">{formatMoney(row.amount)}</p>
+                                <p className="mt-0.5 text-xs text-ink-muted">Vence: {formatDate(row.due_date)}</p>
+                              </div>
+                            </label>
+                            <div className="flex shrink-0 items-center self-center gap-3">
+                              <StatusBadge status={row.status} />
+                              {row.attachment_token && (
+                                <a
+                                  href={`/api/public/attachments/${row.attachment_token}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs font-medium text-brand hover:underline"
+                                >
+                                  Ver adjunto
+                                </a>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+              </ChargeAccordion>
+
+              <ChargeAccordion
+                title="Ya pagados"
+                subtitle={
+                  paidCharges.length === 0
+                    ? "Sin historial todavía"
+                    : `${paidCharges.length} cobro${paidCharges.length === 1 ? "" : "s"} · ${formatMoney(
+                        data.totals.paid,
+                      )}`
+                }
+                open={openTabs.paid}
+                onToggle={() => toggleTab("paid")}
+              >
+                {paidCharges.length === 0 ? (
+                  <div className="px-5 py-8 text-center text-sm text-ink-muted">
+                    Aún no hay cobros pagados en este enlace.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-surface-border">
+                    {paidCharges.map((row) => (
                       <li
                         key={row.ref}
-                        className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 ${
-                          checked ? "bg-indigo-50/40 dark:bg-indigo-950/35" : ""
-                        }`}
+                        className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 opacity-90"
                       >
-                        <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 shrink-0 rounded border-surface-border text-brand focus:ring-brand disabled:cursor-not-allowed disabled:opacity-40"
-                            checked={checked}
-                            disabled={paid}
-                            onChange={() => toggleOne(row.ref)}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="font-mono text-[11px] text-ink-muted">Ref {shortRef(row.ref)}</p>
-                            <p className="mt-0.5 text-sm font-medium text-ink">{formatMoney(row.amount)}</p>
-                            <p className="mt-0.5 text-xs text-ink-muted">Vence: {formatDate(row.due_date)}</p>
-                          </div>
-                        </label>
-                        <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono text-[11px] text-ink-muted">Ref {shortRef(row.ref)}</p>
+                          <p className="mt-0.5 text-sm font-medium text-ink">{formatMoney(row.amount)}</p>
+                          <p className="mt-0.5 text-xs text-ink-muted">Venció: {formatDate(row.due_date)}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center self-center gap-3">
                           <StatusBadge status={row.status} />
                           {row.attachment_token && (
                             <a
@@ -260,12 +338,12 @@ export default function PayPage() {
                           )}
                         </div>
                       </li>
-                    );
-                  })}
-                </ul>
-              )}
+                    ))}
+                  </ul>
+                )}
+              </ChargeAccordion>
 
-              <div className="grid gap-3 border-t border-surface-border px-5 py-4 sm:grid-cols-3">
+              <div className="grid gap-3 rounded-2xl border border-surface-border bg-surface-card px-5 py-4 shadow-soft sm:grid-cols-3">
                 <SummaryItem label="Pendiente" value={formatMoney(data.totals.pending)} tone="amber" />
                 <SummaryItem label="Vencido" value={formatMoney(data.totals.overdue)} tone="rose" />
                 <SummaryItem label="Pagado" value={formatMoney(data.totals.paid)} tone="emerald" />
@@ -325,6 +403,42 @@ function SummaryItem({ label, value, tone }: { label: string; value: string; ton
     <div className={`rounded-xl px-4 py-3 ring-1 ${toneClass[tone]}`}>
       <p className="text-[11px] font-semibold uppercase tracking-wider">{label}</p>
       <p className="mt-0.5 text-base font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function ChargeAccordion({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-surface/60"
+      >
+        <ChevronDown
+          className={`mt-0.5 h-4 w-4 shrink-0 text-ink-muted transition-transform duration-200 ${
+            open ? "rotate-0" : "-rotate-90"
+          }`}
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink">{title}</p>
+          <p className="mt-0.5 text-xs text-ink-muted">{subtitle}</p>
+        </div>
+      </button>
+      {open && <div className="border-t border-surface-border">{children}</div>}
     </div>
   );
 }
