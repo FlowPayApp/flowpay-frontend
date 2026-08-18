@@ -44,18 +44,27 @@ type NavItem = {
   subItems?: { to: string; label: string; icon: LucideIcon }[];
 };
 
-const companyNav: NavItem[] = [
-  { to: "/", end: true, label: "Inicio", icon: LayoutDashboard },
-  { to: "/cobros", label: "Cobros", icon: Receipt },
-  { to: "/mensajes", label: "Mensajes", icon: MessageSquare },
-  {
+function companyNavItems(role: string): NavItem[] {
+  const isAdmin = role === "admin";
+  const items: NavItem[] = [
+    { to: "/", end: true, label: "Inicio", icon: LayoutDashboard },
+    { to: "/cobros", label: "Cobros", icon: Receipt },
+  ];
+  if (isAdmin) {
+    items.push({ to: "/mensajes", label: "Mensajes", icon: MessageSquare });
+  }
+  items.push({
     to: "/clients",
     end: true,
     label: "Clientes",
     icon: Users,
-    subItems: [{ to: "/clients/cargas", label: "Carga de clientes", icon: Upload }],
-  },
-];
+    subItems: isAdmin ? [{ to: "/clients/cargas", label: "Carga de clientes", icon: Upload }] : undefined,
+  });
+  if (isAdmin) {
+    items.push({ to: "/equipo", label: "Equipo", icon: UserCog });
+  }
+  return items;
+}
 
 const platformNav: NavItem[] = [
   { to: "/platform", end: true, label: "Inicio", icon: LayoutDashboard },
@@ -106,7 +115,7 @@ export default function Layout() {
   /** Submenú Clientes (solo vista expandida / móvil). */
   const [clientsSubOpen, setClientsSubOpen] = useState(readClientsSubOpenInitial);
   const mobileDrawerTimer = useRef<number | null>(null);
-  const items = isPlatformAdmin ? platformNav : companyNav;
+  const items = isPlatformAdmin ? platformNav : companyNavItems(role);
 
   const toggleClientsSub = useCallback(() => {
     setClientsSubOpen((o) => {

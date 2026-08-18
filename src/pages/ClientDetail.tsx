@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronDown, Eye, Trash2 } from "lucide-react";
-import { deleteClient, fetchClient, updateClient } from "../api";
-import type { ClientDTO } from "../api";
+import { deleteClient, fetchClient, listCompanyUsers, updateClient } from "../api";
+import type { ClientDTO, CompanyUserDTO } from "../api";
 import AppModal from "../components/AppModal";
 import PageLoading from "../components/PageLoading";
 import { RiskBadge } from "../components/Badge";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatMoney } from "../lib/format";
+import { isCompanyAdmin } from "../lib/roles";
 
 function dash(v: string | null | undefined) {
   const s = (v ?? "").trim();
@@ -28,6 +29,9 @@ export default function ClientDetail() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [toggleBusy, setToggleBusy] = useState(false);
   const [followupSaving, setFollowupSaving] = useState(false);
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [sellers, setSellers] = useState<CompanyUserDTO[]>([]);
+  const admin = isCompanyAdmin();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -49,6 +53,10 @@ export default function ClientDetail() {
     try {
       const row = await fetchClient(clientId);
       setC(row);
+      if (admin) {
+        const users = await listCompanyUsers().catch(() => [] as CompanyUserDTO[]);
+        setSellers(users.filter((u) => u.role === "member" && u.is_active !== false));
+      }
     } catch {
       setC(null);
       setLoadError("No se pudo cargar el cliente. ¿Existe y tenés permisos?");
@@ -124,6 +132,20 @@ export default function ClientDetail() {
       setError(err instanceof Error ? err.message : "No se pudo actualizar seguimiento");
     } finally {
       setFollowupSaving(false);
+    }
+  }
+
+  async function onAssignSeller(userId: number) {
+    if (!c) return;
+    setError(null);
+    setAssignBusy(true);
+    try {
+      await updateClient(c.id, { assigned_to: userId });
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "No se pudo asignar el vendedor");
+    } finally {
+      setAssignBusy(false);
     }
   }
 
@@ -247,17 +269,46 @@ export default function ClientDetail() {
             </div>
           </div>
           <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-ink-muted">Vendedor</div>
+            <div className="mt-1 truncate text-sm font-semibold text-ink" title={c.seller_name ?? ""}>
+              {dash(c.seller_name)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-ink-muted">Dirección</div>
+            <div className="mt-1 text-sm text-ink">{dash(c.address)}</div>
+          </div>
+          <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
             <div className="text-xs uppercase tracking-wide text-ink-muted">Método de pago</div>
             <div className="mt-1 text-sm font-semibold text-ink">{dash(c.payment_terms)}</div>
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-surface-border bg-surface-card px-4 py-3">
-          <div className="text-xs uppercase tracking-wide text-ink-muted">Dirección</div>
-          <div className="mt-1 text-sm text-ink">{dash(c.address)}</div>
-        </div>
-
+        {admin ? (
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Asignar vendedor</h3>
+            <p className="mt-1 text-xs text-ink-muted">El vendedor solo ve y opera este cliente si queda en su cartera.</p>
+            <select
+              className="mt-3 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink"
+              value={c.seller_user_id ? String(c.seller_user_id) : ""}
+              disabled={assignBusy}
+              onChange={(e) => void onAssignSeller(Number(e.target.value) || 0)}
+            >
+              <option value="">Sin asignar</option>
+              {c.seller_user_id && !sellers.some((s) => s.user_id === c.seller_user_id) ? (
+                <option value={c.seller_user_id}>{c.seller_name ?? "Vendedor actual"}</option>
+              ) : null}
+              {sellers.map((s) => (
+                <option key={s.user_id} value={s.user_id}>
+                  {s.name} ({s.email})
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Estado del cliente</h3>
             <p className="mt-1 text-xs text-ink-muted">Activá o desactivá el cliente para cobros y recordatorios.</p>
@@ -305,6 +356,7 @@ export default function ClientDetail() {
             </div>
           </div>
         </div>
+        ) : null}
 
       </section>
 
@@ -385,6 +437,7 @@ export default function ClientDetail() {
         </form>
       </section>
 
+      {admin ? (
       <section className="rounded-2xl border border-rose-200 bg-rose-50/40 p-5 shadow-soft sm:p-6 dark:border-rose-500/35 dark:bg-rose-950/25 dark:shadow-none">
         <h2 className="text-lg font-semibold text-rose-900 dark:text-rose-100">Zona de peligro</h2>
         <p className="mt-1 text-sm text-rose-800/90 dark:text-rose-300">
@@ -399,6 +452,7 @@ export default function ClientDetail() {
           Eliminar cliente
         </button>
       </section>
+      ) : null}
 
       {deleteModalOpen && c && (
         <AppModal onBackdropClick={deleting ? undefined : () => setDeleteModalOpen(false)}>

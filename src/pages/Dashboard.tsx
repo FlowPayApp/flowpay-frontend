@@ -5,6 +5,7 @@ import type { ChargeDTO, ClientDTO, DashboardResponse } from "../api";
 import { AttentionTag, RiskBadge, StatusBadge } from "../components/Badge";
 import PageLoading from "../components/PageLoading";
 import { formatDate, formatMoney } from "../lib/format";
+import { isCompanyMember } from "../lib/roles";
 
 function attentionKind(row: ChargeDTO): "due_soon" | "overdue" | "auto" {
   if (row.status === "overdue") return "overdue";
@@ -123,7 +124,9 @@ export default function Dashboard() {
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-brand/5 blur-3xl dark:hidden" />
         <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-violet-200/20 blur-2xl dark:hidden" />
         <p className="text-sm font-medium capitalize text-brand dark:text-indigo-300">{todayLabel}</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl lg:text-4xl">Resumen de cobranza</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl lg:text-4xl">
+          {isCompanyMember() ? "Resumen de tu cartera" : "Resumen de cobranza"}
+        </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink-muted">{data.tagline}</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link

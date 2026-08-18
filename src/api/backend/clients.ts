@@ -29,6 +29,7 @@ export async function createClient(payload: {
   client_code?: string;
   branch_name?: string;
   payment_terms?: string;
+  assigned_to?: number;
 }) {
   const { data } = await api.post<{ id: number }>("/api/clients", payload);
   return data;

@@ -19,6 +19,11 @@ export interface ClientDTO {
   /** Preferencia de seguimiento automático: all|email|whatsapp|none. */
   followup_channel?: "all" | "email" | "whatsapp" | "none";
   created_at: string;
+  created_by?: number | null;
+  assigned_to?: number | null;
+  /** Dueño de cartera: assigned_to si existe, si no created_by. */
+  seller_user_id?: number | null;
+  seller_name?: string | null;
   risk_level: "low" | "medium" | "high";
   total_owed: number;
   overdue_count: number;
@@ -36,6 +41,7 @@ export type UpdateClientPayload = {
   client_code?: string;
   branch_name?: string;
   payment_terms?: string;
+  assigned_to?: number | null;
 };
 
 export interface ImportDistributorResult {

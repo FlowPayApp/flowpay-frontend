@@ -1,12 +1,13 @@
 import { Eye, Filter, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createClient, fetchClients } from "../api";
+import { createClient, fetchClients, listCompanyUsers } from "../api";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
-import type { ClientDTO } from "../api";
+import type { ClientDTO, CompanyUserDTO } from "../api";
 import AppModal from "../components/AppModal";
 import { RiskBadge } from "../components/Badge";
 import LoadingIndicator from "../components/LoadingIndicator";
+import { isCompanyAdmin } from "../lib/roles";
 
 function dash(v: string | null | undefined) {
   const s = (v ?? "").trim();
@@ -18,7 +19,9 @@ type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
 export default function Clients() {
   const nav = useNavigate();
+  const admin = isCompanyAdmin();
   const [rows, setRows] = useState<ClientDTO[]>([]);
+  const [sellers, setSellers] = useState<CompanyUserDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
@@ -30,6 +33,7 @@ export default function Clients() {
     client_code: "",
     branch_name: "",
     payment_terms: "",
+    assigned_to: "",
   });
   const [filters, setFilters] = useState<{
     search: string;
@@ -45,8 +49,14 @@ export default function Clients() {
   const [page, setPage] = useState(1);
 
   const load = () =>
-    fetchClients()
-      .then(setRows)
+    Promise.all([
+      fetchClients(),
+      admin ? listCompanyUsers().catch(() => [] as CompanyUserDTO[]) : Promise.resolve([] as CompanyUserDTO[]),
+    ])
+      .then(([clients, users]) => {
+        setRows(clients);
+        setSellers(users.filter((u) => u.role === "member" && u.is_active !== false));
+      })
       .finally(() => setLoading(false));
 
   useEffect(() => {
@@ -63,6 +73,7 @@ export default function Clients() {
     client_code: "",
     branch_name: "",
     payment_terms: "",
+    assigned_to: "",
   });
 
   function openCreateModal() {
@@ -89,6 +100,7 @@ export default function Clients() {
         client_code: form.client_code.trim() || undefined,
         branch_name: form.branch_name.trim() || undefined,
         payment_terms: form.payment_terms.trim() || undefined,
+        assigned_to: admin && form.assigned_to ? Number(form.assigned_to) : undefined,
       });
       closeClientModal();
       setLoading(true);
@@ -112,6 +124,7 @@ export default function Clients() {
           c.client_code,
           c.branch_name,
           c.payment_terms,
+          c.seller_name,
         ];
         const textOk = q === "" || searchFields.some((x) => (x ?? "").toLowerCase().includes(q));
         const riskOk = filters.risk === "all" || c.risk_level === filters.risk;
@@ -255,6 +268,7 @@ export default function Clients() {
               <tr>
                 <th className="min-w-[96px] whitespace-nowrap px-3 py-3 text-center">Código</th>
                 <th className="min-w-[140px] whitespace-nowrap px-3 py-3">Sucursal</th>
+                {admin ? <th className="min-w-[140px] whitespace-nowrap px-3 py-3">Vendedor</th> : null}
                 <th className="min-w-[180px] px-3 py-3">Dirección</th>
                 <th className="min-w-[88px] whitespace-nowrap px-3 py-3">Riesgo</th>
                 <th className="min-w-[176px] whitespace-nowrap px-3 py-3 pr-5">Cobros</th>
@@ -266,7 +280,7 @@ export default function Clients() {
             <tbody className="divide-y divide-surface-border bg-surface-card">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10">
+                  <td colSpan={admin ? 7 : 6} className="px-4 py-10">
                     <div className="flex justify-center">
                       <LoadingIndicator />
                     </div>
@@ -274,7 +288,7 @@ export default function Clients() {
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-ink-muted">
+                  <td colSpan={admin ? 7 : 6} className="px-4 py-10 text-center text-ink-muted">
                     No hay clientes para los filtros seleccionados.
                   </td>
                 </tr>
@@ -287,6 +301,11 @@ export default function Clients() {
                     <td className="truncate px-3 py-3 font-medium text-ink" title={c.branch_name ?? ""}>
                       {dash(c.branch_name)}
                     </td>
+                    {admin ? (
+                      <td className="truncate px-3 py-3 text-ink-muted" title={c.seller_name ?? ""}>
+                        {dash(c.seller_name)}
+                      </td>
+                    ) : null}
                     <td className="truncate px-3 py-3 text-ink-muted" title={c.address ?? ""}>
                       {dash(c.address)}
                     </td>
@@ -439,6 +458,23 @@ export default function Clients() {
                   placeholder="Ej. CONTADO"
                 />
               </label>
+              {admin ? (
+                <label className="block text-sm font-medium text-ink sm:col-span-2">
+                  Vendedor
+                  <select
+                    className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm text-ink"
+                    value={form.assigned_to}
+                    onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))}
+                  >
+                    <option value="">Sin asignar</option>
+                    {sellers.map((s) => (
+                      <option key={s.user_id} value={s.user_id}>
+                        {s.name} ({s.email})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               {error && <p className="sm:col-span-2 text-sm text-rose-600">{error}</p>}
               <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
                 <button
