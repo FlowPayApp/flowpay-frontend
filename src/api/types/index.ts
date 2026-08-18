@@ -15,3 +15,4 @@ export type {
 } from "./platform";
 export type { ReminderTemplateRowDTO, MessagingSettingsDTO } from "./messaging";
 export type { MyProfileDTO } from "./profile";
+export type { CompanyUserDTO } from "./companyUser";

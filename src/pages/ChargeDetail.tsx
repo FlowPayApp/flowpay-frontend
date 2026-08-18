@@ -17,6 +17,7 @@ import PageLoading from "../components/PageLoading";
 import { StatusBadge } from "../components/Badge";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatDateTime, formatMoney } from "../lib/format";
+import { isCompanyAdmin } from "../lib/roles";
 
 function normalizeClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -71,6 +72,7 @@ export default function ChargeDetail() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [simulatingReply, setSimulatingReply] = useState(false);
+  const admin = isCompanyAdmin();
   const load = async () => {
     setLoading(true);
     setLoadError(null);
@@ -534,6 +536,7 @@ export default function ChargeDetail() {
                 Este cobro ya está marcado como cobrado.
               </p>
             )}
+            {admin ? (
             <div className="mt-6 border-t border-surface-border pt-4">
               <button
                 type="button"
@@ -544,6 +547,7 @@ export default function ChargeDetail() {
                 {deleting ? "Eliminando…" : "Eliminar cobro"}
               </button>
             </div>
+            ) : null}
           </div>
         </section>
       </div>
