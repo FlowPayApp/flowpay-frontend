@@ -1,13 +1,17 @@
-import { Eye, Filter, Plus } from "lucide-react";
+import { Eye, Filter, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createClient, fetchClients, listCompanyUsers } from "../api";
+import { createClient, deleteClient, fetchClients, listCompanyUsers } from "../api";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import type { ClientDTO, CompanyUserDTO } from "../api";
 import AppModal from "../components/AppModal";
+import AppSelect from "../components/AppSelect";
 import { RiskBadge } from "../components/Badge";
+import FilterTray from "../components/FilterTray";
 import LoadingIndicator from "../components/LoadingIndicator";
+import TablePagination from "../components/TablePagination";
 import { isCompanyAdmin } from "../lib/roles";
+import { PAYMENT_METHODS } from "../lib/paymentMethods";
 
 function dash(v: string | null | undefined) {
   const s = (v ?? "").trim();
@@ -16,6 +20,30 @@ function dash(v: string | null | undefined) {
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+
+function ClientRowActions({ client, canDelete, onDelete }: { client: ClientDTO; canDelete: boolean; onDelete: (client: ClientDTO) => void }) {
+  return (
+    <div className="flex items-center justify-start gap-2">
+      <Link
+        to={`/clients/${client.id}`}
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-2.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink"
+      >
+        <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+        Abrir
+      </Link>
+      {canDelete && (
+        <button
+          type="button"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgb(142_58_46)] bg-surface-card px-2.5 text-xs font-medium text-[rgb(142_58_46)] transition hover:bg-danger-soft"
+          onClick={() => onDelete(client)}
+        >
+          <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+          Eliminar
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function Clients() {
   const nav = useNavigate();
@@ -45,6 +73,9 @@ export default function Clients() {
     status: "all",
   });
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ClientDTO | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState<PageSize>(10);
   const [page, setPage] = useState(1);
 
@@ -153,8 +184,6 @@ export default function Clients() {
   }, [totalPages]);
 
   const pageClamped = Math.min(page, totalPages);
-  const rowStart = totalFiltered === 0 ? 0 : (pageClamped - 1) * pageSize + 1;
-  const rowEnd = Math.min(pageClamped * pageSize, totalFiltered);
 
   const paginatedRows = useMemo(() => {
     const start = (pageClamped - 1) * pageSize;
@@ -179,42 +208,55 @@ export default function Clients() {
   };
 
   const clientStatusTone = (c: ClientDTO) => {
-    if (hasNoCharges(c)) return "bg-slate-50 text-slate-600 border-slate-200";
-    if (c.overdue_count > 0) return "bg-rose-50 text-rose-700 border-rose-200";
-    if (c.total_owed > 0) return "bg-amber-50 text-amber-700 border-amber-200";
-    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (hasNoCharges(c)) return "border border-surface-border bg-surface text-ink-muted";
+    if (c.overdue_count > 0) return "border border-transparent bg-[rgb(142_58_46)] text-white";
+    if (c.total_owed > 0) return "border border-transparent bg-[rgb(122_84_32)] text-white";
+    return "border border-transparent bg-[rgb(15_110_107)] text-white";
   };
 
   return (
     <div className="mx-auto w-full max-w-[100rem] space-y-6">
       {error && !open && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 whitespace-pre-wrap">{error}</div>
+        <div className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger whitespace-pre-wrap">{error}</div>
       )}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Clientes</h1>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <button
+            type="button"
+            aria-expanded={openFilters}
+            className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium sm:flex-none ${
+              openFilters
+                ? "border-brand/40 bg-brand-soft text-brand"
+                : "border-surface-border bg-surface-card text-ink-muted hover:bg-surface hover:text-ink"
+            }`}
+            onClick={() => setOpenFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4" />
+            Filtros
+          </button>
+          {admin && (
+            <Link
+              to="/clients/cargas"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink sm:flex-none"
+            >
+              <Upload className="h-4 w-4" strokeWidth={2} />
+              Cargar
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-hover sm:flex-none"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            Crear
+          </button>
+        </div>
+      </div>
       <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
-        <div className="border-b border-surface-border px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-ink">Clientes registrados</h2>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink"
-                onClick={() => setOpenFilters((v) => !v)}
-              >
-                <Filter className="h-4 w-4" />
-                Filtros
-              </button>
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
-              >
-                <Plus className="h-4 w-4" strokeWidth={2.5} />
-                Crear
-              </button>
-            </div>
-          </div>
-          {openFilters && (
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <FilterTray open={openFilters}>
+            <div className="grid gap-3 sm:grid-cols-3">
               <label className="text-sm text-ink-muted">
                 Buscar
                 <input
@@ -226,55 +268,102 @@ export default function Clients() {
               </label>
               <label className="text-sm text-ink-muted">
                 Riesgo
-                <select
-                  className="mt-1 w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-ink"
+                <AppSelect
                   value={filters.risk}
-                  onChange={(e) =>
+                  onChange={(risk) =>
                     setFilters((f) => ({
                       ...f,
-                      risk: e.target.value as "all" | "high" | "medium" | "low",
+                      risk: risk as "all" | "high" | "medium" | "low",
                     }))
                   }
-                >
-                  <option value="all">Todos</option>
-                  <option value="high">Alto</option>
-                  <option value="medium">Medio</option>
-                  <option value="low">Bajo</option>
-                </select>
+                  options={[
+                    { value: "all", label: "Todos" },
+                    { value: "high", label: "Alto" },
+                    { value: "medium", label: "Medio" },
+                    { value: "low", label: "Bajo" },
+                  ]}
+                />
               </label>
               <label className="text-sm text-ink-muted">
                 Estado
-                <select
-                  className="mt-1 w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-ink"
+                <AppSelect
                   value={filters.status}
-                  onChange={(e) =>
+                  onChange={(status) =>
                     setFilters((f) => ({
                       ...f,
-                      status: e.target.value as "all" | "active" | "inactive",
+                      status: status as "all" | "active" | "inactive",
                     }))
                   }
-                >
-                  <option value="all">Todos</option>
-                  <option value="active">Activos</option>
-                  <option value="inactive">Inactivos</option>
-                </select>
+                  options={[
+                    { value: "all", label: "Todos" },
+                    { value: "active", label: "Activos" },
+                    { value: "inactive", label: "Inactivos" },
+                  ]}
+                />
               </label>
             </div>
+          </FilterTray>
+        <ul className="divide-y divide-surface-border lg:hidden">
+          {loading ? (
+            <li className="flex justify-center px-4 py-10">
+              <LoadingIndicator />
+            </li>
+          ) : filteredRows.length === 0 ? (
+            <li className="px-4 py-10 text-center text-sm text-ink-muted">
+              No hay clientes para los filtros seleccionados.
+            </li>
+          ) : (
+            paginatedRows.map((c) => (
+              <li key={c.id} className={`px-4 py-4 ${!isClientActive(c) ? "opacity-75" : ""}`}>
+                <Link to={`/clients/${c.id}`} className="block min-w-0 active:opacity-80">
+                  <p className="truncate text-base font-semibold text-ink">{dash(c.branch_name)}</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {dash(c.client_code)}
+                    {admin ? ` · ${dash(c.seller_name)}` : ""}
+                  </p>
+                  <p className="mt-0.5 line-clamp-2 text-sm text-ink">{dash(c.address)}</p>
+                </Link>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={`inline-flex h-7 items-center rounded-full px-2.5 text-xs font-semibold ${clientStatusTone(c)}`}
+                    onClick={() => {
+                      const params = new URLSearchParams();
+                      params.set("client_id", String(c.id));
+                      params.set("client", chargeCounterpartyLabel(c));
+                      params.set("status", clientStatusFilter(c));
+                      nav(`/cobros?${params.toString()}`);
+                    }}
+                  >
+                    {clientStatusLabel(c)}
+                  </button>
+                  <RiskBadge level={c.risk_level} compact />
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <ClientRowActions
+                    client={c}
+                    canDelete={admin}
+                    onDelete={(row) => {
+                      setDeleteError(null);
+                      setDeleteTarget(row);
+                    }}
+                  />
+                </div>
+              </li>
+            ))
           )}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] table-fixed text-xs sm:text-sm">
-            <thead className="bg-surface/80 text-left text-[10px] font-semibold uppercase tracking-wide text-ink-muted sm:text-xs">
+        </ul>
+        <div className="hidden overflow-x-auto lg:block">
+          <table className="w-full min-w-[880px] text-sm">
+            <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">
               <tr>
-                <th className="min-w-[96px] whitespace-nowrap px-3 py-3 text-center">Código</th>
-                <th className="min-w-[140px] whitespace-nowrap px-3 py-3">Sucursal</th>
-                {admin ? <th className="min-w-[140px] whitespace-nowrap px-3 py-3">Vendedor</th> : null}
-                <th className="min-w-[180px] px-3 py-3">Dirección</th>
-                <th className="min-w-[88px] whitespace-nowrap px-3 py-3">Riesgo</th>
-                <th className="min-w-[176px] whitespace-nowrap px-3 py-3 pr-5">Cobros</th>
-                <th className="min-w-[140px] whitespace-nowrap border-l border-surface-border px-3 py-3 pl-6 text-center">
-                  Acciones
-                </th>
+                <th className="whitespace-nowrap px-4 py-3 text-center">Código</th>
+                <th className="whitespace-nowrap px-4 py-3">Sucursal</th>
+                {admin ? <th className="whitespace-nowrap px-4 py-3">Vendedor</th> : null}
+                <th className="px-4 py-3">Dirección</th>
+                <th className="whitespace-nowrap px-4 py-3">Riesgo</th>
+                <th className="whitespace-nowrap px-4 py-3">Cobros</th>
+                <th className="w-px whitespace-nowrap px-4 py-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border bg-surface-card">
@@ -295,27 +384,27 @@ export default function Clients() {
               ) : (
                 paginatedRows.map((c) => (
                   <tr key={c.id} className={`hover:bg-surface/40 ${!isClientActive(c) ? "opacity-75" : ""}`}>
-                    <td className="whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] text-ink">
+                    <td className="whitespace-nowrap px-4 py-3 text-center font-mono text-xs text-ink">
                       {dash(c.client_code)}
                     </td>
-                    <td className="truncate px-3 py-3 font-medium text-ink" title={c.branch_name ?? ""}>
+                    <td className="max-w-[16rem] truncate px-4 py-3 font-medium text-ink" title={c.branch_name ?? ""}>
                       {dash(c.branch_name)}
                     </td>
                     {admin ? (
-                      <td className="truncate px-3 py-3 text-ink-muted" title={c.seller_name ?? ""}>
+                      <td className="max-w-[14rem] truncate px-4 py-3 text-ink-muted" title={c.seller_name ?? ""}>
                         {dash(c.seller_name)}
                       </td>
                     ) : null}
-                    <td className="truncate px-3 py-3 text-ink-muted" title={c.address ?? ""}>
+                    <td className="max-w-[20rem] truncate px-4 py-3 text-ink-muted" title={c.address ?? ""}>
                       {dash(c.address)}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3">
+                    <td className="whitespace-nowrap px-4 py-3">
                       <RiskBadge level={c.risk_level} />
                     </td>
-                    <td className="min-w-[176px] whitespace-nowrap px-3 py-3 pr-5 align-middle">
+                    <td className="whitespace-nowrap px-4 py-3 align-middle">
                       <button
                         type="button"
-                        className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold transition hover:brightness-95 ${clientStatusTone(c)}`}
+                        className={`inline-flex h-7 items-center rounded-full px-2.5 text-xs font-semibold transition hover:brightness-95 ${clientStatusTone(c)}`}
                         onClick={() => {
                           const params = new URLSearchParams();
                           params.set("client_id", String(c.id));
@@ -327,16 +416,15 @@ export default function Clients() {
                         {clientStatusLabel(c)}
                       </button>
                     </td>
-                    <td className="min-w-[140px] whitespace-nowrap border-l border-surface-border px-3 py-3 pl-6 align-middle">
-                      <div className="flex flex-wrap items-center justify-center gap-2">
-                        <Link
-                          to={`/clients/${c.id}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-surface-border px-2.5 py-1.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink"
-                        >
-                          <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-                          Abrir
-                        </Link>
-                      </div>
+                    <td className="w-px whitespace-nowrap px-4 py-3 text-center align-middle">
+                      <ClientRowActions
+                        client={c}
+                        canDelete={admin}
+                        onDelete={(row) => {
+                          setDeleteError(null);
+                          setDeleteTarget(row);
+                        }}
+                      />
                     </td>
                   </tr>
                 ))
@@ -344,53 +432,18 @@ export default function Clients() {
             </tbody>
           </table>
         </div>
-        {!loading && totalFiltered > 0 && (
-          <div className="flex flex-col gap-3 border-t border-surface-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-ink-muted">
-              Mostrando{" "}
-              <span className="font-medium text-ink">
-                {rowStart}–{rowEnd}
-              </span>{" "}
-              de <span className="font-medium text-ink">{totalFiltered}</span>
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-ink-muted">
-                Filas por página
-                <select
-                  className="rounded-lg border border-surface-border bg-surface-card px-2 py-1.5 text-sm text-ink"
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
-                >
-                  {PAGE_SIZE_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={pageClamped <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Anterior
-                </button>
-                <span className="px-2 text-sm text-ink-muted">
-                  Página {pageClamped} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={pageClamped >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Siguiente
-                </button>
-              </div>
-            </div>
-          </div>
+        {!loading && (
+          <TablePagination
+            page={pageClamped}
+            pageSize={pageSize}
+            total={totalFiltered}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageChange={setPage}
+            onPageSizeChange={(next) => {
+              setPageSize(next as PageSize);
+              setPage(1);
+            }}
+          />
         )}
       </div>
 
@@ -416,7 +469,7 @@ export default function Clients() {
                 />
               </label>
               <label className="block text-sm font-medium text-ink sm:col-span-2">
-                NOMBRE <span className="text-rose-600">*</span>
+                NOMBRE <span className="text-danger">*</span>
                 <input
                   required
                   className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
@@ -451,31 +504,29 @@ export default function Clients() {
               </label>
               <label className="block text-sm font-medium text-ink">
                 MPAGO · Método de pago
-                <input
-                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
+                <AppSelect
+                  required
+                  placeholder="Selecciona"
                   value={form.payment_terms}
-                  onChange={(e) => setForm((f) => ({ ...f, payment_terms: e.target.value }))}
-                  placeholder="Ej. CONTADO"
+                  onChange={(payment_terms) => setForm((f) => ({ ...f, payment_terms }))}
+                  options={PAYMENT_METHODS.map((method) => ({ value: method.value, label: method.label }))}
                 />
               </label>
               {admin ? (
                 <label className="block text-sm font-medium text-ink sm:col-span-2">
                   Vendedor
-                  <select
-                    className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm text-ink"
+                  <AppSelect
+                    placeholder="Sin asignar"
                     value={form.assigned_to}
-                    onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))}
-                  >
-                    <option value="">Sin asignar</option>
-                    {sellers.map((s) => (
-                      <option key={s.user_id} value={s.user_id}>
-                        {s.name} ({s.email})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(assigned_to) => setForm((f) => ({ ...f, assigned_to }))}
+                    options={[
+                      { value: "", label: "Sin asignar" },
+                      ...sellers.map((s) => ({ value: String(s.user_id), label: `${s.name} (${s.email})` })),
+                    ]}
+                  />
                 </label>
               ) : null}
-              {error && <p className="sm:col-span-2 text-sm text-rose-600">{error}</p>}
+              {error && <p className="sm:col-span-2 text-sm text-danger">{error}</p>}
               <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
                 <button
                   type="button"
@@ -486,12 +537,57 @@ export default function Clients() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                  className="min-h-11 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"
                 >
                   Guardar
                 </button>
               </div>
             </form>
+          </div>
+        </AppModal>
+      )}
+
+      {deleteTarget && (
+        <AppModal onBackdropClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-ink">¿Eliminar este cliente?</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Se eliminará <span className="font-semibold text-ink">{chargeCounterpartyLabel(deleteTarget)}</span> y{" "}
+              <span className="font-semibold text-ink">todos los cobros</span> asociados. Esta acción no se puede deshacer.
+            </p>
+            {deleteError && <p className="mt-3 text-sm text-danger">{deleteError}</p>}
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                className="inline-flex items-center gap-2 bg-danger text-sm font-semibold text-white disabled:opacity-60"
+                onClick={() => {
+                  const target = deleteTarget;
+                  setDeleting(true);
+                  setDeleteError(null);
+                  void deleteClient(target.id)
+                    .then(() => {
+                      setRows((current) => current.filter((row) => row.id !== target.id));
+                      setDeleteTarget(null);
+                    })
+                    .catch((err: unknown) => {
+                      setDeleteError(err instanceof Error ? err.message : "No se pudo eliminar");
+                    })
+                    .finally(() => setDeleting(false));
+                }}
+              >
+                {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Eliminar definitivamente
+              </button>
+            </div>
           </div>
         </AppModal>
       )}

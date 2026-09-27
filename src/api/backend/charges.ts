@@ -80,6 +80,13 @@ export async function uploadChargeAttachment(chargeId: number, file: File) {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || "Error al subir");
+    let message = text || "No se pudo adjuntar la factura.";
+    try {
+      const data = JSON.parse(text) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      /* el cuerpo no es JSON */
+    }
+    throw new Error(message);
   }
 }

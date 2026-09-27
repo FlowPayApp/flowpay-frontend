@@ -4,6 +4,10 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Source Sans 3"', "system-ui", "sans-serif"],
+        display: ["Fraunces", "Georgia", "serif"],
+      },
       colors: {
         surface: {
           DEFAULT: "rgb(var(--color-surface) / <alpha-value>)",
@@ -17,15 +21,19 @@ export default {
         brand: {
           DEFAULT: "rgb(var(--color-brand) / <alpha-value>)",
           soft: "rgb(var(--color-brand-soft) / <alpha-value>)",
+          hover: "rgb(var(--color-brand-hover) / <alpha-value>)",
         },
-        accent: {
-          amber: "#f59e0b",
-          rose: "#f43f5e",
-          emerald: "#10b981",
+        warn: {
+          DEFAULT: "rgb(var(--color-warn) / <alpha-value>)",
+          soft: "rgb(var(--color-warn-soft) / <alpha-value>)",
+        },
+        danger: {
+          DEFAULT: "rgb(var(--color-danger) / <alpha-value>)",
+          soft: "rgb(var(--color-danger-soft) / <alpha-value>)",
         },
       },
       boxShadow: {
-        soft: "0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.06)",
+        soft: "0 1px 2px rgba(28, 25, 23, 0.04)",
       },
       borderRadius: {
         xl: "1rem",

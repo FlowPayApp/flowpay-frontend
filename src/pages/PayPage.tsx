@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
-import { ChevronDown, CreditCard, ShieldCheck } from "lucide-react";
+import { ChevronDown, CreditCard, Download } from "lucide-react";
 import {
   fetchPaymentPortal,
   isPaymentMock,
@@ -8,13 +8,11 @@ import {
   type PaymentPortalResponse,
   type PortalCharge,
 } from "../api";
-import { StatusBadge } from "../components/Badge";
 import PageLoading from "../components/PageLoading";
 import ThemeToggle from "../components/ThemeToggle";
 import { formatDate, formatMoney } from "../lib/format";
 
 type ChargeStatusKey = "pending" | "paid" | "overdue";
-type ChargeTab = "payable" | "paid";
 
 function statusKey(row: PortalCharge): ChargeStatusKey {
   if (row.status === "paid") return "paid";
@@ -26,6 +24,61 @@ function sortByDueDate(a: PortalCharge, b: PortalCharge) {
   return a.due_date.localeCompare(b.due_date);
 }
 
+function invoiceFilename(ext?: string | null) {
+  const kind = (ext ?? "").toLowerCase();
+  if (kind === "png") return "factura.png";
+  if (kind === "jpg" || kind === "jpeg") return "factura.jpg";
+  return "factura.pdf";
+}
+
+const VISIBLE_CHARGES = 10;
+
+function ChargeList({ count, className, children }: { count: number; className?: string; children: ReactNode }) {
+  const ref = useRef<HTMLUListElement>(null);
+  const [maxHeight, setMaxHeight] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const list = ref.current;
+    if (!list || count <= VISIBLE_CHARGES) {
+      setMaxHeight(undefined);
+      return;
+    }
+    const item = list.children[VISIBLE_CHARGES - 1] as HTMLElement | undefined;
+    if (!item) {
+      setMaxHeight(undefined);
+      return;
+    }
+    const listTop = list.getBoundingClientRect().top;
+    const itemBottom = item.getBoundingClientRect().bottom;
+    setMaxHeight(Math.ceil(itemBottom - listTop));
+  }, [count]);
+
+  return (
+    <ul
+      ref={ref}
+      className={["relative divide-y divide-surface-border overflow-y-auto overscroll-contain", className ?? ""].join(" ")}
+      style={maxHeight ? { maxHeight } : undefined}
+    >
+      {children}
+    </ul>
+  );
+}
+
+function ChargeInvoice({ token, ext }: { token?: string | null; ext?: string | null }) {
+  if (!token) return null;
+  return (
+    <a
+      href={`/api/public/attachments/${token}?download=1`}
+      download={invoiceFilename(ext)}
+      className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <Download className="h-4 w-4" strokeWidth={2} />
+      Descargar factura
+    </a>
+  );
+}
+
 export default function PayPage() {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<PaymentPortalResponse | null>(null);
@@ -34,10 +87,7 @@ export default function PayPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
-  const [openTabs, setOpenTabs] = useState<Record<ChargeTab, boolean>>({
-    payable: true,
-    paid: false,
-  });
+  const [openList, setOpenList] = useState<"payable" | "paid" | null>("payable");
 
   useEffect(() => {
     const raw = token?.trim() ?? "";
@@ -58,7 +108,13 @@ export default function PayPage() {
       .then((d) => {
         setData(d);
         setError(null);
-        setSelected(new Set());
+        setSelected(
+          new Set(
+            (d.charges ?? [])
+              .filter((row) => statusKey(row) !== "paid")
+              .map((row) => row.ref),
+          ),
+        );
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "No se pudo cargar la página de pago");
@@ -97,11 +153,6 @@ export default function PayPage() {
 
   const allSelected =
     payableCharges.length > 0 && payableCharges.every((c) => selected.has(c.ref));
-  const someSelected = selectedCharges.length > 0 && !allSelected;
-
-  function toggleTab(tab: ChargeTab) {
-    setOpenTabs((prev) => ({ ...prev, [tab]: !prev[tab] }));
-  }
 
   function toggleOne(ref: string) {
     setSelected((prev) => {
@@ -110,6 +161,10 @@ export default function PayPage() {
       else next.add(ref);
       return next;
     });
+  }
+
+  function showList(list: "payable" | "paid") {
+    setOpenList((current) => (current === list ? null : list));
   }
 
   function toggleAll() {
@@ -142,29 +197,28 @@ export default function PayPage() {
     }
   }
 
-  function shortRef(ref: string) {
-    return ref.length > 8 ? ref.slice(0, 8) : ref;
-  }
+  const amountDue = (data?.totals.pending ?? 0) + (data?.totals.overdue ?? 0);
+  const singlePayable = payableCharges.length === 1;
+
+  const payLabel =
+    paying
+      ? "Abriendo el pago…"
+      : selectedCharges.length === 0
+        ? "Elige un cobro"
+        : `Pagar ${formatMoney(selectedTotal)}`;
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-b from-surface to-surface-card px-4 py-10 pb-32 text-ink dark:to-surface">
-      <div className="fixed right-4 top-4 z-20 sm:right-6 sm:top-6">
+    <div className="relative min-h-dvh bg-surface px-4 pb-36 pt-[max(1.25rem,env(safe-area-inset-top))] text-ink sm:px-8 lg:pb-16">
+      <div className="fixed right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 sm:right-8">
         <ThemeToggle compact />
       </div>
-      <div className="mx-auto w-full max-w-3xl">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">FlowPay</p>
-            <h1 className="mt-1 text-2xl font-bold text-ink sm:text-3xl">Portal de pago</h1>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950/45 dark:text-emerald-300 dark:ring-emerald-500/30">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Acceso seguro
-          </span>
+      <div className="mx-auto w-full max-w-6xl">
+        <header className="mb-8 pr-12">
+          <p className="font-display text-xl font-medium tracking-tight text-ink">FlowPay</p>
         </header>
 
         {isPaymentMock() && (
-          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="mb-6 rounded-xl border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn">
             Modo demostración Webpay (sin Transbank). Los datos son de ejemplo; al pagar simulas el flujo completo.
           </div>
         )}
@@ -172,273 +226,207 @@ export default function PayPage() {
         {loading && <PageLoading />}
 
         {!loading && error && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center shadow-soft dark:border-rose-900/50 dark:bg-rose-950/35 dark:shadow-none">
-            <p className="text-base font-semibold text-rose-900 dark:text-rose-200">No pudimos cargar tu cartola</p>
-            <p className="mt-2 text-sm text-rose-800/90 dark:text-rose-300/95">{error}</p>
-            <p className="mt-4 text-xs text-rose-800/70 dark:text-rose-400/90">
+          <div className="rounded-2xl border border-danger/30 bg-danger-soft p-6 text-center shadow-soft dark:shadow-none">
+            <p className="text-base font-semibold text-danger">No pudimos cargar tu cartola</p>
+            <p className="mt-2 text-sm text-danger">{error}</p>
+            <p className="mt-4 text-xs text-danger">
               Si recibiste este link de tu proveedor, pídele que te genere uno nuevo.
             </p>
           </div>
         )}
 
         {!loading && !error && data && (
-          <div className="space-y-6">
-            <section className="rounded-2xl border border-surface-border bg-surface-card p-6 shadow-soft">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Empresa que cobra</p>
-              <h2 className="mt-1 text-xl font-semibold text-ink">{data.company.name || "Empresa"}</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Sucursal</p>
-                  <p className="mt-1 text-sm font-medium text-ink">{data.client.label || "Cliente"}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Total por pagar</p>
-                  <p className="mt-1 text-lg font-semibold tabular-nums text-ink">
-                    {formatMoney(data.totals.pending + data.totals.overdue)}
-                  </p>
-                </div>
-              </div>
-              {data.company.transfer_instructions && (
-                <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900 whitespace-pre-wrap dark:border-indigo-800/60 dark:bg-indigo-950/40 dark:text-indigo-200">
-                  {data.company.transfer_instructions}
-                </div>
-              )}
-            </section>
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="min-w-0">
+              <p className="text-sm text-ink-muted">{data.company.name || "Empresa"}</p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink">
+                {data.client.label || "Tus cobros"}
+              </h1>
+              <p className="mt-2 text-sm text-ink-muted">
+                {payableCharges.length === 0 ? "Estás al día." : `${formatMoney(amountDue)} por pagar`}
+              </p>
 
-            <section className="space-y-3">
-              <div className="px-1">
-                <h3 className="text-base font-semibold text-ink">Cobros asociados</h3>
-                <p className="text-xs text-ink-muted">
-                  {payableCharges.length === 0
-                    ? "Sin cobros pendientes"
-                    : `${payableCharges.length} por pagar · ${paidCharges.length} ya pagado${
-                        paidCharges.length === 1 ? "" : "s"
-                      }`}
-                </p>
-              </div>
-
-              <ChargeAccordion
-                title="Por pagar"
-                subtitle={
-                  payableCharges.length === 0
-                    ? "No tienes pagos pendientes"
-                    : `${payableCharges.length} cobro${payableCharges.length === 1 ? "" : "s"} · ${formatMoney(
-                        data.totals.pending + data.totals.overdue,
-                      )}`
-                }
-                open={openTabs.payable}
-                onToggle={() => toggleTab("payable")}
-              >
-                {payableCharges.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-sm text-ink-muted">
-                    Estás al día. No hay cobros por pagar.
+              {payableCharges.length === 0 ? (
+                <div className="mt-8 rounded-2xl border border-surface-border bg-surface-card px-5 py-10 text-center">
+                  <p className="text-base font-semibold text-ink">No hay cobros pendientes</p>
+                  <p className="mt-1 text-sm text-ink-muted">Cuando haya uno nuevo, aparecerá aquí.</p>
+                </div>
+              ) : (
+                <section className="mt-8 overflow-hidden rounded-2xl border border-surface-border bg-surface-card">
+                  <div className={["flex h-14 items-center gap-3 px-5", openList === "payable" ? "border-b border-surface-border" : ""].join(" ")}>
+                    <button
+                      type="button"
+                      aria-expanded={openList === "payable"}
+                      onClick={() => showList("payable")}
+                      className="min-w-0 flex-1 truncate text-left text-sm font-medium text-ink"
+                    >
+                      {payableCharges.length} cobro{payableCharges.length === 1 ? "" : "s"}
+                    </button>
+                    {openList === "payable" && !singlePayable && !allSelected && (
+                      <button
+                        type="button"
+                        onClick={toggleAll}
+                        className="h-9 shrink-0 text-sm font-semibold text-brand hover:underline"
+                      >
+                        Marcar todos
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-expanded={openList === "payable"}
+                      aria-label={openList === "payable" ? "Cerrar cobros" : "Abrir cobros"}
+                      onClick={() => showList("payable")}
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-ink-muted"
+                    >
+                      <ChevronDown
+                        className={["h-4 w-4 transition", openList === "payable" ? "rotate-180" : ""].join(" ")}
+                      />
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between gap-3 bg-surface/50 px-5 py-2.5 dark:bg-white/[0.03]">
-                      <label className="inline-flex cursor-pointer items-center gap-3 text-xs font-medium text-ink-muted transition hover:text-ink">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 shrink-0 rounded border-surface-border text-brand focus:ring-brand"
-                          checked={allSelected}
-                          ref={(el) => {
-                            if (el) el.indeterminate = someSelected;
-                          }}
-                          onChange={toggleAll}
-                        />
-                        {allSelected ? "Deseleccionar todos" : "Seleccionar todos"}
-                      </label>
-                      <span className="text-[11px] tabular-nums text-ink-muted">
-                        {selectedCharges.length}/{payableCharges.length}
-                      </span>
-                    </div>
-                    <ul className="divide-y divide-surface-border border-t border-surface-border">
-                      {payableCharges.map((row) => {
-                        const checked = selected.has(row.ref);
-                        return (
-                          <li
-                            key={row.ref}
-                            className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 ${
-                              checked ? "bg-indigo-50/40 dark:bg-indigo-950/35" : ""
-                            }`}
-                          >
-                            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                  {openList === "payable" && (
+                  <ChargeList count={payableCharges.length}>
+                    {payableCharges.map((row) => {
+                      const checked = selected.has(row.ref);
+                      const overdue = statusKey(row) === "overdue";
+                      return (
+                        <li key={row.ref} className={checked || singlePayable ? "" : "opacity-45"}>
+                          <label className="flex cursor-pointer items-center gap-4 px-5 py-4 hover:bg-surface/70">
+                            {!singlePayable && (
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 shrink-0 rounded border-surface-border text-brand focus:ring-brand"
+                                className="h-5 w-5 shrink-0 rounded border-surface-border text-brand focus:ring-brand"
                                 checked={checked}
                                 onChange={() => toggleOne(row.ref)}
                               />
-                              <div className="min-w-0 flex-1">
-                                <p className="font-mono text-[11px] text-ink-muted">Ref {shortRef(row.ref)}</p>
-                                <p className="mt-0.5 text-sm font-medium text-ink">{formatMoney(row.amount)}</p>
-                                <p className="mt-0.5 text-xs text-ink-muted">Vence: {formatDate(row.due_date)}</p>
-                              </div>
-                            </label>
-                            <div className="flex shrink-0 items-center self-center gap-3">
-                              <StatusBadge status={row.status} />
+                            )}
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-lg font-semibold tabular-nums text-ink">
+                                {formatMoney(row.amount)}
+                              </span>
                               {row.attachment_token && (
-                                <a
-                                  href={`/api/public/attachments/${row.attachment_token}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-xs font-medium text-brand hover:underline"
-                                >
-                                  Ver adjunto
-                                </a>
+                                <span className="mt-1 block">
+                                  <ChargeInvoice token={row.attachment_token} ext={row.attachment_ext} />
+                                </span>
                               )}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
-                )}
-              </ChargeAccordion>
-
-              <ChargeAccordion
-                title="Ya pagados"
-                subtitle={
-                  paidCharges.length === 0
-                    ? "Sin historial todavía"
-                    : `${paidCharges.length} cobro${paidCharges.length === 1 ? "" : "s"} · ${formatMoney(
-                        data.totals.paid,
-                      )}`
-                }
-                open={openTabs.paid}
-                onToggle={() => toggleTab("paid")}
-              >
-                {paidCharges.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-sm text-ink-muted">
-                    Aún no hay cobros pagados en este enlace.
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-surface-border">
-                    {paidCharges.map((row) => (
-                      <li
-                        key={row.ref}
-                        className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 opacity-90"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-mono text-[11px] text-ink-muted">Ref {shortRef(row.ref)}</p>
-                          <p className="mt-0.5 text-sm font-medium text-ink">{formatMoney(row.amount)}</p>
-                          <p className="mt-0.5 text-xs text-ink-muted">Venció: {formatDate(row.due_date)}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center self-center gap-3">
-                          <StatusBadge status={row.status} />
-                          {row.attachment_token && (
-                            <a
-                              href={`/api/public/attachments/${row.attachment_token}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs font-medium text-brand hover:underline"
+                            </span>
+                            <span
+                              className={[
+                                "shrink-0 text-right text-sm",
+                                overdue ? "font-medium text-[rgb(142_58_46)]" : "text-ink-muted",
+                              ].join(" ")}
                             >
-                              Ver adjunto
-                            </a>
-                          )}
+                              {overdue ? "Venció" : "Vence"} el {formatDate(row.due_date)}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ChargeList>
+                  )}
+                </section>
+              )}
+
+              {paidCharges.length > 0 && (
+                <section className="mt-4 overflow-hidden rounded-2xl border border-surface-border bg-surface-card">
+                  <button
+                    type="button"
+                    aria-expanded={openList === "paid"}
+                    onClick={() => showList("paid")}
+                    className="flex h-14 w-full items-center justify-between gap-3 px-5 text-left text-sm font-medium text-ink"
+                  >
+                    <span className="min-w-0 truncate">
+                      Ya pagados · {paidCharges.length} · {formatMoney(data.totals.paid)}
+                    </span>
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-ink-muted">
+                      <ChevronDown
+                        className={["h-4 w-4 transition", openList === "paid" ? "rotate-180" : ""].join(" ")}
+                      />
+                    </span>
+                  </button>
+                  {openList === "paid" && (
+                  <ChargeList count={paidCharges.length} className="border-t border-surface-border">
+                    {paidCharges.map((row) => (
+                      <li key={row.ref} className="flex items-center justify-between gap-4 px-5 py-3">
+                        <div>
+                          <p className="text-sm font-semibold tabular-nums text-ink">{formatMoney(row.amount)}</p>
+                          <ChargeInvoice token={row.attachment_token} ext={row.attachment_ext} />
                         </div>
+                        <p className="shrink-0 text-right text-sm text-ink-muted">
+                          Pagado · {formatDate(row.due_date)}
+                        </p>
                       </li>
                     ))}
-                  </ul>
-                )}
-              </ChargeAccordion>
+                  </ChargeList>
+                  )}
+                </section>
+              )}
 
-              <div className="grid gap-3 rounded-2xl border border-surface-border bg-surface-card px-5 py-4 shadow-soft sm:grid-cols-3">
-                <SummaryItem label="Pendiente" value={formatMoney(data.totals.pending)} tone="amber" />
-                <SummaryItem label="Vencido" value={formatMoney(data.totals.overdue)} tone="rose" />
-                <SummaryItem label="Pagado" value={formatMoney(data.totals.paid)} tone="emerald" />
-              </div>
-            </section>
+              {data.company.transfer_instructions && (
+                <details className="group mt-2">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-1 py-2 text-sm text-ink-muted [&::-webkit-details-marker]:hidden">
+                    <span>Pagar por transferencia</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-1 whitespace-pre-wrap rounded-2xl border border-surface-border bg-surface-card px-5 py-4 text-sm text-ink">
+                    {data.company.transfer_instructions}
+                  </p>
+                </details>
+              )}
+            </div>
 
-            <p className="text-center text-xs text-ink-muted">
-              Este enlace fue generado para tu empresa. Si tienes dudas sobre los montos, contacta a tu proveedor.
-            </p>
+            {payableCharges.length > 0 && (
+              <aside className="hidden lg:block">
+                <div className="pointer-events-none fixed inset-y-0 left-0 right-0 z-10 px-4 sm:px-8">
+                  <div className="mx-auto flex h-full w-full max-w-6xl items-center justify-end">
+                    <div className="pointer-events-auto w-80 rounded-2xl border border-surface-border bg-surface-card p-6">
+                  <p className="text-sm text-ink-muted">Total a pagar</p>
+                  <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-ink">
+                    {formatMoney(selectedTotal)}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {selectedCharges.length === 0
+                      ? "Ningún cobro marcado"
+                      : `${selectedCharges.length} de ${payableCharges.length}`}
+                  </p>
+                  {payError && <p className="mt-3 text-sm font-medium text-danger">{payError}</p>}
+                  <button
+                    type="button"
+                    onClick={onPagar}
+                    disabled={selectedCharges.length === 0 || paying}
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 bg-brand text-white disabled:cursor-not-allowed disabled:bg-surface-border disabled:text-ink-muted"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    {payLabel}
+                  </button>
+                  <p className="mt-3 text-center text-xs text-ink-muted">Pago con tarjeta en Webpay</p>
+                </div>
+                  </div>
+                </div>
+              </aside>
+            )}
           </div>
         )}
       </div>
 
       {!loading && !error && data && payableCharges.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-surface-border bg-surface-card/95 px-4 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur dark:shadow-[0_-8px_28px_rgba(0,0,0,0.35)]">
-          <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">A pagar ahora</p>
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-surface-border bg-surface-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 lg:hidden">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-4">
+            <div className="min-w-0 flex-1">
               <p className="text-lg font-semibold tabular-nums text-ink">{formatMoney(selectedTotal)}</p>
-              <p className="text-xs text-ink-muted">
-                {selectedCharges.length === 0
-                  ? "Selecciona al menos un cobro"
-                  : `${selectedCharges.length} cobro${selectedCharges.length === 1 ? "" : "s"} seleccionado${
-                      selectedCharges.length === 1 ? "" : "s"
-                    }`}
-              </p>
-              {payError && <p className="mt-1 text-xs font-medium text-rose-600 dark:text-rose-400">{payError}</p>}
-              <p className="mt-1 text-[11px] text-ink-muted">Serás redirigido a Webpay (Transbank)</p>
+              {payError && <p className="text-xs font-medium text-danger">{payError}</p>}
             </div>
             <button
               type="button"
               onClick={onPagar}
               disabled={selectedCharges.length === 0 || paying}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-surface-border disabled:text-ink-muted dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
+              className="inline-flex h-12 shrink-0 items-center justify-center gap-2 bg-brand px-5 text-white disabled:cursor-not-allowed disabled:bg-surface-border disabled:text-ink-muted"
             >
               <CreditCard className="h-4 w-4" />
-              {paying ? "Redirigiendo a Webpay…" : `Pagar ${selectedCharges.length > 0 ? formatMoney(selectedTotal) : ""}`}
+              {payLabel}
             </button>
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-type Tone = "amber" | "rose" | "emerald";
-
-function SummaryItem({ label, value, tone }: { label: string; value: string; tone: Tone }) {
-  const toneClass: Record<Tone, string> = {
-    amber:
-      "bg-amber-50 text-amber-900 ring-amber-200/70 dark:bg-amber-950/45 dark:text-amber-200 dark:ring-amber-500/25",
-    rose: "bg-rose-50 text-rose-900 ring-rose-200/70 dark:bg-rose-950/45 dark:text-rose-200 dark:ring-rose-500/25",
-    emerald:
-      "bg-emerald-50 text-emerald-900 ring-emerald-200/70 dark:bg-emerald-950/45 dark:text-emerald-200 dark:ring-emerald-500/25",
-  };
-  return (
-    <div className={`rounded-xl px-4 py-3 ring-1 ${toneClass[tone]}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wider">{label}</p>
-      <p className="mt-0.5 text-base font-semibold tabular-nums">{value}</p>
-    </div>
-  );
-}
-
-function ChargeAccordion({
-  title,
-  subtitle,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-surface/60"
-      >
-        <ChevronDown
-          className={`mt-0.5 h-4 w-4 shrink-0 text-ink-muted transition-transform duration-200 ${
-            open ? "rotate-0" : "-rotate-90"
-          }`}
-        />
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">{title}</p>
-          <p className="mt-0.5 text-xs text-ink-muted">{subtitle}</p>
-        </div>
-      </button>
-      {open && <div className="border-t border-surface-border">{children}</div>}
     </div>
   );
 }

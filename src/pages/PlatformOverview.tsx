@@ -64,20 +64,17 @@ export default function PlatformOverview() {
   }
 
   if (error && !data) {
-    return <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700">{error}</div>;
+    return <div className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-danger">{error}</div>;
   }
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-0">
-      <section className="relative overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 px-6 py-6 text-white shadow-soft dark:border-indigo-800/50 dark:from-indigo-950 dark:via-indigo-900 dark:to-slate-900 sm:px-8">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/20 blur-2xl dark:bg-indigo-400/10" />
-        <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-cyan-300/20 blur-2xl dark:bg-cyan-500/10" />
-
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
+      <section className="rounded-2xl border border-surface-border bg-surface-card px-5 py-5 sm:px-8 sm:py-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Inicio Superadmin</h1>
-            <p className="mt-1 text-sm text-indigo-100 dark:text-indigo-200/90">
-              Panorama global en tiempo real para priorizar gestión de cobranza por empresa.
+            <h1 className="font-display text-3xl font-medium tracking-tight text-ink">Inicio</h1>
+            <p className="mt-2 text-sm text-ink-muted">
+              Panorama global para priorizar la cobranza de cada empresa.
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-xs">
               <Pill label={`${data?.total_companies ?? 0} empresas`} icon={<Building2 className="h-3.5 w-3.5" />} />
@@ -89,7 +86,7 @@ export default function PlatformOverview() {
           <button
             type="button"
             onClick={() => void reload()}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/10 px-3 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/20"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"
           >
             <RefreshCw className="h-4 w-4" />
             Actualizar
@@ -97,7 +94,7 @@ export default function PlatformOverview() {
         </div>
       </section>
 
-      {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+      {error && <div className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div>}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Kpi title="Empresas" value={String(data?.total_companies ?? 0)} hint="Activas + inactivas" />
@@ -128,7 +125,7 @@ export default function PlatformOverview() {
         <div className="border-b border-surface-border px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-ink">Comparativa por empresa</h2>
-            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-ink-muted">
               Ordenado por mayor deuda total
             </span>
           </div>
@@ -167,16 +164,16 @@ export default function PlatformOverview() {
                       <div className="mt-0.5 text-[11px] text-ink-muted">100%</div>
                     </td>
                     <td className="px-3 py-3 text-right sm:px-5">
-                      <div className="tabular-nums text-emerald-700 dark:text-emerald-400">{formatMoney(c.paid_amount)}</div>
-                      <div className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-400">{paidPct.toFixed(1)}%</div>
+                      <div className="tabular-nums text-brand">{formatMoney(c.paid_amount)}</div>
+                      <div className="mt-0.5 text-[11px] text-brand">{paidPct.toFixed(1)}%</div>
                     </td>
                     <td className="px-3 py-3 text-right sm:px-5">
-                      <div className="tabular-nums text-amber-700 dark:text-amber-400">{formatMoney(c.pending_amount)}</div>
-                      <div className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">{pendingPct.toFixed(1)}%</div>
+                      <div className="tabular-nums text-warn">{formatMoney(c.pending_amount)}</div>
+                      <div className="mt-0.5 text-[11px] text-warn">{pendingPct.toFixed(1)}%</div>
                     </td>
                     <td className="px-3 py-3 text-right sm:px-5">
-                      <div className="tabular-nums text-rose-700 dark:text-rose-400">{formatMoney(c.overdue_amount)}</div>
-                      <div className="mt-0.5 text-[11px] text-rose-700 dark:text-rose-400">{overduePct.toFixed(1)}%</div>
+                      <div className="tabular-nums text-danger">{formatMoney(c.overdue_amount)}</div>
+                      <div className="mt-0.5 text-[11px] text-danger">{overduePct.toFixed(1)}%</div>
                     </td>
                   </tr>
                 );
@@ -191,7 +188,7 @@ export default function PlatformOverview() {
 
 function Pill({ label, icon }: { label: string; icon: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/15 px-2.5 py-1 text-[11px] font-medium">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-surface-border bg-surface px-2.5 py-1 text-[11px] font-medium text-ink">
       {icon}
       {label}
     </span>
@@ -213,18 +210,16 @@ function Kpi({
 }) {
   const toneClasses: Record<KpiTone, string> = {
     default: "border-surface-border bg-surface-card",
-    success:
-      "border-emerald-100 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-950/45",
-    warning:
-      "border-amber-100 bg-amber-50/50 dark:border-amber-500/30 dark:bg-amber-950/45",
-    danger: "border-rose-100 bg-rose-50/50 dark:border-rose-500/30 dark:bg-rose-950/45",
+    success: "border-surface-border bg-surface-card",
+    warning: "border-surface-border bg-surface-card",
+    danger: "border-surface-border bg-surface-card",
   };
 
   return (
     <div className={`rounded-2xl border p-3 shadow-soft sm:p-4 ${toneClasses[tone]}`}>
       <div className="text-[11px] uppercase tracking-wide text-ink-muted">{title}</div>
       <div className="mt-2 flex items-center gap-2">
-        <div className="text-xl font-semibold text-ink sm:text-2xl">{value}</div>
+        <div className={`text-xl font-semibold sm:text-2xl ${tone === "success" ? "text-brand" : tone === "warning" ? "text-warn" : tone === "danger" ? "text-danger" : "text-ink"}`}>{value}</div>
         {trend && <span className="text-ink-muted">{trend}</span>}
       </div>
       <div className="mt-1 text-xs text-ink-muted">{hint}</div>

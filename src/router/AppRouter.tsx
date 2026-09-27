@@ -14,6 +14,8 @@ import ClientLoads from '../pages/ClientLoads';
 import ClientDetail from '../pages/ClientDetail';
 import MessagingSettings from '../pages/MessagingSettings';
 import Equipo from '../pages/Equipo';
+import EquipoDetail from '../pages/EquipoDetail';
+import Profile from '../pages/Profile';
 import PlatformOverview from '../pages/PlatformOverview';
 import PlatformCompanies from '../pages/PlatformCompanies';
 import PlatformAdmins from '../pages/PlatformAdmins';
@@ -60,8 +62,10 @@ const AppRouter = () => {
           <Route path="clients" element={<Clients />} />
           <Route path="clients/cargas" element={<AdminOnly><ClientLoads /></AdminOnly>} />
           <Route path="clients/:id" element={<ClientDetail />} />
+          <Route path="perfil" element={<Profile />} />
           <Route path="mensajes" element={<AdminOnly><MessagingSettings /></AdminOnly>} />
           <Route path="equipo" element={<AdminOnly><Equipo /></AdminOnly>} />
+          <Route path="equipo/:userId" element={<AdminOnly><EquipoDetail /></AdminOnly>} />
           <Route path="platform" element={<PlatformOverview />} />
           <Route path="platform/companies" element={<PlatformCompanies />} />
           <Route path="platform/admins" element={<PlatformAdmins />} />

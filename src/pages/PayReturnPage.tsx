@@ -140,8 +140,8 @@ export default function PayReturnPage() {
 
       {phase === "done" && result && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-8 text-center shadow-soft dark:border-emerald-800/50 dark:bg-emerald-950/35">
-            <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600 dark:text-emerald-400" />
+          <div className="rounded-2xl border border-brand/30 bg-brand-soft/80 p-8 text-center shadow-soft">
+            <CheckCircle2 className="mx-auto h-12 w-12 text-brand" />
             <h1 className="mt-4 text-2xl font-bold text-ink">Pago recibido</h1>
             <p className="mt-2 text-sm text-ink-muted">
               Tu pago fue autorizado correctamente. El comercio verá el cobro actualizado en FlowPay.
@@ -177,7 +177,7 @@ export default function PayReturnPage() {
                 <button
                   type="button"
                   onClick={() => downloadPaymentReceipt(receiptData)}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-brand-hover"
                 >
                   <Download className="h-4 w-4" aria-hidden />
                   Descargar comprobante
@@ -206,10 +206,10 @@ export default function PayReturnPage() {
       )}
 
       {phase === "error" && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center shadow-soft dark:border-rose-900/50 dark:bg-rose-950/35">
-          <XCircle className="mx-auto h-12 w-12 text-rose-600 dark:text-rose-400" />
-          <h1 className="mt-4 text-xl font-bold text-rose-900 dark:text-rose-100">No se pudo completar el pago</h1>
-          <p className="mt-2 text-sm text-rose-800/90 dark:text-rose-300/95">{error}</p>
+        <div className="rounded-2xl border border-danger/30 bg-danger-soft p-8 text-center shadow-soft">
+          <XCircle className="mx-auto h-12 w-12 text-danger" />
+          <h1 className="mt-4 text-xl font-bold text-danger">No se pudo completar el pago</h1>
+          <p className="mt-2 text-sm text-danger">{error}</p>
           {isPaymentMock() && (
             <p className="mt-3 text-xs text-ink-muted">
               Modo mock: prueba con{" "}

@@ -72,3 +72,43 @@ export async function createCompanyUser(payload: {
     throw new Error(data.error ?? "No se pudo crear el usuario");
   }
 }
+
+async function readApiError(res: Response, fallback: string) {
+  const text = await res.text();
+  if (!text) return fallback;
+  try {
+    const data = JSON.parse(text) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return text;
+  }
+}
+
+export async function updateCompanyUser(
+  userId: number,
+  payload: { email: string; name: string; role: "admin" | "member"; is_active: boolean },
+) {
+  const t = getToken();
+  const res = await fetch(`/auth/company/users/${userId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(t ? { Authorization: `Bearer ${t}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, "No se pudo guardar el usuario"));
+  }
+}
+
+export async function deleteCompanyUser(userId: number) {
+  const t = getToken();
+  const res = await fetch(`/auth/company/users/${userId}`, {
+    method: "DELETE",
+    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, "No se pudo eliminar el usuario"));
+  }
+}

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import AuthShell from "../components/AuthShell";
 import LoadingOverlay from "../components/LoadingOverlay";
 import PasswordInput from "../components/PasswordInput";
-import ThemeToggle from "../components/ThemeToggle";
 import { getDefaultHomePath, setToken } from "../lib/auth";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
 
@@ -59,17 +59,19 @@ export default function Register() {
   }
 
   return (
-    <div className="flex min-h-dvh w-full items-center justify-center bg-surface px-4 py-8 sm:px-6 sm:py-12">
-      <div className="fixed right-4 top-4 z-[160] sm:right-6 sm:top-6">
-        <ThemeToggle compact />
-      </div>
-      {loading && <LoadingOverlay message="Creando cuenta..." />}
-      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-soft sm:p-8">
-        <h1 className="text-center text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Crear cuenta</h1>
-        <p className="mt-3 text-center text-sm text-ink-muted">
-          Registras tu empresa en FlowPay y tu usuario admin. {PASSWORD_POLICY_HINT}
+    <AuthShell
+      title="Crear cuenta"
+      lede={`Registras tu empresa y tu usuario admin. ${PASSWORD_POLICY_HINT}`}
+      footer={
+        <p className="text-center sm:text-left">
+          <Link to="/login" className="font-semibold text-brand hover:underline">
+            Ya tengo cuenta
+          </Link>
         </p>
-        <form className="mt-8 space-y-4" onSubmit={onSubmit}>
+      }
+    >
+      {loading && <LoadingOverlay message="Creando cuenta..." />}
+        <form className="space-y-4" onSubmit={onSubmit}>
         <label className="block text-sm font-medium text-ink">
           Nombre del negocio
           <input
@@ -115,21 +117,15 @@ export default function Register() {
           minLength={8}
           autoComplete="new-password"
         />
-        {err && <p className="text-sm text-rose-600">{err}</p>}
+        {err && <p className="text-sm text-danger">{err}</p>}
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+          className="min-h-12 w-full rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
         >
           {loading ? "Creando…" : "Registrarme"}
         </button>
       </form>
-        <p className="mt-6 text-center text-sm text-ink-muted">
-          <Link to="/login" className="font-medium text-brand hover:underline">
-            Ya tengo cuenta
-          </Link>
-        </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

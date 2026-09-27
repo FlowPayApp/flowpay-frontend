@@ -68,7 +68,7 @@ export function validateDistributorHeaderRow(headerCells: unknown[]): void {
     throw new Error('Falta la columna MPAGO (método de pago); en archivos antiguos puede llamarse CPAGO.');
   }
   if (hasMP && hasCP) {
-    throw new Error("No puede haber columnas MPAGO y CPAGO a la vez; dejá solo MPAGO.");
+    throw new Error("No puede haber columnas MPAGO y CPAGO a la vez; deja solo MPAGO.");
   }
 }
 

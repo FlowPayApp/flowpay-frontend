@@ -10,6 +10,8 @@ import {
   type CompanyDTO,
 } from "../api";
 import AppModal from "../components/AppModal";
+import AppSelect from "../components/AppSelect";
+import FilterTray from "../components/FilterTray";
 import IconActionButton from "../components/IconActionButton";
 import ResetPasswordModal, { type ResetPasswordModalState } from "../components/ResetPasswordModal";
 import LoadingOverlay from "../components/LoadingOverlay";
@@ -180,9 +182,9 @@ export default function PlatformAdmins() {
   return (
     <div className="mx-auto w-full max-w-6xl px-0">
       {actionLoading && !resetPwdModal && !editModal && <LoadingOverlay message="Guardando cambios..." />}
-      {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+      {error && <div className="mb-4 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div>}
       {tempCred && (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="mb-4 rounded-xl border border-warn/30 bg-warn-soft p-3 text-sm text-warn">
           Contraseña temporal: <span className="font-semibold">{tempCred.email}</span> /{" "}
           <code className="font-mono">{tempCred.temporary_password}</code>. Envíala por correo; el usuario deberá cambiarla al ingresar.
         </div>
@@ -195,14 +197,17 @@ export default function PlatformAdmins() {
         <MiniKpi icon={<Users className="h-4 w-4" />} label="Empresas" value={String(stats.companiesCovered)} />
       </section>
 
-      <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
-        <div className="border-b border-surface-border px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-ink">Admins registrados</h2>
-            <div className="flex items-center gap-2">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Admins</h1>
+        <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink"
+                aria-expanded={openFilters}
+                className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium ${
+                  openFilters
+                    ? "border-brand/40 bg-brand-soft text-brand"
+                    : "border-surface-border bg-surface-card text-ink-muted hover:bg-surface hover:text-ink"
+                }`}
                 onClick={() => setOpenFilters((v) => !v)}
               >
                 <Filter className="h-4 w-4" />
@@ -210,7 +215,7 @@ export default function PlatformAdmins() {
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover"
                 onClick={() => {
                   setError(null);
                   setOpenCreateModal(true);
@@ -219,10 +224,11 @@ export default function PlatformAdmins() {
                 <Plus className="h-4 w-4" strokeWidth={2.5} />
                 Crear
               </button>
-            </div>
-          </div>
-          {openFilters && (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        </div>
+      </div>
+      <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+          <FilterTray open={openFilters}>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="text-sm text-ink-muted">
                 Nombre
                 <input
@@ -252,24 +258,23 @@ export default function PlatformAdmins() {
               </label>
               <label className="text-sm text-ink-muted">
                 Estado
-                <select
-                  className="mt-1 w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-ink"
+                <AppSelect
                   value={filters.status}
-                  onChange={(e) =>
+                  onChange={(status) =>
                     setFilters((f) => ({
                       ...f,
-                      status: e.target.value as "all" | "active" | "inactive",
+                      status: status as "all" | "active" | "inactive",
                     }))
                   }
-                >
-                  <option value="all">Todos</option>
-                  <option value="active">Activos</option>
-                  <option value="inactive">Inactivos</option>
-                </select>
+                  options={[
+                    { value: "all", label: "Todos" },
+                    { value: "active", label: "Activos" },
+                    { value: "inactive", label: "Inactivos" },
+                  ]}
+                />
               </label>
             </div>
-          )}
-        </div>
+          </FilterTray>
         <div className="min-w-0 overflow-x-auto">
           <table className="w-full min-w-[640px] table-fixed border-collapse text-xs sm:text-sm">
             <colgroup>
@@ -298,7 +303,7 @@ export default function PlatformAdmins() {
                   <tr key={a.user_id} className={`hover:bg-surface/40 ${!isAdminActive(a) ? "opacity-75" : ""}`}>
                     <td className="max-w-0 px-3 py-3 sm:px-5">
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[11px] font-semibold text-indigo-700">
+                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[11px] font-semibold text-brand">
                           {a.name.trim().slice(0, 1).toUpperCase() || "A"}
                         </span>
                         <span className="line-clamp-2 break-words">{a.name}</span>
@@ -364,7 +369,7 @@ export default function PlatformAdmins() {
         <AppModal onBackdropClick={editBusy ? undefined : () => setEditModal(null)}>
           <div className="w-full max-w-xl rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
             <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-ink-muted">
                 <Pencil className="h-5 w-5" strokeWidth={2} />
               </span>
               <div>
@@ -400,7 +405,7 @@ export default function PlatformAdmins() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60"
                   disabled={editBusy}
                 >
                   {editBusy ? "Guardando…" : "Guardar cambios"}
@@ -426,18 +431,14 @@ export default function PlatformAdmins() {
             }}>
               <label className="block text-sm font-medium text-ink">
                 Empresa
-                <select
-                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
-                  value={form.company_id}
-                  onChange={(e) => setForm((f) => ({ ...f, company_id: Number(e.target.value) }))}
-                >
-                  {companies.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {c.is_active === false ? " (inactiva)" : ""}
-                    </option>
-                  ))}
-                </select>
+                <AppSelect
+                  value={String(form.company_id)}
+                  onChange={(company_id) => setForm((f) => ({ ...f, company_id: Number(company_id) }))}
+                  options={companies.map((c) => ({
+                    value: String(c.id),
+                    label: `${c.name}${c.is_active === false ? " (inactiva)" : ""}`,
+                  }))}
+                />
               </label>
               <Input label="Nombre" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
               <Input label="Email" type="email" value={form.email} onChange={(v) => setForm((f) => ({ ...f, email: v }))} />
@@ -445,7 +446,7 @@ export default function PlatformAdmins() {
                 <button type="button" className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface" onClick={() => setOpenCreateModal(false)}>
                   Cancelar
                 </button>
-                <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">
+                <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover" type="submit">
                   <Plus className="h-4 w-4" />
                   Crear admin
                 </button>
@@ -486,9 +487,9 @@ function MiniKpi({
 }) {
   const toneClass =
     tone === "success"
-      ? "border-emerald-100 bg-emerald-50/50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/45 dark:text-emerald-300"
+      ? "border-brand/20 bg-brand-soft text-brand"
       : tone === "danger"
-        ? "border-rose-100 bg-rose-50/50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/45 dark:text-rose-300"
+        ? "border-danger/20 bg-danger-soft text-danger"
         : "border-surface-border bg-surface-card text-ink-muted";
 
   return (
