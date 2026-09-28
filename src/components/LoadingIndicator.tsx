@@ -1,13 +1,10 @@
-/** Misma tarjeta + spinner que en overlays; reutilizable en pantallas y tablas. */
+/** Tarjeta de carga (texto + barra indeterminada); reutilizable en pantallas, tablas y overlays. */
 export default function LoadingIndicator({ message = "Cargando…" }: { message?: string }) {
   return (
-    <div className="rounded-xl bg-surface-card/95 px-4 py-3 shadow-xl">
-      <div className="flex items-center gap-3">
-        <span
-          className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand border-t-transparent"
-          aria-hidden
-        />
-        <span className="text-sm font-medium text-ink">{message}</span>
+    <div className="w-52 rounded-2xl border border-surface-border bg-surface-card px-4 pb-3.5 pt-3 shadow-soft animate-[auth-fade_180ms_ease-out]">
+      <p className="text-center text-sm font-medium text-ink">{message}</p>
+      <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-brand/10" aria-hidden>
+        <span className="block h-full w-1/3 rounded-full bg-brand [will-change:transform] animate-[auth-bar_1s_cubic-bezier(0.65,0,0.35,1)_infinite]" />
       </div>
     </div>
   );

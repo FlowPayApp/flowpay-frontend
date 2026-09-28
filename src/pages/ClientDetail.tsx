@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
 import { Eye } from "lucide-react";
 import { fetchClient, listCompanyUsers, updateClient } from "../api";
@@ -7,6 +8,7 @@ import AppSelect from "../components/AppSelect";
 import PageLoading from "../components/PageLoading";
 import { RiskBadge } from "../components/Badge";
 import ToggleSwitch from "../components/ToggleSwitch";
+import { useToast } from "../components/Toast";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatMoney } from "../lib/format";
 import { isCompanyAdmin } from "../lib/roles";
@@ -21,9 +23,10 @@ export default function ClientDetail() {
   const { id } = useParams();
   const clientId = Number(id);
   const [c, setC] = useState<ClientDTO | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [toggleBusy, setToggleBusy] = useState(false);
   const [followupSaving, setFollowupSaving] = useState(false);
@@ -108,14 +111,14 @@ export default function ClientDetail() {
   async function onSetActive(active: boolean) {
     if (!c) return;
     const previous = c.is_active;
-    setError(null);
     setC({ ...c, is_active: active });
     setToggleBusy(true);
     try {
       await updateClient(c.id, { is_active: active });
+      toast.success(active ? "Cliente activado." : "Cliente desactivado.");
     } catch (err: unknown) {
       setC({ ...c, is_active: previous });
-      setError(err instanceof Error ? err.message : "No se pudo actualizar el estado");
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el estado.");
     } finally {
       setToggleBusy(false);
     }
@@ -124,14 +127,14 @@ export default function ClientDetail() {
   async function onFollowupChange(channel: "all" | "email" | "whatsapp" | "none") {
     if (!c) return;
     const previous = c.followup_channel;
-    setError(null);
     setC({ ...c, followup_channel: channel });
     setFollowupSaving(true);
     try {
       await updateClient(c.id, { followup_channel: channel });
+      toast.success("Seguimiento actualizado.");
     } catch (err: unknown) {
       setC({ ...c, followup_channel: previous });
-      setError(err instanceof Error ? err.message : "No se pudo actualizar seguimiento");
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el seguimiento.");
     } finally {
       setFollowupSaving(false);
     }
@@ -142,7 +145,6 @@ export default function ClientDetail() {
     const previousId = c.seller_user_id;
     const previousName = c.seller_name;
     const seller = sellers.find((s) => s.user_id === userId);
-    setError(null);
     setC({
       ...c,
       seller_user_id: userId || null,
@@ -151,9 +153,10 @@ export default function ClientDetail() {
     setAssignBusy(true);
     try {
       await updateClient(c.id, { assigned_to: userId });
+      toast.success(userId ? "Vendedor asignado." : "Vendedor quitado.");
     } catch (err: unknown) {
       setC({ ...c, seller_user_id: previousId, seller_name: previousName });
-      setError(err instanceof Error ? err.message : "No se pudo asignar el vendedor");
+      toast.error(err instanceof Error ? err.message : "No se pudo asignar el vendedor.");
     } finally {
       setAssignBusy(false);
     }
@@ -162,7 +165,6 @@ export default function ClientDetail() {
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!c) return;
-    setError(null);
     setSaving(true);
     try {
       await updateClient(c.id, {
@@ -184,8 +186,9 @@ export default function ClientDetail() {
         branch_name: form.branch_name.trim(),
         payment_terms: form.payment_terms.trim(),
       });
+      toast.success("Cliente guardado.");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar");
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar el cliente.");
     } finally {
       setSaving(false);
     }
@@ -212,10 +215,6 @@ export default function ClientDetail() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      {error && (
-        <div className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger whitespace-pre-wrap">{error}</div>
-      )}
-
       <Link to="/clients" className="inline-flex text-sm font-medium text-brand hover:underline">
         ← Volver a clientes
       </Link>

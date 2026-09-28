@@ -1,13 +1,15 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Eye, Filter, Loader2, Plus, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useMinLoading } from "../lib/useMinLoading";
+import { Filter, Loader2, Plus, Trash2 } from "lucide-react";
+import OpenLink from "../components/OpenLink";
 import { createCompanyUser, deleteCompanyUser, listCompanyUsers, type CompanyUserDTO } from "../api";
 import AppModal from "../components/AppModal";
 import AppSelect from "../components/AppSelect";
 import FilterTray from "../components/FilterTray";
-import LoadingIndicator from "../components/LoadingIndicator";
+import PageLoading from "../components/PageLoading";
 import TablePagination from "../components/TablePagination";
 import PasswordInput from "../components/PasswordInput";
+import { useToast } from "../components/Toast";
 import { getSessionClaims } from "../lib/auth";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
 import { roleLabel } from "../lib/roles";
@@ -33,13 +35,7 @@ function RowActions({
 }) {
   return (
     <div className="flex items-center justify-start gap-2">
-      <Link
-        to={`/equipo/${user.user_id}`}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-2.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink"
-      >
-        <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-        Abrir
-      </Link>
+      <OpenLink to={`/equipo/${user.user_id}`} />
       {user.user_id !== selfId && (
         <button
           type="button"
@@ -57,8 +53,10 @@ function RowActions({
 export default function Equipo() {
   const selfId = getSessionClaims()?.uid ?? 0;
   const [rows, setRows] = useState<CompanyUserDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CompanyUserDTO | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -130,15 +128,16 @@ export default function Equipo() {
     setError(null);
     const pwdErr = getPasswordPolicyError(form.password);
     if (pwdErr) {
-      setError(pwdErr);
+      toast.error(pwdErr);
       return;
     }
     try {
       await createCompanyUser(form);
       closeModal();
+      toast.success("Usuario creado.");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear el usuario");
+      toast.error(err instanceof Error ? err.message : "No se pudo crear el usuario.");
     }
   };
 
@@ -150,8 +149,9 @@ export default function Equipo() {
       await deleteCompanyUser(deleteTarget.user_id);
       setRows((current) => current.filter((row) => row.user_id !== deleteTarget.user_id));
       setDeleteTarget(null);
+      toast.success("Usuario eliminado.");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "No se pudo eliminar el usuario");
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el usuario.");
     } finally {
       setDeleting(false);
     }
@@ -238,11 +238,7 @@ export default function Equipo() {
             </div>
           </FilterTray>
         <div className="divide-y divide-surface-border lg:hidden">
-          {loading ? (
-            <div className="px-5 py-8">
-              <LoadingIndicator message="Cargando equipo…" />
-            </div>
-          ) : pageRows.length === 0 ? (
+          {loading ? null : pageRows.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-ink-muted">{emptyLabel}</p>
           ) : (
             pageRows.map((u) => (
@@ -278,13 +274,7 @@ export default function Equipo() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-8">
-                    <LoadingIndicator message="Cargando equipo…" />
-                  </td>
-                </tr>
-              ) : pageRows.length === 0 ? (
+              {loading ? null : pageRows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-5 py-8 text-center text-ink-muted">
                     {emptyLabel}
@@ -422,6 +412,7 @@ export default function Equipo() {
           </div>
         </AppModal>
       )}
+      {loading && <PageLoading />}
     </div>
   );
 }

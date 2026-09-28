@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthShell from "../components/AuthShell";
-import LoadingOverlay from "../components/LoadingOverlay";
+import AuthLoadingOverlay from "../components/AuthLoadingOverlay";
 import PasswordInput from "../components/PasswordInput";
 import { getDefaultHomePath, setToken } from "../lib/auth";
+import { prefetchHome } from "../lib/homePrefetch";
+import { useMinLoading, waitMinLoading } from "../lib/useMinLoading";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
 
 export default function Register() {
@@ -14,7 +16,8 @@ export default function Register() {
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingRaw, setLoading] = useState(false);
+  const loading = useMinLoading(loadingRaw);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,6 +32,7 @@ export default function Register() {
       return;
     }
     setLoading(true);
+    const startedAt = Date.now();
     try {
       const res = await fetch("/auth/register", {
         method: "POST",
@@ -50,7 +54,10 @@ export default function Register() {
         return;
       }
       setToken(data.access_token);
-      nav(getDefaultHomePath(), { replace: true });
+      const home = getDefaultHomePath();
+      await prefetchHome(home);
+      await waitMinLoading(startedAt);
+      nav(home, { replace: true });
     } catch {
       setErr("Error de red. ¿Está flowpay-sso en marcha?");
     } finally {
@@ -70,7 +77,7 @@ export default function Register() {
         </p>
       }
     >
-      {loading && <LoadingOverlay message="Creando cuenta..." />}
+      {loading && <AuthLoadingOverlay message="Creando tu cuenta…" />}
         <form className="space-y-4" onSubmit={onSubmit}>
         <label className="block text-sm font-medium text-ink">
           Nombre del negocio

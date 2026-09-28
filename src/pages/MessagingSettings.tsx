@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useMinLoading } from "../lib/useMinLoading";
 import { fetchCompanyMessaging, saveCompanyMessaging } from "../api";
 import type { MessagingSettingsDTO, ReminderTemplateRowDTO } from "../api";
 import PageLoading from "../components/PageLoading";
 import AppSelect from "../components/AppSelect";
+import { useToast } from "../components/Toast";
 
 type EditableTemplate = {
   key: string;
@@ -290,10 +292,11 @@ function dtoToEditable(t: ReminderTemplateRowDTO): EditableTemplate {
 }
 
 export default function MessagingSettings() {
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
+  const toast = useToast();
   const [transfer, setTransfer] = useState("");
   const [paymentUrl, setPaymentUrl] = useState("");
   const [rows, setRows] = useState<EditableTemplate[]>([]);
@@ -322,7 +325,6 @@ export default function MessagingSettings() {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    setOk(null);
     try {
       await saveCompanyMessaging({
         transfer_instructions: transfer,
@@ -339,10 +341,10 @@ export default function MessagingSettings() {
             whatsapp_body: r.whatsapp_body,
           })),
       });
-      setOk("Cambios guardados.");
+      toast.success("Mensajes guardados.");
       await load();
     } catch {
-      setError("No se pudo guardar. Revisa los datos o el API.");
+      toast.error("No se pudieron guardar los mensajes. Revisa los datos e inténtalo de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -362,10 +364,6 @@ export default function MessagingSettings() {
       {error && (
         <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>
       )}
-      {ok && (
-        <div className="rounded-xl border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand">{ok}</div>
-      )}
-
       <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
         <h2 className="text-lg font-semibold text-ink">Pago</h2>
         <div className="mt-4 space-y-4">

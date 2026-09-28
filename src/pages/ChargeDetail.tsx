@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
 import {
   fetchCharge,
@@ -12,8 +13,9 @@ import {
 } from "../api";
 import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder } from "../api";
 import AppModal from "../components/AppModal";
-import Toast, { type ToastNotice } from "../components/Toast";
+import { useToast, type ToastNotice } from "../components/Toast";
 import InvoicePreview from "../components/InvoicePreview";
+import AppDatePicker from "../components/AppDatePicker";
 import AppSelect from "../components/AppSelect";
 import PageLoading from "../components/PageLoading";
 import { StatusBadge } from "../components/Badge";
@@ -58,9 +60,13 @@ export default function ChargeDetail() {
   const [ch, setCh] = useState<ChargeDTO | null>(null);
   const [rems, setRems] = useState<Reminder[]>([]);
   const [inboundWA, setInboundWA] = useState<ChargeInboundWhatsApp[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastNotice | null>(null);
+  const { show: showToast } = useToast();
+  const setToast = (notice: ToastNotice | null) => {
+    if (notice) showToast(notice);
+  };
   const [clients, setClients] = useState<ClientDTO[]>([]);
   const [timelineModal, setTimelineModal] = useState<TimelineModal | null>(null);
   const [formClientId, setFormClientId] = useState("");
@@ -183,11 +189,11 @@ export default function ChargeDetail() {
       if (payAction === "paid") body.set_paid = true;
       if (payAction === "unpaid") body.set_paid = false;
       await patchCharge(chargeId, body);
-      setToast({ text: "Cambios guardados.", tone: "success" });
+      setToast({ text: "Cobro guardado.", tone: "success" });
       setPayAction("keep");
       await load(true);
     } catch {
-      setToast({ text: "No se pudo guardar. Revisa los datos o el API.", tone: "error" });
+      setToast({ text: "No se pudo guardar el cobro. Revisa los datos e inténtalo de nuevo.", tone: "error" });
     } finally {
       setSavingEdit(false);
     }
@@ -267,7 +273,6 @@ export default function ChargeDetail() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      {toast && <Toast key={`${toast.tone}:${toast.text}`} notice={toast} onClose={() => setToast(null)} />}
       <Link to="/cobros" className="inline-flex text-sm font-medium text-brand hover:underline">
         ← Volver a cobros
       </Link>
@@ -324,16 +329,10 @@ export default function ChargeDetail() {
                   options={clients.map((c) => ({ value: String(c.id), label: chargeCounterpartyLabel(c) }))}
                 />
               </label>
-              <label className="block text-sm font-medium text-ink lg:col-span-3">
+              <div className="block text-sm font-medium text-ink lg:col-span-3">
                 Vencimiento
-                <input
-                  required
-                  type="date"
-                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
-                  value={formDue}
-                  onChange={(e) => setFormDue(e.target.value)}
-                />
-              </label>
+                <AppDatePicker required value={formDue} onChange={setFormDue} />
+              </div>
               <label className="block text-sm font-medium text-ink lg:col-span-3">
                 Monto (CLP)
                 <input
@@ -438,7 +437,7 @@ export default function ChargeDetail() {
             en que escribió), cuando el mensaje se pudo asociar a este cobro.
           </p>
           {/* Scroll solo vertical: padding izquierdo para que los puntos (absolute -left) no queden fuera del área de recorte */}
-          <div className="mt-5 max-h-[min(55vh,26rem)] min-h-0 w-full min-w-0 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border/80 hover:[&::-webkit-scrollbar-thumb]:bg-ink-muted/40">
+          <div className="mt-5 max-h-[min(55vh,26rem)] min-h-0 w-full min-w-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border/80 hover:[&::-webkit-scrollbar-thumb]:bg-ink-muted/40">
             <div className="pl-3 pr-1 sm:pl-4 sm:pr-2">
               <ol className="space-y-6 border-l border-surface-border pl-6 sm:pl-7">
                 {timelineOrdered.length === 0 ? (

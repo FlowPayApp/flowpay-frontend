@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, Check, Info, X } from "lucide-react";
 
@@ -98,4 +98,38 @@ export default function Toast({ notice, onClose }: { notice: ToastNotice; onClos
     </div>,
     document.body,
   );
+}
+
+type ToastApi = {
+  show: (notice: ToastNotice) => void;
+  success: (text: string) => void;
+  error: (text: string) => void;
+};
+
+const ToastContext = createContext<ToastApi | null>(null);
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [current, setCurrent] = useState<(ToastNotice & { id: number }) | null>(null);
+  const seq = useRef(0);
+
+  const show = useCallback((notice: ToastNotice) => {
+    seq.current += 1;
+    setCurrent({ ...notice, id: seq.current });
+  }, []);
+  const success = useCallback((text: string) => show({ text, tone: "success" }), [show]);
+  const error = useCallback((text: string) => show({ text, tone: "error" }), [show]);
+  const close = useCallback(() => setCurrent(null), []);
+
+  return (
+    <ToastContext.Provider value={{ show, success, error }}>
+      {children}
+      {current && <Toast key={current.id} notice={current} onClose={close} />}
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast(): ToastApi {
+  const api = useContext(ToastContext);
+  if (!api) throw new Error("useToast requiere ToastProvider");
+  return api;
 }

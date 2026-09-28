@@ -1,4 +1,6 @@
-import { Eye, Filter, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Filter, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import OpenLink from "../components/OpenLink";
+import { useMinLoading } from "../lib/useMinLoading";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createClient, deleteClient, fetchClients, listCompanyUsers } from "../api";
@@ -8,8 +10,9 @@ import AppModal from "../components/AppModal";
 import AppSelect from "../components/AppSelect";
 import { RiskBadge } from "../components/Badge";
 import FilterTray from "../components/FilterTray";
-import LoadingIndicator from "../components/LoadingIndicator";
+import PageLoading from "../components/PageLoading";
 import TablePagination from "../components/TablePagination";
+import { useToast } from "../components/Toast";
 import { isCompanyAdmin } from "../lib/roles";
 import { PAYMENT_METHODS } from "../lib/paymentMethods";
 
@@ -24,13 +27,7 @@ type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 function ClientRowActions({ client, canDelete, onDelete }: { client: ClientDTO; canDelete: boolean; onDelete: (client: ClientDTO) => void }) {
   return (
     <div className="flex items-center justify-start gap-2">
-      <Link
-        to={`/clients/${client.id}`}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-2.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink"
-      >
-        <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-        Abrir
-      </Link>
+      <OpenLink to={`/clients/${client.id}`} />
       {canDelete && (
         <button
           type="button"
@@ -50,7 +47,8 @@ export default function Clients() {
   const admin = isCompanyAdmin();
   const [rows, setRows] = useState<ClientDTO[]>([]);
   const [sellers, setSellers] = useState<CompanyUserDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [open, setOpen] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
   const [form, setForm] = useState({
@@ -73,6 +71,7 @@ export default function Clients() {
     status: "all",
   });
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [deleteTarget, setDeleteTarget] = useState<ClientDTO | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -134,10 +133,11 @@ export default function Clients() {
         assigned_to: admin && form.assigned_to ? Number(form.assigned_to) : undefined,
       });
       closeClientModal();
+      toast.success("Cliente creado.");
       setLoading(true);
       await load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "No se pudo crear");
+      toast.error(err instanceof Error ? err.message : "No se pudo crear el cliente.");
     }
   }
 
@@ -304,11 +304,7 @@ export default function Clients() {
             </div>
           </FilterTray>
         <ul className="divide-y divide-surface-border lg:hidden">
-          {loading ? (
-            <li className="flex justify-center px-4 py-10">
-              <LoadingIndicator />
-            </li>
-          ) : filteredRows.length === 0 ? (
+          {loading ? null : filteredRows.length === 0 ? (
             <li className="px-4 py-10 text-center text-sm text-ink-muted">
               No hay clientes para los filtros seleccionados.
             </li>
@@ -367,15 +363,7 @@ export default function Clients() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border bg-surface-card">
-              {loading ? (
-                <tr>
-                  <td colSpan={admin ? 7 : 6} className="px-4 py-10">
-                    <div className="flex justify-center">
-                      <LoadingIndicator />
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredRows.length === 0 ? (
+              {loading ? null : filteredRows.length === 0 ? (
                 <tr>
                   <td colSpan={admin ? 7 : 6} className="px-4 py-10 text-center text-ink-muted">
                     No hay clientes para los filtros seleccionados.
@@ -577,9 +565,10 @@ export default function Clients() {
                     .then(() => {
                       setRows((current) => current.filter((row) => row.id !== target.id));
                       setDeleteTarget(null);
+                      toast.success("Cliente eliminado.");
                     })
                     .catch((err: unknown) => {
-                      setDeleteError(err instanceof Error ? err.message : "No se pudo eliminar");
+                      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el cliente.");
                     })
                     .finally(() => setDeleting(false));
                 }}
@@ -591,6 +580,7 @@ export default function Clients() {
           </div>
         </AppModal>
       )}
+      {loading && <PageLoading />}
     </div>
   );
 }

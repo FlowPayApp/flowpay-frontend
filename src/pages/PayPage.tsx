@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMinLoading } from "../lib/useMinLoading";
 import { useParams } from "react-router-dom";
 import { ChevronDown, CreditCard, Download } from "lucide-react";
 import {
@@ -56,7 +57,7 @@ function ChargeList({ count, className, children }: { count: number; className?:
   return (
     <ul
       ref={ref}
-      className={["relative divide-y divide-surface-border overflow-y-auto overscroll-contain", className ?? ""].join(" ")}
+      className={["relative divide-y divide-surface-border overflow-y-auto", className ?? ""].join(" ")}
       style={maxHeight ? { maxHeight } : undefined}
     >
       {children}
@@ -82,7 +83,8 @@ function ChargeInvoice({ token, ext }: { token?: string | null; ext?: string | n
 export default function PayPage() {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<PaymentPortalResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);

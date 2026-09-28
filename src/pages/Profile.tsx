@@ -1,8 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useMinLoading } from "../lib/useMinLoading";
 import { Loader2, Moon, Sun } from "lucide-react";
 import { getMyProfile, updateMyProfile } from "../api";
 import PageLoading from "../components/PageLoading";
 import PasswordInput from "../components/PasswordInput";
+import { useToast } from "../components/Toast";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
 import { useTheme, type ThemeMode } from "../theme";
 
@@ -13,10 +15,11 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
 
 export default function Profile() {
   const { theme, setTheme } = useTheme();
-  const [loading, setLoading] = useState(true);
+  const toast = useToast();
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -48,17 +51,16 @@ export default function Profile() {
   async function onSave(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setOk(null);
     const password = form.password.trim();
     const confirmPassword = form.confirmPassword.trim();
     if (password || confirmPassword) {
       const policyError = getPasswordPolicyError(password);
       if (policyError) {
-        setError(policyError);
+        toast.error(policyError);
         return;
       }
       if (password !== confirmPassword) {
-        setError("La confirmación de contraseña no coincide.");
+        toast.error("La confirmación de contraseña no coincide.");
         return;
       }
     }
@@ -70,9 +72,9 @@ export default function Profile() {
         password: password || undefined,
       });
       setForm((current) => ({ ...current, password: "", confirmPassword: "" }));
-      setOk("Perfil actualizado.");
+      toast.success("Perfil actualizado.");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "No se pudo actualizar el perfil.");
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el perfil.");
     } finally {
       setSaving(false);
     }
@@ -90,10 +92,6 @@ export default function Profile() {
       {error && (
         <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>
       )}
-      {ok && (
-        <div className="rounded-xl border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand">{ok}</div>
-      )}
-
       <section className="rounded-2xl border border-surface-border bg-surface-card p-5 shadow-soft sm:p-6">
         <h2 className="text-lg font-semibold text-ink">Apariencia</h2>
         <p className="mt-1 text-sm text-ink-muted">El modo se guarda en este dispositivo.</p>
