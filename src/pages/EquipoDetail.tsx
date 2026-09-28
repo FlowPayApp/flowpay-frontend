@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { listCompanyUsers, updateCompanyUser, type CompanyUserDTO } from "../api";
 import AppSelect from "../components/AppSelect";
 import PageLoading from "../components/PageLoading";
 import ToggleSwitch from "../components/ToggleSwitch";
+import { useToast } from "../components/Toast";
 import { getSessionClaims } from "../lib/auth";
 import { roleLabel } from "../lib/roles";
 
@@ -24,10 +26,11 @@ export default function EquipoDetail() {
   const memberId = Number(userId);
   const selfId = getSessionClaims()?.uid ?? 0;
   const [member, setMember] = useState<CompanyUserDTO | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [form, setForm] = useState({ name: "", email: "", role: "member" as Role, is_active: true });
 
   useEffect(() => {
@@ -67,7 +70,6 @@ export default function EquipoDetail() {
     e.preventDefault();
     if (!member) return;
     setSaving(true);
-    setError(null);
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
@@ -77,8 +79,9 @@ export default function EquipoDetail() {
     try {
       await updateCompanyUser(member.user_id, payload);
       setMember({ ...member, ...payload });
+      toast.success("Usuario guardado.");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar el usuario");
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar el usuario.");
     } finally {
       setSaving(false);
     }
@@ -99,10 +102,6 @@ export default function EquipoDetail() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      {error && (
-        <div className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div>
-      )}
-
       <Link to="/equipo" className="inline-flex text-sm font-medium text-brand hover:underline">
         ← Volver al equipo
       </Link>

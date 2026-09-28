@@ -1,4 +1,5 @@
 import { AlertCircle, Download, RefreshCw, Upload } from "lucide-react";
+import { useMinLoading } from "../lib/useMinLoading";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -34,11 +35,13 @@ function formatWhen(iso: string) {
 
 export default function ClientLoads() {
   const [rows, setRows] = useState<ClientImportBatchListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [error, setError] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [importBusy, setImportBusy] = useState(false);
+  const [importBusyRaw, setImportBusy] = useState(false);
+  const importBusy = useMinLoading(importBusyRaw);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [errorsModal, setErrorsModal] = useState<{
     id: number;

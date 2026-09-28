@@ -293,3 +293,21 @@ html:not(.dark) select.rounded-xl:not([class*="appearance-none"]) {
     transform: scaleX(0);
   }
 }
+
+@keyframes auth-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes auth-bar {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(300%, 0, 0);
+  }
+}

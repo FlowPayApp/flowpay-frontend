@@ -7,15 +7,17 @@ import FilterTray from "../components/FilterTray";
 import IconActionButton from "../components/IconActionButton";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ToggleSwitch from "../components/ToggleSwitch";
+import { useToast } from "../components/Toast";
 
 function isCompanyActive(c: CompanyDTO): boolean {
   return c.is_active !== false;
 }
 
 export default function PlatformCompanies() {
-  const MIN_LOADING_MS = 420;
+  const MIN_LOADING_MS = 1000;
   const [rows, setRows] = useState<CompanyDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [actionLoading, setActionLoading] = useState(false);
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
@@ -53,9 +55,10 @@ export default function PlatformCompanies() {
       await createCompany(form);
       setForm({ name: "" });
       await load();
+      toast.success("Empresa creada.");
       return true;
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo crear empresa");
+      toast.error(e instanceof Error ? e.message : "No se pudo crear la empresa.");
       return false;
     } finally {
       await ensureLoadingTime(startedAt);
@@ -72,8 +75,9 @@ export default function PlatformCompanies() {
       await updateCompany(editing.id, { name: editing.name });
       setEditing(null);
       await load();
+      toast.success("Empresa guardada.");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo editar empresa");
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar la empresa.");
     } finally {
       await ensureLoadingTime(startedAt);
       setActionLoading(false);
@@ -87,8 +91,9 @@ export default function PlatformCompanies() {
     try {
       await updateCompany(id, { is_active: active });
       await load();
+      toast.success(active ? "Empresa activada." : "Empresa desactivada.");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo actualizar el estado");
+      toast.error(e instanceof Error ? e.message : "No se pudo actualizar el estado.");
     } finally {
       await ensureLoadingTime(startedAt);
       setActionLoading(false);

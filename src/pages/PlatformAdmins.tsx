@@ -16,6 +16,7 @@ import IconActionButton from "../components/IconActionButton";
 import ResetPasswordModal, { type ResetPasswordModalState } from "../components/ResetPasswordModal";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ToggleSwitch from "../components/ToggleSwitch";
+import { useToast } from "../components/Toast";
 
 function isAdminActive(a: CompanyAdminDTO): boolean {
   return a.is_active !== false;
@@ -30,10 +31,11 @@ type EditModalState = {
 };
 
 export default function PlatformAdmins() {
-  const MIN_LOADING_MS = 420;
+  const MIN_LOADING_MS = 1000;
   const [admins, setAdmins] = useState<CompanyAdminDTO[]>([]);
   const [companies, setCompanies] = useState<CompanyDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [actionLoading, setActionLoading] = useState(false);
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
@@ -90,9 +92,10 @@ export default function PlatformAdmins() {
       setForm((f) => ({ ...f, email: "", name: "" }));
       setTempCred({ email: emailUsed, temporary_password: created.temporary_password });
       await load();
+      toast.success("Admin creado.");
       return true;
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo crear admin");
+      toast.error(e instanceof Error ? e.message : "No se pudo crear el admin.");
       return false;
     } finally {
       await ensureLoadingTime(startedAt);
@@ -112,8 +115,9 @@ export default function PlatformAdmins() {
       });
       setEditModal(null);
       await load();
+      toast.success("Admin guardado.");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo editar admin");
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar el admin.");
     } finally {
       setEditBusy(false);
     }
@@ -126,8 +130,9 @@ export default function PlatformAdmins() {
     try {
       await updateCompanyAdmin(userId, { is_active: active });
       await load();
+      toast.success(active ? "Admin activado." : "Admin desactivado.");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo actualizar el estado");
+      toast.error(e instanceof Error ? e.message : "No se pudo actualizar el estado.");
     } finally {
       await ensureLoadingTime(startedAt);
       setActionLoading(false);

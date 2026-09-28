@@ -290,7 +290,7 @@ export default function Layout() {
         </nav>
       </aside>
 
-      <main className="h-dvh min-h-0 w-full min-w-0 flex-1 overflow-y-auto bg-surface px-4 pb-[calc(5.25rem+env(safe-area-inset-bottom))] pt-[calc(3.5rem+env(safe-area-inset-top))] sm:px-6 lg:px-10 lg:pb-10 lg:pt-8">
+      <main className="relative h-dvh min-h-0 w-full min-w-0 flex-1 overflow-y-auto bg-surface px-4 pb-[calc(5.25rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))] sm:px-6 lg:px-10 lg:pb-10 lg:pt-8">
         <Outlet />
       </main>
 

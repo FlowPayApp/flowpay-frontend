@@ -3,12 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchPlatformOverview, type PlatformOverviewResponse } from "../api";
 import PageLoading from "../components/PageLoading";
 import { formatMoney } from "../lib/format";
+import { clearHomePrefetch, peekPlatformOverview } from "../lib/homePrefetch";
+import { useMinLoading } from "../lib/useMinLoading";
 
 type KpiTone = "default" | "success" | "warning" | "danger";
 
 export default function PlatformOverview() {
-  const [data, setData] = useState<PlatformOverviewResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [prefetched] = useState(peekPlatformOverview);
+  const [data, setData] = useState<PlatformOverviewResponse | null>(prefetched);
+  const [loadingRaw, setLoading] = useState(!prefetched);
+  const loading = useMinLoading(loadingRaw);
   const [error, setError] = useState<string | null>(null);
 
   const reload = async () => {
@@ -25,6 +29,10 @@ export default function PlatformOverview() {
   };
 
   useEffect(() => {
+    if (prefetched) {
+      clearHomePrefetch();
+      return;
+    }
     void reload();
   }, []);
 

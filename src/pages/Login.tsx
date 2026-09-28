@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { firstPasswordChange } from "../api";
 import AuthShell from "../components/AuthShell";
-import LoadingOverlay from "../components/LoadingOverlay";
+import AuthLoadingOverlay from "../components/AuthLoadingOverlay";
 import PasswordInput from "../components/PasswordInput";
 import Toast, { type ToastNotice } from "../components/Toast";
 import { getDefaultHomePath, setToken } from "../lib/auth";
+import { prefetchHome } from "../lib/homePrefetch";
+import { useMinLoading, waitMinLoading } from "../lib/useMinLoading";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
 
 export default function Login() {
@@ -17,12 +19,14 @@ export default function Login() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastNotice | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingRaw, setLoading] = useState(false);
+  const loading = useMinLoading(loadingRaw);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
+    const startedAt = Date.now();
     try {
       const res = await fetch("/auth/login", {
         method: "POST",
@@ -44,7 +48,10 @@ export default function Login() {
         return;
       }
       setToken(data.access_token);
-      nav(getDefaultHomePath(), { replace: true });
+      const home = getDefaultHomePath();
+      await prefetchHome(home);
+      await waitMinLoading(startedAt);
+      nav(home, { replace: true });
     } catch {
       setErr("Error de red. ¿Está flowpay-sso en :9090 y el proxy /auth activo?");
     } finally {
@@ -95,7 +102,9 @@ export default function Login() {
       {toast && (
         <Toast key={`${toast.tone}:${toast.text}`} notice={toast} onClose={() => setToast(null)} />
       )}
-      {loading && <LoadingOverlay message="Procesando acceso..." />}
+      {loading && (
+        <AuthLoadingOverlay message={mustChangePassword ? "Actualizando tu contraseña…" : "Entrando a tu cuenta…"} />
+      )}
         <form className="space-y-4" onSubmit={mustChangePassword ? onFirstChangePassword : onSubmit}>
         <label className="block text-sm font-medium text-ink">
           Email

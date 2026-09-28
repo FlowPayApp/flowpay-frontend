@@ -4,7 +4,7 @@ import LoadingIndicator from "./LoadingIndicator";
 export default function PageLoading({ message, className }: { message?: string; className?: string }) {
   return (
     <div
-      className={`flex min-h-[40vh] w-full items-center justify-center ${className ?? ""}`}
+      className={`pointer-events-none absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-[calc(3.5rem+env(safe-area-inset-top))] flex items-center justify-center lg:inset-y-0 ${className ?? ""}`}
       role="status"
       aria-live="polite"
       aria-busy="true"

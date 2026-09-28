@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Filter, Loader2, Plus, Trash2 } from "lucide-react";
+import { useMinLoading } from "../lib/useMinLoading";
+import { Filter, Loader2, Plus, Trash2 } from "lucide-react";
+import OpenLink from "../components/OpenLink";
 import { Link, useSearchParams } from "react-router-dom";
 import { createCharge, deleteCharge, fetchCharges, fetchClients } from "../api";
 import type { ChargeDTO, ClientDTO } from "../api";
 import AppModal from "../components/AppModal";
+import AppDatePicker from "../components/AppDatePicker";
 import AppSelect from "../components/AppSelect";
 import { StatusBadge } from "../components/Badge";
 import FilterTray from "../components/FilterTray";
-import LoadingIndicator from "../components/LoadingIndicator";
+import PageLoading from "../components/PageLoading";
 import TablePagination from "../components/TablePagination";
+import { useToast } from "../components/Toast";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
 import { isCompanyAdmin } from "../lib/roles";
@@ -39,13 +43,7 @@ function ChargeRowActions({
 }) {
   return (
     <div className="flex items-center justify-start gap-2">
-      <Link
-        to={`/cobros/${charge.id}`}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-2.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink"
-      >
-        <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-        Abrir
-      </Link>
+      <OpenLink to={`/cobros/${charge.id}`} />
       {canDelete && (
         <button
           type="button"
@@ -68,7 +66,8 @@ export default function Cobros() {
   const queryStatus = (searchParams.get("status") ?? "all") as "all" | "pending" | "paid" | "overdue";
   const [rows, setRows] = useState<ChargeDTO[]>([]);
   const [clients, setClients] = useState<ClientDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingRaw, setLoading] = useState(true);
+  const loading = useMinLoading(loadingRaw);
   const [open, setOpen] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
   const [form, setForm] = useState({ client_id: "", amount: "", due_date: "" });
@@ -77,6 +76,7 @@ export default function Cobros() {
     status: queryStatus,
   });
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [deleteTarget, setDeleteTarget] = useState<ChargeDTO | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -104,10 +104,11 @@ export default function Cobros() {
       });
       setOpen(false);
       setForm({ client_id: "", amount: "", due_date: "" });
+      toast.success("Cobro creado.");
       setLoading(true);
       await load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "No se pudo crear");
+      toast.error(err instanceof Error ? err.message : "No se pudo crear el cobro.");
     }
   }
 
@@ -229,11 +230,7 @@ export default function Cobros() {
             </div>
           )}
         <ul className="divide-y divide-surface-border lg:hidden">
-          {loading ? (
-            <li className="flex justify-center px-4 py-10">
-              <LoadingIndicator />
-            </li>
-          ) : filteredRows.length === 0 ? (
+          {loading ? null : filteredRows.length === 0 ? (
             <li className="px-4 py-10 text-center text-sm text-ink-muted">
               No hay cobros para los filtros seleccionados.
             </li>
@@ -277,15 +274,7 @@ export default function Cobros() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border bg-surface-card">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10">
-                    <div className="flex justify-center">
-                      <LoadingIndicator />
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredRows.length === 0 ? (
+              {loading ? null : filteredRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-ink-muted">
                     No hay cobros para los filtros seleccionados.
@@ -367,9 +356,10 @@ export default function Cobros() {
                     .then(() => {
                       setRows((current) => current.filter((row) => row.id !== target.id));
                       setDeleteTarget(null);
+                      toast.success("Cobro eliminado.");
                     })
                     .catch((err: unknown) => {
-                      setDeleteError(err instanceof Error ? err.message : "No se pudo eliminar el cobro.");
+                      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el cobro.");
                     })
                     .finally(() => setDeleting(false));
                 }}
@@ -421,16 +411,14 @@ export default function Cobros() {
                 />
                 <span className="mt-1 block text-xs font-normal text-ink-muted">Se registra automáticamente en pesos chilenos.</span>
               </label>
-              <label className="block text-sm font-medium text-ink">
+              <div className="block text-sm font-medium text-ink">
                 Vencimiento
-                <input
+                <AppDatePicker
                   required
-                  type="date"
-                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
                   value={form.due_date}
-                  onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
+                  onChange={(due_date) => setForm((f) => ({ ...f, due_date }))}
                 />
-              </label>
+              </div>
               {error && <p className="text-sm text-danger">{error}</p>}
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -451,6 +439,7 @@ export default function Cobros() {
           </div>
         </AppModal>
       )}
+      {loading && <PageLoading />}
     </div>
   );
 }
