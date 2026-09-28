@@ -7,6 +7,7 @@ export interface ReminderTemplateRowDTO {
   sort_order: number;
   email_subject: string;
   body: string;
+  whatsapp_body: string;
 }
 
 export interface MessagingSettingsDTO {

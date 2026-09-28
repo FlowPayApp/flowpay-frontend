@@ -17,8 +17,8 @@ export default function AppModal({ children, onBackdropClick }: Props) {
         aria-hidden
         onClick={onBackdropClick}
       />
-      <div className="pointer-events-none relative flex min-h-screen items-center justify-center p-4">
-        <div className="pointer-events-auto">{children}</div>
+      <div className="pointer-events-none relative flex min-h-dvh items-end justify-center sm:items-center sm:p-4">
+        <div className="pointer-events-auto max-h-[92dvh] w-full overflow-y-auto sm:w-auto">{children}</div>
       </div>
     </div>,
     document.body,

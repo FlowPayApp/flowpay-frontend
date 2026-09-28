@@ -16,6 +16,7 @@ export async function saveCompanyMessaging(payload: {
     sort_order: number;
     email_subject: string;
     body: string;
+    whatsapp_body: string;
   }[];
 }) {
   await api.put("/api/company/messaging", payload);

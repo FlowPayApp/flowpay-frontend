@@ -22,6 +22,7 @@ export interface PortalCharge {
   due_date: string;
   status?: ChargeStatus;
   attachment_token?: string | null;
+  attachment_ext?: string | null;
 }
 
 export interface PaymentPortalResponse {

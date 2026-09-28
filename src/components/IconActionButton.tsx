@@ -12,9 +12,9 @@ type Props = {
 export default function IconActionButton({ icon: Icon, label, onClick, disabled, variant = "default" }: Props) {
   const styles =
     variant === "danger"
-      ? "border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+      ? "border-danger/30 text-danger hover:bg-danger-soft hover:text-danger"
       : variant === "accent"
-        ? "border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800"
+        ? "border-brand/30 text-brand hover:bg-brand-soft"
         : "border-surface-border text-ink-muted hover:bg-surface hover:text-ink";
 
   return (

@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import {
-  deleteCharge,
   fetchCharge,
   fetchChargeInboundWhatsApp,
   fetchClients,
@@ -9,15 +8,17 @@ import {
   patchCharge,
   recordPayment,
   sendReminderNow,
-  simulateChargeInboundWhatsApp,
+  uploadChargeAttachment,
 } from "../api";
 import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder } from "../api";
 import AppModal from "../components/AppModal";
+import Toast, { type ToastNotice } from "../components/Toast";
+import InvoicePreview from "../components/InvoicePreview";
+import AppSelect from "../components/AppSelect";
 import PageLoading from "../components/PageLoading";
 import { StatusBadge } from "../components/Badge";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatDateTime, formatMoney } from "../lib/format";
-import { isCompanyAdmin } from "../lib/roles";
 
 function normalizeClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -29,6 +30,10 @@ function parseClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
   if (!digits) return 0;
   return Number(digits);
+}
+
+function ActionSpinner() {
+  return <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />;
 }
 
 function timelineLabel(r: Reminder) {
@@ -47,14 +52,8 @@ type TimelineItem =
 
 type TimelineModal = { mode: "reminder"; reminder: Reminder } | { mode: "reply"; reply: ChargeInboundWhatsApp };
 
-type ToastNotice = {
-  text: string;
-  tone: "success" | "error" | "info";
-};
-
 export default function ChargeDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const chargeId = Number(id);
   const [ch, setCh] = useState<ChargeDTO | null>(null);
   const [rems, setRems] = useState<Reminder[]>([]);
@@ -70,12 +69,15 @@ export default function ChargeDetail() {
   /** keep = no tocar pagos; paid = marcar cobrado; unpaid = reabrir */
   const [payAction, setPayAction] = useState<"keep" | "paid" | "unpaid">("keep");
   const [savingEdit, setSavingEdit] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [simulatingReply, setSimulatingReply] = useState(false);
-  const admin = isCompanyAdmin();
-  const load = async () => {
-    setLoading(true);
-    setLoadError(null);
+  const [reminding, setReminding] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
+  const load = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
       const i = await fetchCharge(chargeId);
       setCh(i);
@@ -88,10 +90,12 @@ export default function ChargeDetail() {
         setInboundWA([]);
       }
     } catch {
-      setCh(null);
-      setLoadError("No se pudo cargar el cobro. ¿Está el API en marcha y la base de datos actualizada?");
+      if (!silent) {
+        setCh(null);
+        setLoadError("No se pudo cargar el cobro. ¿Está el API en marcha y la base de datos actualizada?");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -119,29 +123,31 @@ export default function ChargeDetail() {
   }, [ch?.id, ch?.client_id, ch?.due_date, ch?.amount, ch?.status]);
 
   async function onRemind() {
+    setReminding(true);
     setToast(null);
     try {
       await sendReminderNow(chargeId);
       setToast({ text: "Listo: enviamos recordatorios por email y WhatsApp.", tone: "success" });
-      await load();
+      await load(true);
     } catch {
       setToast({ text: "No se pudo enviar (¿ya está cobrado?).", tone: "error" });
+    } finally {
+      setReminding(false);
     }
   }
 
-  async function onSimulateClientReply() {
-    setSimulatingReply(true);
+  async function onInvoiceFile(file: File) {
+    setUploadingInvoice(true);
     setToast(null);
     try {
-      await simulateChargeInboundWhatsApp(chargeId);
-      setToast({ text: "Listo: se registró una respuesta simulada en la línea de tiempo.", tone: "success" });
-      const [r, wa] = await Promise.all([fetchReminders(chargeId), fetchChargeInboundWhatsApp(chargeId)]);
-      setRems(Array.isArray(r) ? r : []);
-      setInboundWA(Array.isArray(wa) ? wa : []);
-    } catch {
-      setToast({ text: "No se pudo simular la respuesta.", tone: "error" });
+      await uploadChargeAttachment(chargeId, file);
+      setToast({ text: "Factura adjuntada. El cliente la verá en el portal de pago.", tone: "success" });
+      await load(true);
+    } catch (err: unknown) {
+      setToast({ text: err instanceof Error ? err.message : "No se pudo adjuntar la factura.", tone: "error" });
     } finally {
-      setSimulatingReply(false);
+      setUploadingInvoice(false);
+      if (invoiceInputRef.current) invoiceInputRef.current.value = "";
     }
   }
 
@@ -179,7 +185,7 @@ export default function ChargeDetail() {
       await patchCharge(chargeId, body);
       setToast({ text: "Cambios guardados.", tone: "success" });
       setPayAction("keep");
-      await load();
+      await load(true);
     } catch {
       setToast({ text: "No se pudo guardar. Revisa los datos o el API.", tone: "error" });
     } finally {
@@ -189,41 +195,18 @@ export default function ChargeDetail() {
 
   async function onPay() {
     if (!ch) return;
+    setPaying(true);
     setToast(null);
     try {
       await recordPayment(ch.id, ch.amount);
       setToast({ text: "Pago registrado. Este cobro quedó como cobrado.", tone: "success" });
-      await load();
+      await load(true);
     } catch {
       setToast({ text: "No se pudo registrar el pago.", tone: "error" });
-    }
-  }
-
-  async function onDeleteCharge() {
-    if (
-      !confirm(
-        "¿Eliminar este cobro? También se eliminarán pagos y recordatorios asociados. Esta acción no se puede deshacer.",
-      )
-    ) {
-      return;
-    }
-    setDeleting(true);
-    setToast(null);
-    try {
-      await deleteCharge(chargeId);
-      navigate("/cobros");
-    } catch {
-      setToast({ text: "No se pudo eliminar el cobro.", tone: "error" });
     } finally {
-      setDeleting(false);
+      setPaying(false);
     }
   }
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 2800);
-    return () => window.clearTimeout(t);
-  }, [toast]);
 
   if (loading) {
     return (
@@ -234,7 +217,7 @@ export default function ChargeDetail() {
   }
   if (loadError) {
     return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-rose-200 bg-surface-card p-6 text-rose-900 shadow-soft">
+      <div className="mx-auto max-w-lg rounded-2xl border border-danger/30 bg-surface-card p-6 text-danger shadow-soft">
         <p>{loadError}</p>
         <Link to="/cobros" className="mt-4 inline-block text-sm font-medium text-brand hover:underline">
           Volver a cobros
@@ -280,36 +263,11 @@ export default function ChargeDetail() {
   const isOverdue = ch.status === "overdue";
   const isPaid = ch.status === "paid";
   const dueLabel = isPaid ? "Cobrado" : isOverdue ? "Vencido" : "Al día";
+  const timelineBusy = reminding || paying;
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      {toast && (
-        <div
-          className={[
-            "fixed right-4 top-4 z-50 max-w-[24rem] rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur-sm transition-all",
-            toast.tone === "success" && "border-emerald-200 bg-emerald-50/95 text-emerald-800",
-            toast.tone === "error" && "border-rose-200 bg-rose-50/95 text-rose-800",
-            toast.tone === "info" && "border-sky-200 bg-sky-50/95 text-sky-800",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-current opacity-70" />
-            <p className="leading-5">{toast.text}</p>
-            <button
-              type="button"
-              onClick={() => setToast(null)}
-              className="ml-auto rounded-md px-1.5 py-0.5 text-xs font-semibold opacity-70 hover:bg-black/5 hover:opacity-100"
-              aria-label="Cerrar aviso"
-            >
-              x
-            </button>
-          </div>
-        </div>
-      )}
+      {toast && <Toast key={`${toast.tone}:${toast.text}`} notice={toast} onClose={() => setToast(null)} />}
       <Link to="/cobros" className="inline-flex text-sm font-medium text-brand hover:underline">
         ← Volver a cobros
       </Link>
@@ -359,18 +317,12 @@ export default function ChargeDetail() {
             <form className="mt-5 grid gap-4 lg:grid-cols-12" onSubmit={onSaveEdit}>
               <label className="block text-sm font-medium text-ink lg:col-span-6">
                 Sucursal
-                <select
+                <AppSelect
                   required
-                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
                   value={formClientId}
-                  onChange={(e) => setFormClientId(e.target.value)}
-                >
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {chargeCounterpartyLabel(c)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setFormClientId}
+                  options={clients.map((c) => ({ value: String(c.id), label: chargeCounterpartyLabel(c) }))}
+                />
               </label>
               <label className="block text-sm font-medium text-ink lg:col-span-3">
                 Vencimiento
@@ -396,26 +348,63 @@ export default function ChargeDetail() {
               </label>
               <label className="block text-sm font-medium text-ink lg:col-span-8">
                 Estado de cobro
-                <select
-                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
+                <AppSelect
                   value={payAction}
-                  onChange={(e) => setPayAction(e.target.value as "keep" | "paid" | "unpaid")}
-                >
-                  <option value="keep">Automático (sin cambios manuales)</option>
-                  <option value="paid">Marcar como cobrado</option>
-                  <option value="unpaid">Marcar como pendiente (reabrir)</option>
-                </select>
+                  onChange={(next) => setPayAction(next as "keep" | "paid" | "unpaid")}
+                  options={[
+                    { value: "keep", label: "Automático (sin cambios manuales)" },
+                    { value: "paid", label: "Marcar como cobrado" },
+                    { value: "unpaid", label: "Marcar como pendiente (reabrir)" },
+                  ]}
+                />
               </label>
               <div className="lg:col-span-4 lg:self-end">
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="w-full rounded-xl border border-transparent bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-60 dark:border-slate-500/50 dark:bg-slate-800 dark:shadow-none dark:hover:border-slate-400/70 dark:hover:bg-slate-700"
+                  className="w-full rounded-xl border border-transparent bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60 dark:shadow-none"
                 >
                   {savingEdit ? "Guardando…" : "Guardar cambios"}
                 </button>
               </div>
             </form>
+          </section>
+
+          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">Factura</h2>
+                <p className="mt-1 text-sm text-ink-muted">PDF o imagen, hasta 8 MB. El cliente la ve en el portal de pago.</p>
+              </div>
+              <div>
+                <input
+                  ref={invoiceInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void onInvoiceFile(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={uploadingInvoice}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+                  onClick={() => invoiceInputRef.current?.click()}
+                >
+                  {uploadingInvoice && <ActionSpinner />}
+                  {uploadingInvoice ? "Subiendo…" : ch.attachment_token ? "Reemplazar factura" : "Adjuntar factura"}
+                </button>
+              </div>
+            </div>
+            {ch.attachment_token ? (
+              <div className="mt-4">
+                <InvoicePreview token={ch.attachment_token} ext={ch.attachment_ext} />
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-ink-muted">Este cobro todavía no tiene factura.</p>
+            )}
           </section>
 
           <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-5">
@@ -435,7 +424,7 @@ export default function ChargeDetail() {
               </div>
             </div>
             {isOverdue && (
-              <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+              <p className="mt-4 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
                 Vencido: prioriza contacto y seguimiento para evitar mayor atraso.
               </p>
             )}
@@ -448,22 +437,8 @@ export default function ChargeDetail() {
             Lo más reciente arriba. Incluye recordatorios automáticos y respuestas del cliente por WhatsApp (fecha y hora
             en que escribió), cuando el mensaje se pudo asociar a este cobro.
           </p>
-          <div className="mt-4 rounded-xl border border-dashed border-surface-border bg-surface/30 p-3">
-            <button
-              type="button"
-              disabled={simulatingReply}
-              onClick={() => void onSimulateClientReply()}
-              className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left text-sm font-semibold text-ink hover:bg-surface disabled:opacity-60"
-            >
-              {simulatingReply ? "Registrando…" : "Simular respuesta del cliente (WhatsApp)"}
-            </button>
-            <p className="mt-2 text-xs text-ink-muted">
-              Solo demostración: inserta un mensaje entrante vinculado a este cobro, como si el cliente hubiera respondido
-              por WhatsApp.
-            </p>
-          </div>
           {/* Scroll solo vertical: padding izquierdo para que los puntos (absolute -left) no queden fuera del área de recorte */}
-          <div className="mt-5 max-h-[min(55vh,26rem)] min-h-0 w-full min-w-0 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/80 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/90">
+          <div className="mt-5 max-h-[min(55vh,26rem)] min-h-0 w-full min-w-0 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border/80 hover:[&::-webkit-scrollbar-thumb]:bg-ink-muted/40">
             <div className="pl-3 pr-1 sm:pl-4 sm:pr-2">
               <ol className="space-y-6 border-l border-surface-border pl-6 sm:pl-7">
                 {timelineOrdered.length === 0 ? (
@@ -489,7 +464,7 @@ export default function ChargeDetail() {
                       </li>
                     ) : (
                       <li key={item.id} className="relative min-w-0 max-w-full">
-                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-surface-card ring-2 ring-emerald-500 sm:-left-[33px]" />
+                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-surface-card ring-2 ring-brand sm:-left-[33px]" />
                         <div className="break-words text-sm font-medium text-ink">Respuesta del cliente (WhatsApp)</div>
                         <div className="mt-1 break-words text-xs text-ink-muted">
                           {formatDateTime(item.reply.created_at)} · whatsapp · entrante
@@ -518,36 +493,28 @@ export default function ChargeDetail() {
               <div className="mt-4 grid gap-2">
                 <button
                   type="button"
-                  onClick={onRemind}
-                  className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+                  onClick={() => void onRemind()}
+                  disabled={timelineBusy}
+                  className="inline-flex w-full items-center justify-center gap-2 bg-brand px-4 text-sm font-semibold text-white disabled:opacity-60"
                 >
-                  Enviar recordatorio ahora
+                  {reminding ? <ActionSpinner /> : null}
+                  {reminding ? "Enviando…" : "Enviar recordatorio ahora"}
                 </button>
                 <button
                   type="button"
-                  onClick={onPay}
-                  className="w-full rounded-xl border border-surface-border bg-surface-card px-4 py-3 text-sm font-semibold text-ink hover:bg-surface"
+                  onClick={() => void onPay()}
+                  disabled={timelineBusy}
+                  className="inline-flex w-full items-center justify-center gap-2 border border-surface-border bg-surface-card px-4 text-sm font-semibold text-ink hover:bg-surface disabled:opacity-60"
                 >
-                  Registrar pago
+                  {paying ? <ActionSpinner /> : null}
+                  {paying ? "Registrando…" : "Registrar pago"}
                 </button>
               </div>
             ) : (
-              <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-200">
+              <p className="mt-4 rounded-xl border border-brand/30 bg-brand-soft px-3 py-2 text-sm text-brand">
                 Este cobro ya está marcado como cobrado.
               </p>
             )}
-            {admin ? (
-            <div className="mt-6 border-t border-surface-border pt-4">
-              <button
-                type="button"
-                onClick={() => void onDeleteCharge()}
-                disabled={deleting}
-                className="w-full rounded-xl border border-rose-200 bg-surface-card px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-500/35 dark:text-rose-300 dark:hover:bg-rose-950/40"
-              >
-                {deleting ? "Eliminando…" : "Eliminar cobro"}
-              </button>
-            </div>
-            ) : null}
           </div>
         </section>
       </div>

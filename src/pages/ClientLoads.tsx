@@ -108,16 +108,15 @@ export default function ClientLoads() {
     <div className="mx-auto max-w-5xl space-y-6">
       {importBusy && <LoadingOverlay message="Importando…" />}
 
+      <Link to="/clients" className="inline-flex text-sm font-medium text-brand hover:underline">
+        ← Volver a clientes
+      </Link>
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Carga de clientes</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Carga de clientes</h1>
           <p className="mt-1 text-sm text-ink-muted">
             Descarga la plantilla, sube tu Excel y revisa el historial de cada importación.
-          </p>
-          <p className="mt-2 text-sm">
-            <Link to="/clients" className="font-medium text-brand hover:underline">
-              ← Volver a Clientes
-            </Link>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -161,15 +160,15 @@ export default function ClientLoads() {
       </div>
 
       {importSummary && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 whitespace-pre-wrap">
+        <div className="rounded-xl border border-brand/30 bg-brand-soft p-3 text-sm text-brand whitespace-pre-wrap">
           Importación: {importSummary}
         </div>
       )}
       {importError && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 whitespace-pre-wrap">{importError}</div>
+        <div className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger whitespace-pre-wrap">{importError}</div>
       )}
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
+        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>
       )}
 
       {loading && !rows.length ? (
@@ -183,17 +182,17 @@ export default function ClientLoads() {
                   <th className="px-4 py-3 font-semibold">Fecha</th>
                   <th className="px-4 py-3 font-semibold">Origen</th>
                   <th className="px-4 py-3 font-semibold">Archivo</th>
-                  <th className="px-4 py-3 font-semibold text-right">Nuevos</th>
-                  <th className="px-4 py-3 font-semibold text-right">Actualizados</th>
-                  <th className="px-4 py-3 font-semibold text-right">Errores</th>
-                  <th className="px-4 py-3 font-semibold text-right">Acciones</th>
+                  <th className="px-4 py-3 text-right font-semibold">Nuevos</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actualizados</th>
+                  <th className="px-4 py-3 text-right font-semibold">Errores</th>
+                  <th className="px-4 py-3 text-center font-semibold">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-10 text-center text-ink-muted">
-                      Aún no hay cargas registradas. Usá «Importar archivo» arriba para cargar tu primera planilla Excel.
+                      Aún no hay cargas registradas. Usa «Importar archivo» arriba para cargar tu primera planilla Excel.
                     </td>
                   </tr>
                 ) : (
@@ -208,7 +207,7 @@ export default function ClientLoads() {
                       <td className="px-4 py-3 text-right tabular-nums">{r.updated_count}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {r.error_count > 0 ? (
-                          <span className="inline-flex items-center justify-end gap-1 font-medium text-amber-700">
+                          <span className="inline-flex items-center justify-end gap-1 font-medium text-warn">
                             <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
                             {r.error_count}
                           </span>
@@ -216,11 +215,11 @@ export default function ClientLoads() {
                           <span className="text-ink-muted">0</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-center">
                         {r.error_count > 0 ? (
                           <button
                             type="button"
-                            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                            className="rounded-lg border border-warn/30 bg-warn-soft px-3 py-1.5 text-xs font-semibold text-warn hover:bg-warn-soft"
                             onClick={() => openErrors(r.id)}
                           >
                             Ver errores
@@ -250,7 +249,7 @@ export default function ClientLoads() {
                 <LoadingIndicator />
               </div>
             ) : errorsModal.err ? (
-              <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{errorsModal.err}</p>
+              <p className="mt-4 rounded-lg border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{errorsModal.err}</p>
             ) : errorsModal.detail ? (
               <ul className="mt-4 max-h-[min(60vh,420px)] space-y-2 overflow-y-auto rounded-xl border border-surface-border bg-surface p-3 text-sm">
                 {errorsModal.detail.errors.map((e, i) => (

@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Filter, Plus } from "lucide-react";
+import { Eye, Filter, Loader2, Plus, Trash2 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { createCharge, fetchCharges, fetchClients } from "../api";
+import { createCharge, deleteCharge, fetchCharges, fetchClients } from "../api";
 import type { ChargeDTO, ClientDTO } from "../api";
 import AppModal from "../components/AppModal";
+import AppSelect from "../components/AppSelect";
 import { StatusBadge } from "../components/Badge";
+import FilterTray from "../components/FilterTray";
 import LoadingIndicator from "../components/LoadingIndicator";
+import TablePagination from "../components/TablePagination";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
+import { isCompanyAdmin } from "../lib/roles";
 
 function normalizeClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -24,7 +28,40 @@ function parseClpInput(value: string) {
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
+function ChargeRowActions({
+  charge,
+  canDelete,
+  onDelete,
+}: {
+  charge: ChargeDTO;
+  canDelete: boolean;
+  onDelete: (charge: ChargeDTO) => void;
+}) {
+  return (
+    <div className="flex items-center justify-start gap-2">
+      <Link
+        to={`/cobros/${charge.id}`}
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-2.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink"
+      >
+        <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+        Abrir
+      </Link>
+      {canDelete && (
+        <button
+          type="button"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgb(142_58_46)] bg-surface-card px-2.5 text-xs font-medium text-[rgb(142_58_46)] transition hover:bg-danger-soft"
+          onClick={() => onDelete(charge)}
+        >
+          <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+          Eliminar
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Cobros() {
+  const admin = isCompanyAdmin();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClientID = Number(searchParams.get("client_id") || 0);
   const queryClientName = searchParams.get("client") ?? "";
@@ -40,6 +77,9 @@ export default function Cobros() {
     status: queryStatus,
   });
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ChargeDTO | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState<PageSize>(10);
   const [page, setPage] = useState(1);
 
@@ -99,8 +139,6 @@ export default function Cobros() {
   }, [totalPages]);
 
   const pageClamped = Math.min(page, totalPages);
-  const rowStart = totalFiltered === 0 ? 0 : (pageClamped - 1) * pageSize + 1;
-  const rowEnd = Math.min(pageClamped * pageSize, totalFiltered);
 
   const paginatedRows = useMemo(() => {
     const start = (pageClamped - 1) * pageSize;
@@ -112,17 +150,20 @@ export default function Cobros() {
   return (
     <div className="mx-auto w-full max-w-[100rem] space-y-6">
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 whitespace-pre-wrap">{error}</div>
+        <div className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger whitespace-pre-wrap">{error}</div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
-        <div className="border-b border-surface-border px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-ink">Cobros registrados</h2>
-            <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Cobros</h1>
+        <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink"
+                aria-expanded={openFilters}
+                className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium ${
+                  openFilters
+                    ? "border-brand/40 bg-brand-soft text-brand"
+                    : "border-surface-border bg-surface-card text-ink-muted hover:bg-surface hover:text-ink"
+                }`}
                 onClick={() => setOpenFilters((v) => !v)}
               >
                 <Filter className="h-4 w-4" />
@@ -131,15 +172,16 @@ export default function Cobros() {
               <button
                 type="button"
                 onClick={() => setOpen(true)}
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-hover"
               >
                 <Plus className="h-4 w-4" strokeWidth={2.5} />
                 Crear
               </button>
-            </div>
-          </div>
-          {openFilters && (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+          <FilterTray open={openFilters}>
+            <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm text-ink-muted">
                 Sucursal
                 <input
@@ -151,32 +193,32 @@ export default function Cobros() {
               </label>
               <label className="text-sm text-ink-muted">
                 Estado
-                <select
-                  className="mt-1 w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-ink"
+                <AppSelect
                   value={filters.status}
-                  onChange={(e) =>
+                  onChange={(status) =>
                     setFilters((f) => ({
                       ...f,
-                      status: e.target.value as "all" | "pending" | "paid" | "overdue",
+                      status: status as "all" | "pending" | "paid" | "overdue",
                     }))
                   }
-                >
-                  <option value="all">Todos</option>
-                  <option value="pending">Pendiente</option>
-                  <option value="overdue">Vencido</option>
-                  <option value="paid">Pagado</option>
-                </select>
+                  options={[
+                    { value: "all", label: "Todos" },
+                    { value: "pending", label: "Pendiente" },
+                    { value: "overdue", label: "Vencido" },
+                    { value: "paid", label: "Pagado" },
+                  ]}
+                />
               </label>
             </div>
-          )}
+          </FilterTray>
           {queryClientID > 0 && (
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-900">
+            <div className="mx-4 mb-3 mt-3 flex items-center justify-between gap-3 rounded-lg border border-brand/20 bg-brand-soft px-3 py-2 text-xs text-brand sm:mx-5">
               <span>
                 Viendo cobros de: <span className="font-semibold">{queryClientName || `#${queryClientID}`}</span>
               </span>
               <button
                 type="button"
-                className="rounded-md bg-surface-card px-2 py-1 font-medium text-indigo-700 hover:bg-indigo-100 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+                className="min-h-9 rounded-md bg-surface-card px-2 py-1 font-medium text-brand hover:bg-surface"
                 onClick={() => {
                   setSearchParams({});
                   setFilters((f) => ({ ...f, client: "", status: "all" }));
@@ -186,9 +228,44 @@ export default function Cobros() {
               </button>
             </div>
           )}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[896px] table-fixed text-xs sm:text-sm">
+        <ul className="divide-y divide-surface-border lg:hidden">
+          {loading ? (
+            <li className="flex justify-center px-4 py-10">
+              <LoadingIndicator />
+            </li>
+          ) : filteredRows.length === 0 ? (
+            <li className="px-4 py-10 text-center text-sm text-ink-muted">
+              No hay cobros para los filtros seleccionados.
+            </li>
+          ) : (
+            paginatedRows.map((row) => (
+              <li key={row.id} className="px-4 py-4">
+                <Link to={`/cobros/${row.id}`} className="block active:opacity-80">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 truncate font-semibold text-ink">{row.client_name}</p>
+                    <StatusBadge status={row.status} />
+                  </div>
+                  <p className="mt-2 text-lg font-semibold tabular-nums text-ink">{formatMoney(row.amount)}</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    Vence {formatDate(row.due_date)} · #{row.id}
+                  </p>
+                </Link>
+                <div className="mt-3 flex justify-end">
+                  <ChargeRowActions
+                    charge={row}
+                    canDelete={admin}
+                    onDelete={(charge) => {
+                      setDeleteError(null);
+                      setDeleteTarget(charge);
+                    }}
+                  />
+                </div>
+              </li>
+            ))
+          )}
+        </ul>
+        <div className="hidden overflow-x-auto lg:block">
+          <table className="w-full min-w-[960px] text-xs sm:text-sm">
             <thead className="bg-surface/80 text-left text-[10px] font-semibold uppercase tracking-wide text-ink-muted sm:text-xs">
               <tr>
                 <th className="min-w-[88px] whitespace-nowrap px-3 py-3 text-center">Código</th>
@@ -196,9 +273,7 @@ export default function Cobros() {
                 <th className="min-w-[120px] whitespace-nowrap px-3 py-3">Monto</th>
                 <th className="min-w-[120px] whitespace-nowrap px-3 py-3">Vencimiento</th>
                 <th className="min-w-[100px] whitespace-nowrap px-3 py-3">Estado</th>
-                <th className="min-w-[140px] whitespace-nowrap border-l border-surface-border px-3 py-3 pl-6 text-center">
-                  Acciones
-                </th>
+                <th className="w-px whitespace-nowrap px-3 py-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border bg-surface-card">
@@ -230,16 +305,15 @@ export default function Cobros() {
                     <td className="whitespace-nowrap px-3 py-3">
                       <StatusBadge status={row.status} />
                     </td>
-                    <td className="min-w-[140px] whitespace-nowrap border-l border-surface-border px-3 py-3 pl-6 align-middle">
-                      <div className="flex flex-wrap items-center justify-center gap-2">
-                        <Link
-                          to={`/cobros/${row.id}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-surface-border px-2.5 py-1.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink"
-                        >
-                          <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-                          Abrir
-                        </Link>
-                      </div>
+                    <td className="w-px whitespace-nowrap px-3 py-3 text-center align-middle">
+                      <ChargeRowActions
+                        charge={row}
+                        canDelete={admin}
+                        onDelete={(charge) => {
+                          setDeleteError(null);
+                          setDeleteTarget(charge);
+                        }}
+                      />
                     </td>
                   </tr>
                 ))
@@ -247,55 +321,66 @@ export default function Cobros() {
             </tbody>
           </table>
         </div>
-        {!loading && totalFiltered > 0 && (
-          <div className="flex flex-col gap-3 border-t border-surface-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-ink-muted">
-              Mostrando{" "}
-              <span className="font-medium text-ink">
-                {rowStart}–{rowEnd}
-              </span>{" "}
-              de <span className="font-medium text-ink">{totalFiltered}</span>
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-ink-muted">
-                Filas por página
-                <select
-                  className="rounded-lg border border-surface-border bg-surface-card px-2 py-1.5 text-sm text-ink"
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
-                >
-                  {PAGE_SIZE_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={pageClamped <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Anterior
-                </button>
-                <span className="px-2 text-sm text-ink-muted">
-                  Página {pageClamped} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={pageClamped >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Siguiente
-                </button>
-              </div>
-            </div>
-          </div>
+        {!loading && (
+          <TablePagination
+            page={pageClamped}
+            pageSize={pageSize}
+            total={totalFiltered}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageChange={setPage}
+            onPageSizeChange={(next) => {
+              setPageSize(next as PageSize);
+              setPage(1);
+            }}
+          />
         )}
       </div>
+
+      {deleteTarget && (
+        <AppModal onBackdropClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-ink">¿Eliminar este cobro?</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Se eliminará el cobro <span className="font-semibold text-ink">#{deleteTarget.id}</span> de{" "}
+              <span className="font-semibold text-ink">{deleteTarget.client_name || "esta sucursal"}</span>, con sus pagos
+              y recordatorios. Esta acción no se puede deshacer.
+            </p>
+            {deleteError && <p className="mt-3 text-sm text-danger">{deleteError}</p>}
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                className="inline-flex items-center gap-2 bg-danger text-sm font-semibold text-white disabled:opacity-60"
+                onClick={() => {
+                  const target = deleteTarget;
+                  setDeleting(true);
+                  setDeleteError(null);
+                  void deleteCharge(target.id)
+                    .then(() => {
+                      setRows((current) => current.filter((row) => row.id !== target.id));
+                      setDeleteTarget(null);
+                    })
+                    .catch((err: unknown) => {
+                      setDeleteError(err instanceof Error ? err.message : "No se pudo eliminar el cobro.");
+                    })
+                    .finally(() => setDeleting(false));
+                }}
+              >
+                {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Eliminar definitivamente
+              </button>
+            </div>
+          </div>
+        </AppModal>
+      )}
 
       {open && (
         <AppModal>
@@ -305,21 +390,18 @@ export default function Cobros() {
             <form className="mt-6 space-y-4" onSubmit={onSubmit}>
               <label className="block text-sm font-medium text-ink">
                 Sucursal
-                <select
+                <AppSelect
                   required
-                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
+                  placeholder="Selecciona…"
                   value={form.client_id}
-                  onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
-                >
-                  <option value="">Selecciona…</option>
-                  {activeClients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {chargeCounterpartyLabel(c)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(client_id) => setForm((f) => ({ ...f, client_id }))}
+                  options={[
+                    { value: "", label: "Selecciona…" },
+                    ...activeClients.map((c) => ({ value: String(c.id), label: chargeCounterpartyLabel(c) })),
+                  ]}
+                />
                 {activeClients.length === 0 && (
-                  <span className="mt-1 block text-xs font-normal text-amber-700">
+                  <span className="mt-1 block text-xs font-normal text-warn">
                     No hay clientes activos para crear cobros.
                   </span>
                 )}
@@ -349,7 +431,7 @@ export default function Cobros() {
                   onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
                 />
               </label>
-              {error && <p className="text-sm text-rose-600">{error}</p>}
+              {error && <p className="text-sm text-danger">{error}</p>}
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -360,7 +442,7 @@ export default function Cobros() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover"
                 >
                   Guardar
                 </button>

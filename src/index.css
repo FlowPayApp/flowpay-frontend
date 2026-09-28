@@ -8,28 +8,36 @@
  */
 :root {
   color-scheme: light;
-  --color-surface: 250 250 250;
-  --color-surface-card: 255 255 255;
-  --color-surface-border: 232 232 236;
-  --color-ink: 15 23 42;
-  --color-ink-muted: 100 116 139;
-  --color-brand: 79 70 229;
-  --color-brand-soft: 238 242 255;
-  /** Relleno de campos (filtros, formularios): un poco más profundo que la tarjeta en oscuro */
-  --color-field: 255 255 255;
+  --color-surface: 244 241 234;
+  --color-surface-card: 255 252 248;
+  --color-surface-border: 226 220 208;
+  --color-ink: 28 25 23;
+  --color-ink-muted: 107 100 92;
+  --color-brand: 15 110 107;
+  --color-brand-hover: 12 90 88;
+  --color-brand-soft: 224 242 239;
+  --color-warn: 122 84 32;
+  --color-warn-soft: 245 236 220;
+  --color-danger: 142 58 46;
+  --color-danger-soft: 247 234 228;
+  --color-field: 255 252 248;
 }
 
 :root.dark {
   color-scheme: dark;
-  --color-surface: 15 23 42;
-  --color-surface-card: 30 41 59;
-  --color-surface-border: 51 65 85;
-  --color-ink: 248 250 252;
-  --color-ink-muted: 148 163 184;
-  /** Mismo peso que en claro: el indigo claro (400) en CTAs llenos se veía demasiado luminoso. */
-  --color-brand: 79 70 229;
-  --color-brand-soft: 55 48 163;
-  --color-field: 15 23 42;
+  --color-surface: 18 20 18;
+  --color-surface-card: 28 32 29;
+  --color-surface-border: 52 58 54;
+  --color-ink: 245 242 234;
+  --color-ink-muted: 168 162 152;
+  --color-brand: 20 118 114;
+  --color-brand-hover: 32 142 136;
+  --color-brand-soft: 22 48 46;
+  --color-warn: 214 176 112;
+  --color-warn-soft: 52 40 24;
+  --color-danger: 224 160 148;
+  --color-danger-soft: 58 32 28;
+  --color-field: 18 20 18;
 }
 
 /**
@@ -48,6 +56,45 @@
 
 :root.dark :where(input, textarea)::placeholder {
   color: rgb(var(--color-ink-muted) / 0.92);
+}
+
+/* Login: el panel de marca no usa --color-ink (en oscuro ese token es el color del texto). */
+.auth-brand-panel {
+  background-color: rgb(28 25 23);
+  background-image: radial-gradient(90% 70% at 0% 100%, rgb(15 110 107 / 0.45), transparent 62%);
+  color: rgb(245 242 234);
+}
+
+.auth-form-panel {
+  background-color: rgb(var(--color-surface) / 1);
+}
+
+:root.dark .auth-brand-panel {
+  background-color: rgb(12 16 15);
+  background-image: radial-gradient(90% 70% at 0% 100%, rgb(20 118 114 / 0.34), transparent 62%);
+  color: rgb(245 242 234);
+}
+
+:root.dark .auth-form-panel {
+  background-color: rgb(var(--color-surface-card) / 1);
+}
+
+:root.dark .auth-form-panel :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  select,
+  textarea
+) {
+  background-color: rgb(var(--color-surface) / 1);
+  color: rgb(var(--color-ink) / 1);
+  border-color: rgb(var(--color-surface-border) / 1);
+}
+
+:root.dark .auth-form-panel input:-webkit-autofill,
+:root.dark .auth-form-panel input:-webkit-autofill:hover,
+:root.dark .auth-form-panel input:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgb(var(--color-ink) / 1);
+  caret-color: rgb(var(--color-ink) / 1);
+  box-shadow: 0 0 0 1000px rgb(var(--color-surface) / 1) inset;
 }
 
 :root.dark select option,
@@ -129,11 +176,36 @@ input[type="radio"]:disabled {
 }
 
 html {
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Source Sans 3", system-ui, sans-serif;
 }
 
 body {
   @apply bg-surface text-ink min-h-screen;
+  text-rendering: optimizeLegibility;
+}
+
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid rgb(var(--color-brand) / 0.55);
+  outline-offset: 2px;
+}
+
+:where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  select,
+  textarea
+) {
+  min-height: 2.75rem;
+  background-color: rgb(var(--color-field) / 1);
+}
+
+@media (max-width: 1023px) {
+  :where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+    select,
+    textarea
+  ) {
+    font-size: 16px;
+  }
 }
 
 /**
@@ -155,10 +227,69 @@ select.rounded-xl:not([class*="appearance-none"]) {
 
 html:not(.dark) select.rounded-lg:not([class*="appearance-none"]),
 html:not(.dark) select.rounded-xl:not([class*="appearance-none"]) {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%2364748b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%236b645c' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
 
 :root.dark select.rounded-lg:not([class*="appearance-none"]),
 :root.dark select.rounded-xl:not([class*="appearance-none"]) {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%2394a3b8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath stroke='%23a8a298' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+/**
+ * Un solo botón: radio, alto y peso iguales.
+ * Primario = marca. Secundario = borde de la superficie.
+ */
+:where(button, a):is(.bg-brand):not([role="switch"]) {
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+  padding-inline: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background-color: rgb(var(--color-brand) / 1);
+  color: #fff;
+}
+
+:where(button, a):is(.bg-brand):not([role="switch"]):hover:not(:disabled) {
+  background-color: rgb(var(--color-brand-hover) / 1);
+}
+
+:where(button, a):is(.bg-danger) {
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+  padding-inline: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background-color: rgb(142 58 46);
+  color: #fff;
+}
+
+:where(button, a):is(.bg-danger):hover:not(:disabled) {
+  background-color: rgb(116 42 32);
+}
+
+:where(button, a):is(.border-surface-border):not([role="switch"]):not([role="combobox"]):not(.h-7):not(.h-9):not(.w-9):not(.h-11):not(.w-11) {
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }

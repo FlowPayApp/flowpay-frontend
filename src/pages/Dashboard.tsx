@@ -4,6 +4,7 @@ import { fetchClients, fetchDashboard } from "../api";
 import type { ChargeDTO, ClientDTO, DashboardResponse } from "../api";
 import { AttentionTag, RiskBadge, StatusBadge } from "../components/Badge";
 import PageLoading from "../components/PageLoading";
+import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
 import { isCompanyMember } from "../lib/roles";
 
@@ -16,6 +17,47 @@ function attentionKind(row: ChargeDTO): "due_soon" | "overdue" | "auto" {
 function pct(part: number, total: number) {
   if (total <= 0 || !Number.isFinite(part)) return 0;
   return Math.min(100, Math.round((part / total) * 100));
+}
+
+const STATUS_COLORS = {
+  pending: "rgb(122 84 32)",
+  overdue: "rgb(142 58 46)",
+  paid: "rgb(15 110 107)",
+} as const;
+
+function StatusDonut({ parts }: { parts: { value: number; color: string }[] }) {
+  const r = 46;
+  const circ = 2 * Math.PI * r;
+  const total = parts.reduce((sum, part) => sum + part.value, 0);
+  let cursor = 0;
+  const gaps = parts.filter((part) => part.value > 0).length > 1 ? 3 : 0;
+
+  return (
+    <svg viewBox="0 0 120 120" className="h-36 w-36 shrink-0" role="img" aria-label="Distribución de montos por estado">
+      <circle cx="60" cy="60" r={r} fill="none" stroke="rgb(var(--color-surface-border))" strokeWidth="12" />
+      {total > 0 &&
+        parts.map((part) => {
+          const len = (part.value / total) * circ;
+          const dash = Math.max(len - gaps, 0);
+          const node = (
+            <circle
+              key={part.color}
+              cx="60"
+              cy="60"
+              r={r}
+              fill="none"
+              stroke={part.color}
+              strokeWidth="12"
+              strokeDasharray={`${dash} ${circ - dash}`}
+              strokeDashoffset={-cursor}
+              transform="rotate(-90 60 60)"
+            />
+          );
+          cursor += len;
+          return node;
+        })}
+    </svg>
+  );
 }
 
 function IconWallet(props: { className?: string }) {
@@ -101,7 +143,7 @@ export default function Dashboard() {
 
   if (err) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-surface-card p-6 text-rose-800 shadow-soft dark:border-rose-900/60 dark:bg-rose-950/25 dark:text-rose-200">
+      <div className="rounded-2xl border border-danger/30 bg-surface-card p-6 text-danger shadow-soft">
         {err}. ¿Está corriendo el API en <code className="font-mono">:8080</code>?
       </div>
     );
@@ -113,125 +155,139 @@ export default function Dashboard() {
   const { totals } = data;
   const attentionRows = Array.isArray(data.charges_needing_attention) ? data.charges_needing_attention : [];
   const totalVolume = totals.pending_amount + totals.overdue_amount + totals.paid_amount;
-  const activeTotal = totals.pending_amount + totals.overdue_amount; // lo que aún deben (no cobrado)
-  const pctOfActiveOverdue = pct(totals.overdue_amount, activeTotal); // del saldo por cobrar, cuánto está vencido
-  const pctRecovered = pct(totals.paid_amount, totalVolume);
+  const statusSlices = [
+    {
+      key: "pending",
+      label: "Por cobrar",
+      amount: totals.pending_amount,
+      count: totals.pending_count,
+      color: STATUS_COLORS.pending,
+      to: "/cobros?status=pending",
+    },
+    {
+      key: "overdue",
+      label: "Vencido",
+      amount: totals.overdue_amount,
+      count: totals.overdue_count,
+      color: STATUS_COLORS.overdue,
+      to: "/cobros?status=overdue",
+    },
+    {
+      key: "paid",
+      label: "Cobrado",
+      amount: totals.paid_amount,
+      count: totals.paid_count,
+      color: STATUS_COLORS.paid,
+      to: "/cobros?status=paid",
+    },
+  ];
+  const maxCount = Math.max(...statusSlices.map((slice) => slice.count), 1);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 sm:space-y-10">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/70 p-5 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.12)] dark:border-indigo-900/40 dark:bg-none dark:bg-slate-900 dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.35)] sm:p-8 lg:p-10">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-brand/5 blur-3xl dark:hidden" />
-        <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-violet-200/20 blur-2xl dark:hidden" />
-        <p className="text-sm font-medium capitalize text-brand dark:text-indigo-300">{todayLabel}</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl lg:text-4xl">
+      <section className="rounded-2xl border border-surface-border bg-surface-card p-5 sm:p-8">
+        <p className="text-sm font-semibold capitalize text-brand">{todayLabel}</p>
+        <h1 className="mt-2 font-display text-3xl font-medium tracking-tight text-ink sm:text-4xl">
           {isCompanyMember() ? "Resumen de tu cartera" : "Resumen de cobranza"}
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink-muted">{data.tagline}</p>
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
             to="/cobros"
-            className="inline-flex items-center justify-center rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-hover"
           >
             Ver cobros
           </Link>
           <Link
             to="/clients"
-            className="inline-flex items-center justify-center rounded-xl border border-surface-border bg-surface-card/80 px-5 py-2.5 text-sm font-semibold text-ink backdrop-blur hover:bg-surface-card"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-surface-border bg-surface px-5 text-sm font-semibold text-ink hover:bg-surface-card"
           >
             Clientes
           </Link>
         </div>
       </section>
 
-      {/* KPIs */}
       <section className="grid gap-4 sm:grid-cols-3">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-surface-card p-6 shadow-soft transition hover:shadow-md dark:border-slate-600/80">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Por cobrar</div>
-              <div className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-ink">
-                {formatMoney(totals.pending_amount)}
+        {statusSlices.map((slice) => (
+          <Link
+            key={slice.key}
+            to={slice.to}
+            className="rounded-2xl border border-[rgb(var(--color-surface-border))] bg-surface-card p-6 transition hover:bg-surface"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: slice.color }}>
+                  {slice.label}
+                </div>
+                <div className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-ink">
+                  {formatMoney(slice.amount)}
+                </div>
+                <div className="mt-2 text-sm text-ink-muted">
+                  {slice.count} {slice.count === 1 ? "cobro" : "cobros"}
+                </div>
               </div>
-              <div className="mt-2 text-sm text-ink-muted">{totals.pending_count} cobros pendientes</div>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-brand dark:bg-indigo-950/55 dark:text-indigo-300">
-              <IconWallet className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-        <div className="group relative overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50 to-orange-50/50 p-6 shadow-soft transition hover:shadow-md dark:border-amber-500/25 dark:from-amber-950/45 dark:to-orange-950/35 dark:shadow-none">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-amber-900/70 dark:text-amber-200/90">
-                Vencido
+              <div
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white"
+                style={{ backgroundColor: slice.color }}
+              >
+                {slice.key === "pending" && <IconWallet className="h-6 w-6" />}
+                {slice.key === "overdue" && <IconAlert className="h-6 w-6" />}
+                {slice.key === "paid" && <IconCheck className="h-6 w-6" />}
               </div>
-              <div className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-amber-950 dark:text-amber-50">
-                {formatMoney(totals.overdue_amount)}
-              </div>
-              <div className="mt-2 text-sm text-amber-900/70 dark:text-amber-200/85">{totals.overdue_count} a recuperar ya</div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100/80 text-amber-700 dark:bg-amber-900/45 dark:text-amber-300">
-              <IconAlert className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-        <div className="group relative overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-6 shadow-soft transition hover:shadow-md dark:border-emerald-500/25 dark:from-emerald-950/45 dark:to-teal-950/35 dark:shadow-none">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-emerald-900/70 dark:text-emerald-200/90">
-                Cobrado
-              </div>
-              <div className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-emerald-950 dark:text-emerald-50">
-                {formatMoney(totals.paid_amount)}
-              </div>
-              <div className="mt-2 text-sm text-emerald-900/70 dark:text-emerald-200/85">{totals.paid_count} cerradas</div>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100/80 text-emerald-700 dark:bg-emerald-900/45 dark:text-emerald-300">
-              <IconCheck className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
+          </Link>
+        ))}
       </section>
 
       {/* Distribución visual + clientes riesgo */}
       <section className="grid gap-6 lg:grid-cols-5">
         <div className="rounded-2xl border border-surface-border bg-surface-card p-6 shadow-soft lg:col-span-2">
-          <h2 className="text-sm font-semibold text-ink">Lectura sobre tus números</h2>
-          <p className="mt-1 text-xs leading-relaxed text-ink-muted">
-            Los montos por estado están arriba; aquí solo indicadores que salen de combinar esos datos (prioridad de
-            mora y recuperación vs. volumen).
-          </p>
+          <h2 className="text-sm font-semibold text-ink">Composición</h2>
+          <p className="mt-1 text-xs text-ink-muted">Participación del monto y cantidad de cobros. Cada barra abre el listado.</p>
           {totalVolume <= 0 ? (
             <p className="mt-6 text-sm text-ink-muted">Aún no hay montos registrados.</p>
           ) : (
             <>
-              <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-surface-border pb-4">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Volumen cargado</span>
-                <span className="text-lg font-semibold tabular-nums text-ink">{formatMoney(totalVolume)}</span>
-                <p className="w-full text-[11px] text-ink-muted">Una sola cifra: todo lo registrado en FlowPay (suma de los tres widgets).</p>
+              <div className="mt-5 flex items-center gap-4">
+                <StatusDonut parts={statusSlices.map((slice) => ({ value: slice.amount, color: slice.color }))} />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Total</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-ink">{formatMoney(totalVolume)}</p>
+                  <ul className="mt-3 space-y-1.5">
+                    {statusSlices.map((slice) => (
+                      <li key={slice.key} className="flex items-center gap-2 text-xs text-ink-muted">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: slice.color }} />
+                        <span className="truncate">{slice.label}</span>
+                        <span className="ml-auto tabular-nums text-ink">{pct(slice.amount, totalVolume)}%</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-
-              <div className="mt-4 space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-ink dark:border-slate-600/70 dark:bg-slate-800/55">
-                <p>
-                  <span className="font-semibold text-ink">Saldo activo (te deben):</span>{" "}
-                  <span className="tabular-nums font-medium">{formatMoney(activeTotal)}</span>
-                  <span className="text-ink-muted dark:text-slate-300/95"> — por cobrar + vencido</span>
-                </p>
-                {activeTotal > 0 && totals.overdue_amount > 0 && (
-                  <p className="text-ink-muted dark:text-slate-300/95">
-                    Del dinero que aún deben recolectar,{" "}
-                    <span className="font-semibold text-amber-900 dark:text-amber-300">{pctOfActiveOverdue}%</span>{" "}
-                    está en cobros vencidos (prioriza eso en la cobranza).
-                  </p>
-                )}
-                {totals.paid_amount > 0 && (
-                  <p className="text-ink-muted dark:text-slate-300/95">
-                    Del volumen total histórico, ya recuperaste{" "}
-                    <span className="font-semibold text-emerald-800 dark:text-emerald-300">{pctRecovered}%</span>.
-                  </p>
-                )}
-              </div>
+              <ul className="mt-6 space-y-3">
+                {statusSlices.map((slice) => (
+                  <li key={`${slice.key}-bar`}>
+                    <Link to={slice.to} className="block rounded-lg px-1 py-1 hover:bg-surface">
+                      <div className="flex items-baseline justify-between gap-3 text-xs">
+                        <span className="font-medium text-ink">{slice.label}</span>
+                        <span className="tabular-nums text-ink-muted">
+                          {slice.count} · {formatMoney(slice.amount)}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.max(slice.count > 0 ? 4 : 0, (slice.count / maxCount) * 100)}%`,
+                            backgroundColor: slice.color,
+                          }}
+                        />
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </>
           )}
         </div>
@@ -251,18 +307,20 @@ export default function Dashboard() {
           ) : (
             <ul className="mt-5 space-y-3">
               {riskClients.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-surface-border/80 bg-surface/40 px-4 py-3 transition hover:bg-surface/80"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-ink">{c.name}</div>
-                    <div className="text-xs text-ink-muted">
-                      Adeudado {formatMoney(c.total_owed)}
-                      {c.overdue_count > 0 ? ` · ${c.overdue_count} vencida(s)` : ""}
+                <li key={c.id}>
+                  <Link
+                    to={`/clients/${c.id}`}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-[rgb(var(--color-surface-border))] bg-surface/40 px-4 py-3 transition hover:bg-surface"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-ink">{chargeCounterpartyLabel(c)}</div>
+                      <div className="text-xs text-ink-muted">
+                        Adeudado {formatMoney(c.total_owed)}
+                        {c.overdue_count > 0 ? ` · ${c.overdue_count} vencida${c.overdue_count === 1 ? "" : "s"}` : ""}
+                      </div>
                     </div>
-                  </div>
-                  <RiskBadge level={c.risk_level} />
+                    <RiskBadge level={c.risk_level} />
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -278,7 +336,28 @@ export default function Dashboard() {
             Vencidos y próximos a vencer — tu lista de acción para cobrar a tiempo.
           </p>
         </div>
-        <div className="min-w-0 overflow-auto max-h-[440px]">
+        <ul className="divide-y divide-surface-border lg:hidden">
+          {attentionRows.length === 0 ? (
+            <li className="px-5 py-10 text-center text-sm text-ink-muted">Todo claro por ahora.</li>
+          ) : (
+            attentionRows.map((row) => (
+              <li key={row.id}>
+                <Link to={`/cobros/${row.id}`} className="flex items-start justify-between gap-3 px-5 py-4 active:bg-surface">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-ink">{row.client_name}</p>
+                    <p className="mt-1 text-sm tabular-nums text-ink">{formatMoney(row.amount)}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted">{formatDate(row.due_date)}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <StatusBadge status={row.status} />
+                      <AttentionTag kind={attentionKind(row)} />
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            ))
+          )}
+        </ul>
+        <div className="hidden min-w-0 max-h-[440px] overflow-auto lg:block">
           <table className="w-full min-w-[720px] table-fixed border-collapse text-sm">
             <colgroup>
               <col className="w-[28%]" />
@@ -312,7 +391,7 @@ export default function Dashboard() {
                 </tr>
               ) : (
                 attentionRows.map((row) => (
-                  <tr key={row.id} className="h-[68px] hover:bg-indigo-50/30 dark:hover:bg-indigo-950/25">
+                  <tr key={row.id} className="h-[68px] hover:bg-surface">
                     <td className="max-w-0 px-4 py-3 align-middle font-medium text-ink sm:px-6 lg:px-8">
                       <span className="block truncate">{row.client_name}</span>
                     </td>
@@ -327,7 +406,7 @@ export default function Dashboard() {
                     <td className="px-4 py-3 text-right align-middle sm:pr-6 lg:pr-8">
                       <Link
                         to={`/cobros/${row.id}`}
-                        className="inline-flex h-8 items-center rounded-lg px-2.5 text-sm font-semibold text-brand transition-colors hover:bg-brand-soft dark:text-indigo-200 dark:hover:bg-indigo-500/25 dark:hover:text-white"
+                        className="inline-flex h-8 items-center rounded-lg px-2.5 text-sm font-semibold text-brand hover:bg-brand-soft"
                       >
                         Abrir
                       </Link>

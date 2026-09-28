@@ -39,7 +39,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
         {state.phase === "confirm" ? (
           <>
             <div className="flex items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
                 <KeyRound className="h-5 w-5" strokeWidth={2} />
               </span>
               <h2 className="text-lg font-semibold text-ink">Nueva contraseña temporal</h2>
@@ -59,7 +59,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60"
                 onClick={onGenerate}
                 disabled={loading}
               >
@@ -70,7 +70,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
         ) : (
           <>
             <div className="flex items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
                 <Check className="h-5 w-5" strokeWidth={2.5} />
               </span>
               <h2 className="text-lg font-semibold text-ink">Contraseña generada</h2>
@@ -78,7 +78,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
             <p className="mt-3 text-sm text-ink-muted">
               Copia la clave y envíala por correo a <span className="font-medium text-ink">{state.email}</span>.
             </p>
-            <div className="mt-4 rounded-xl border border-surface-border bg-slate-50 p-4">
+            <div className="mt-4 rounded-xl border border-surface-border bg-surface p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">Contraseña temporal</p>
               <code className="mt-2 block break-all font-mono text-base font-semibold text-ink">{state.temporary_password}</code>
             </div>
@@ -90,7 +90,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
               >
                 {copied ? (
                   <>
-                    <Check className="h-4 w-4 text-emerald-600" />
+                    <Check className="h-4 w-4 text-brand" />
                     Copiado
                   </>
                 ) : (
@@ -102,7 +102,7 @@ export default function ResetPasswordModal({ state, loading, onClose, onGenerate
               </button>
               <button
                 type="button"
-                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover"
                 onClick={onClose}
               >
                 Cerrar
