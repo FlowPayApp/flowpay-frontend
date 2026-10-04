@@ -9,8 +9,8 @@ import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPol
 import { useTheme, type ThemeMode } from "../theme";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
-  { value: "light", label: "Claro", hint: "Fondo claro para el día." },
-  { value: "dark", label: "Oscuro", hint: "Fondo oscuro para la noche." },
+  { value: "light", label: "Claro", hint: "Aumenta la claridad y facilita la lectura en ambientes iluminados." },
+  { value: "dark", label: "Oscuro", hint: "Reduce el brillo y facilita la lectura en ambientes con poca luz." },
 ];
 
 export default function Profile() {

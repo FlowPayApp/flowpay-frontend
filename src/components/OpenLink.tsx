@@ -2,7 +2,7 @@ import { Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 
 /** Botón "Abrir" de las tablas; mismo aspecto en todas las pantallas. */
-export default function OpenLink({ to, label = "Abrir" }: { to: string; label?: string }) {
+export default function OpenLink({ to, label = "Ver Detalles" }: { to: string; label?: string }) {
   return (
     <Link
       to={to}

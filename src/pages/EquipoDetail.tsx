@@ -14,7 +14,7 @@ type Role = "admin" | "member";
 
 const ROLE_OPTIONS = [
   { value: "member", label: "Vendedor" },
-  { value: "admin", label: "Admin" },
+  { value: "admin", label: "Administrador" },
 ];
 
 function asRole(role: string): Role {

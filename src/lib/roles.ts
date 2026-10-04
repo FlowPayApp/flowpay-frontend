@@ -17,7 +17,7 @@ export function roleLabel(role: string): string {
     case "member":
       return "Vendedor";
     case "admin":
-      return "Admin";
+      return "Administrador";
     case "platform_admin":
       return "Superadmin";
     default:
