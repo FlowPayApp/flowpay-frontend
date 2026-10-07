@@ -13,7 +13,6 @@ import {
   uploadChargeAttachment,
 } from "../api";
 import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder } from "../api";
-import AppModal from "../components/AppModal";
 import { useToast, type ToastNotice } from "../components/Toast";
 import InvoicePreview from "../components/InvoicePreview";
 import AppDatePicker from "../components/AppDatePicker";
@@ -21,7 +20,7 @@ import AppSelect from "../components/AppSelect";
 import PageLoading from "../components/PageLoading";
 import { StatusBadge } from "../components/Badge";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
-import { formatDate, formatDateTime, formatMoney } from "../lib/format";
+import { formatDate, formatMoney } from "../lib/format";
 
 function normalizeClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -39,21 +38,117 @@ function ActionSpinner() {
   return <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />;
 }
 
-function timelineLabel(r: Reminder) {
-  if (r.status === "scheduled") {
-    return "Recordatorio automático programado";
-  }
-  if (r.status === "sent") {
-    return r.channel === "email" ? "Email enviado (simulado)" : "WhatsApp enviado (simulado)";
-  }
-  return r.kind;
-}
-
 type TimelineItem =
   | { kind: "reminder"; at: string; id: string; reminder: Reminder }
   | { kind: "reply"; at: string; id: string; reply: ChargeInboundWhatsApp };
 
-type TimelineModal = { mode: "reminder"; reminder: Reminder } | { mode: "reply"; reply: ChargeInboundWhatsApp };
+function chatClock(iso: string) {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  return new Date(t).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+}
+
+function chatDayLabel(iso: string) {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const d = new Date(t);
+  const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((start(new Date()) - start(d)) / 86_400_000);
+  if (diff === 0) return "Hoy";
+  if (diff === 1) return "Ayer";
+  return d.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function reminderBody(r: Reminder) {
+  const text = r.message?.trim();
+  if (text) return text;
+  if (r.status === "scheduled") return "Recordatorio programado. Aún no se envía.";
+  return "Mensaje sin texto.";
+}
+
+function MessageThread({ items }: { items: TimelineItem[] }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const ordered = [...items].sort((a, b) => {
+    const ta = new Date(a.at).getTime();
+    const tb = new Date(b.at).getTime();
+    if (ta !== tb) return ta - tb;
+    return a.id.localeCompare(b.id);
+  });
+  const lastId = ordered[ordered.length - 1]?.id ?? "";
+
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [ordered.length, lastId]);
+
+  let previousDay = "";
+
+  return (
+    <div
+      ref={scroller}
+      role="log"
+      aria-label="Mensajes del cobro"
+      className="mt-5 max-h-[min(55vh,26rem)] min-h-[16rem] w-full min-w-0 overflow-y-auto rounded-2xl bg-[#efeae2] px-3 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] dark:bg-[#0b141a] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black/20"
+    >
+      {ordered.length === 0 ? (
+        <p className="px-2 py-8 text-center text-sm text-ink-muted">Aún no hay mensajes en este cobro.</p>
+      ) : (
+        <ol className="flex flex-col gap-1.5">
+          {ordered.map((item) => {
+            const day = chatDayLabel(item.at);
+            const showDay = day !== previousDay;
+            previousDay = day;
+            const outgoing = item.kind === "reminder";
+            const email = outgoing && item.reminder.channel === "email";
+            const scheduled = outgoing && item.reminder.status === "scheduled";
+            const text = item.kind === "reply" ? item.reply.content?.trim() || "Mensaje sin texto." : reminderBody(item.reminder);
+            const clock = chatClock(item.at);
+            return (
+              <li key={item.id} className="min-w-0">
+                {showDay && day ? (
+                  <div className="my-2 flex justify-center">
+                    <span className="rounded-lg bg-white/80 px-2.5 py-1 text-[11px] font-medium text-ink-muted shadow-sm dark:bg-[#182229] dark:text-white/70">
+                      {day}
+                    </span>
+                  </div>
+                ) : null}
+                {scheduled ? (
+                  <div className="flex justify-center px-6 py-1">
+                    <p className="max-w-[90%] rounded-lg bg-white/70 px-3 py-1.5 text-center text-xs text-ink-muted dark:bg-[#182229] dark:text-white/70">
+                      {item.reminder.channel === "email" ? "Email programado" : "WhatsApp programado"}
+                      {clock ? ` · ${clock}` : ""}
+                    </p>
+                  </div>
+                ) : (
+                  <div className={outgoing ? "flex justify-end" : "flex justify-start"}>
+                    <div
+                      className={
+                        outgoing
+                          ? email
+                            ? "max-w-[85%] rounded-2xl rounded-br-md bg-white px-3 py-1.5 text-ink shadow-sm dark:bg-[#202c33] dark:text-white"
+                            : "max-w-[85%] rounded-2xl rounded-br-md bg-[#d9fdd3] px-3 py-1.5 text-[#111b21] shadow-sm dark:bg-[#005c4b] dark:text-white"
+                          : "max-w-[85%] rounded-2xl rounded-bl-md bg-white px-3 py-1.5 text-[#111b21] shadow-sm dark:bg-[#202c33] dark:text-white"
+                      }
+                    >
+                      <p className="mb-0.5 text-[11px] font-semibold text-[#027eb5] dark:text-[#53bdeb]">
+                        {item.kind === "reply" ? "Cliente" : email ? "Email" : "WhatsApp"}
+                      </p>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-snug">{text}</p>
+                      {clock ? (
+                        <p className="mt-1 text-right text-[10px] text-black/45 dark:text-white/50">{clock}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
 
 export default function ChargeDetail() {
   const { id } = useParams();
@@ -69,7 +164,6 @@ export default function ChargeDetail() {
     if (notice) showToast(notice);
   };
   const [clients, setClients] = useState<ClientDTO[]>([]);
-  const [timelineModal, setTimelineModal] = useState<TimelineModal | null>(null);
   const [formClientId, setFormClientId] = useState("");
   const [formDue, setFormDue] = useState("");
   const [formAmount, setFormAmount] = useState("");
@@ -264,13 +358,6 @@ export default function ChargeDetail() {
       reply: m,
     })),
   ];
-  /** Más reciente arriba, más antiguo abajo */
-  const timelineOrdered = [...timelineItems].sort((a, b) => {
-    const ta = new Date(a.at).getTime();
-    const tb = new Date(b.at).getTime();
-    if (tb !== ta) return tb - ta;
-    return b.id.localeCompare(a.id);
-  });
   const scheduled = reminderList.filter((r) => r.status === "scheduled");
   const isOverdue = ch.status === "overdue";
   const isPaid = ch.status === "paid";
@@ -439,57 +526,9 @@ export default function ChargeDetail() {
         <section className="w-full min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
           <h2 className="text-lg font-semibold text-ink">Línea de tiempo</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Lo más reciente arriba. Incluye recordatorios automáticos y respuestas del cliente por WhatsApp (fecha y hora
-            en que escribió), cuando el mensaje se pudo asociar a este cobro.
+            Los mensajes que enviaste quedan a la derecha. Las respuestas del cliente por WhatsApp, a la izquierda.
           </p>
-          {/* Scroll solo vertical: padding izquierdo para que los puntos (absolute -left) no queden fuera del área de recorte */}
-          <div className="mt-5 max-h-[min(55vh,26rem)] min-h-0 w-full min-w-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border/80 hover:[&::-webkit-scrollbar-thumb]:bg-ink-muted/40">
-            <div className="pl-3 pr-1 sm:pl-4 sm:pr-2">
-              <ol className="space-y-6 border-l border-surface-border pl-6 sm:pl-7">
-                {timelineOrdered.length === 0 ? (
-                  <li className="text-sm text-ink-muted">Aún no hay eventos. Los recordatorios aparecerán aquí.</li>
-                ) : (
-                  timelineOrdered.map((item) =>
-                    item.kind === "reminder" ? (
-                      <li key={item.id} className="relative min-w-0 max-w-full">
-                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-surface-card ring-2 ring-brand sm:-left-[33px]" />
-                        <div className="break-words text-sm font-medium text-ink">{timelineLabel(item.reminder)}</div>
-                        <div className="mt-1 break-words text-xs text-ink-muted">
-                          {formatDate(item.reminder.created_at)} · {item.reminder.kind} · {item.reminder.channel}
-                        </div>
-                        {item.reminder.status === "sent" && (
-                          <button
-                            type="button"
-                            onClick={() => setTimelineModal({ mode: "reminder", reminder: item.reminder })}
-                            className="mt-2 max-w-full rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
-                          >
-                            {item.reminder.channel === "email" ? "Ver email enviado" : "Ver WhatsApp enviado"}
-                          </button>
-                        )}
-                      </li>
-                    ) : (
-                      <li key={item.id} className="relative min-w-0 max-w-full">
-                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-surface-card ring-2 ring-brand sm:-left-[33px]" />
-                        <div className="break-words text-sm font-medium text-ink">Respuesta del cliente (WhatsApp)</div>
-                        <div className="mt-1 break-words text-xs text-ink-muted">
-                          {formatDateTime(item.reply.created_at)} · whatsapp · entrante
-                        </div>
-                        {item.reply.content?.trim() ? (
-                          <button
-                            type="button"
-                            onClick={() => setTimelineModal({ mode: "reply", reply: item.reply })}
-                            className="mt-2 max-w-full rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
-                          >
-                            Ver mensaje
-                          </button>
-                        ) : null}
-                      </li>
-                    ),
-                  )
-                )}
-              </ol>
-            </div>
-          </div>
+          <MessageThread items={timelineItems} />
 
           <div className="mt-6 border-t border-surface-border pt-6">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Acciones rápidas</h3>
@@ -524,45 +563,6 @@ export default function ChargeDetail() {
         </section>
       </div>
 
-      {timelineModal && (
-        <AppModal>
-          <div className="w-full max-w-2xl rounded-2xl bg-surface-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-ink">
-                {timelineModal.mode === "reminder" ? "Mensaje enviado" : "Respuesta del cliente (WhatsApp)"}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setTimelineModal(null)}
-                className="rounded-lg px-2 py-1 text-sm font-medium text-ink-muted hover:bg-surface"
-              >
-                Cerrar
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-ink-muted">
-              {timelineModal.mode === "reminder" ? (
-                <>
-                  Canal: <span className="font-medium text-ink">{timelineModal.reminder.channel}</span> · Fecha:{" "}
-                  <span className="font-medium text-ink">{formatDate(timelineModal.reminder.created_at)}</span>
-                </>
-              ) : (
-                <>
-                  Recibido:{" "}
-                  <span className="font-medium text-ink">{formatDateTime(timelineModal.reply.created_at)}</span> ·
-                  WhatsApp entrante
-                </>
-              )}
-            </p>
-            <div className="mt-4 max-h-[55vh] overflow-y-auto rounded-xl border border-surface-border bg-surface/40 p-4">
-              <pre className="whitespace-pre-wrap break-words text-sm text-ink">
-                {timelineModal.mode === "reminder"
-                  ? timelineModal.reminder.message?.trim() || "No hay contenido de mensaje disponible para este evento."
-                  : timelineModal.reply.content?.trim() || "Sin texto en este mensaje."}
-              </pre>
-            </div>
-          </div>
-        </AppModal>
-      )}
     </div>
   );
 }
