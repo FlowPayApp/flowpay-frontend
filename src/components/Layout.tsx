@@ -16,6 +16,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { getSessionClaims, getToken, logout } from "../lib/auth";
+import BrandLogo from "./BrandLogo";
 
 const SIDEBAR_COLLAPSED_KEY = "flowpay-sidebar-collapsed";
 
@@ -231,7 +232,7 @@ export default function Layout() {
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
       <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b border-surface-border bg-surface-card px-4 pb-2 lg:hidden">
-        <p className="font-display text-xl font-medium tracking-tight text-ink">FlowPay</p>
+        <BrandLogo className="h-7" />
       </header>
 
       <aside
@@ -242,11 +243,8 @@ export default function Layout() {
       >
         {sidebarCollapsed ? (
           <div className="flex flex-col items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand font-display text-lg text-white"
-              title="FlowPay"
-            >
-              F
+            <div className="grid h-10 w-10 place-items-center dark:rounded-lg dark:bg-white" title="GeldFlus">
+              <BrandLogo variant="mark" tone="color" className="h-9" />
             </div>
             <button
               type="button"
@@ -260,7 +258,7 @@ export default function Layout() {
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2 px-2">
-            <p className="font-display text-2xl font-medium tracking-tight text-ink">FlowPay</p>
+            <BrandLogo className="h-8" />
             <div className="flex items-center gap-1">
               <button
                 type="button"

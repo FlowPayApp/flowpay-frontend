@@ -94,7 +94,7 @@ export default function Register() {
       }
       setDone(data.message ?? "Recibimos tu solicitud. La revisamos y, cuando la empresa quede lista, te escribimos con la contraseña para entrar.");
     } catch {
-      toast.error("Error de red. ¿Está flowpay-sso en marcha?");
+      toast.error("Error de red. No pudimos conectar. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }

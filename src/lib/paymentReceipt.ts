@@ -171,7 +171,7 @@ export function buildPaymentReceiptHtml(data: PaymentReceiptData): string {
 <body>
   <div class="sheet">
     <div class="head">
-      <div class="brand">FlowPay</div>
+      <div class="brand">GeldFlus</div>
       <h1>Comprobante de pago</h1>
       <p class="subtitle">Documento de respaldo de transacción electrónica</p>
     </div>

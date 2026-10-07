@@ -53,7 +53,7 @@ export default function Login() {
       await waitMinLoading(startedAt);
       nav(home, { replace: true });
     } catch {
-      setErr("Error de red. ¿Está flowpay-sso en :9090 y el proxy /auth activo?");
+      setErr("Error de red. No pudimos conectar. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }

@@ -8,6 +8,7 @@ import {
   type PaymentCommitResponse,
   type PaymentPortalResponse,
 } from "../api";
+import BrandLogo from "../components/BrandLogo";
 import ThemeToggle from "../components/ThemeToggle";
 import { formatMoney } from "../lib/format";
 import {
@@ -122,7 +123,7 @@ export default function PayReturnPage() {
     <PayShell>
       <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">FlowPay</p>
+          <BrandLogo className="h-7" />
           <h1 className="mt-1 text-2xl font-bold text-ink">Resultado del pago</h1>
         </div>
         <ThemeToggle compact />
@@ -144,7 +145,7 @@ export default function PayReturnPage() {
             <CheckCircle2 className="mx-auto h-12 w-12 text-brand" />
             <h1 className="mt-4 text-2xl font-bold text-ink">Pago recibido</h1>
             <p className="mt-2 text-sm text-ink-muted">
-              Tu pago fue autorizado correctamente. El comercio verá el cobro actualizado en FlowPay.
+              Tu pago fue autorizado correctamente. El comercio verá el cobro actualizado en GeldFlus.
             </p>
             {result.amount != null && (
               <p className="mt-6 text-3xl font-bold tabular-nums tracking-tight text-ink">

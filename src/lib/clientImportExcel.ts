@@ -138,7 +138,7 @@ export async function downloadClientImportTemplateXlsx(): Promise<void> {
   ]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Clientes");
-  XLSX.writeFile(wb, "flowpay-clientes-plantilla.xlsx");
+  XLSX.writeFile(wb, "geldflus-clientes-plantilla.xlsx");
 }
 
 export function isExcelImportFile(file: File): boolean {
