@@ -34,14 +34,17 @@ function upstream(pathname: string): { base: string; name: string } | null {
 }
 
 export const config = {
-  matcher: ["/auth/:path*", "/api/:path*", "/health"],
+  matcher: ["/((?!assets/|brand/|favicon\\.png).*)"],
 };
 
 export default function middleware(request: Request) {
   const incoming = new URL(request.url);
   const target = upstream(incoming.pathname);
   if (!target) {
-    return next();
+    if (incoming.pathname.includes(".")) {
+      return next();
+    }
+    return rewrite(new URL("/index.html", request.url));
   }
   if (!target.base) {
     return new Response(JSON.stringify({ error: `Falta ${target.name} en las variables de Vercel` }), {
