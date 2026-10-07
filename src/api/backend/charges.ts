@@ -64,6 +64,11 @@ export async function sendReminderNow(chargeId: number) {
   await api.post(`/api/charges/${chargeId}/reminders`);
 }
 
+export async function sendChargeWhatsAppReply(chargeId: number, text: string) {
+  const { data } = await api.post<ChargeInboundWhatsApp>(`/api/charges/${chargeId}/whatsapp`, { text });
+  return data;
+}
+
 /** PDF o imagen (máx. 8 MB). Se adjunta al WhatsApp de recordatorio si defines FLOWPAY_PUBLIC_BASE_URL en el API. */
 export async function uploadChargeAttachment(chargeId: number, file: File) {
   const fd = new FormData();

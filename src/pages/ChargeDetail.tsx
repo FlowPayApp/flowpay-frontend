@@ -9,10 +9,12 @@ import {
   fetchReminders,
   patchCharge,
   recordPayment,
+  sendChargeWhatsAppReply,
   sendReminderNow,
   uploadChargeAttachment,
 } from "../api";
 import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder } from "../api";
+import AppModal from "../components/AppModal";
 import { useToast, type ToastNotice } from "../components/Toast";
 import InvoicePreview from "../components/InvoicePreview";
 import AppDatePicker from "../components/AppDatePicker";
@@ -59,6 +61,47 @@ function chatDayLabel(iso: string) {
   return d.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function ReplyComposer({
+  id,
+  value,
+  onChange,
+  onSubmit,
+  sending,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  sending: boolean;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="mt-3">
+      <label className="sr-only" htmlFor={id}>
+        Responder por WhatsApp
+      </label>
+      <textarea
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={2}
+        maxLength={1000}
+        placeholder="Responder por WhatsApp"
+        className="w-full resize-none rounded-xl border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      />
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <p className="text-xs text-ink-muted">Se envía si el cliente escribió en las últimas 24 horas.</p>
+        <button
+          type="submit"
+          disabled={sending || value.trim() === ""}
+          className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+        >
+          {sending ? "Enviando…" : "Enviar"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function reminderBody(r: Reminder) {
   const text = r.message?.trim();
   if (text) return text;
@@ -66,7 +109,7 @@ function reminderBody(r: Reminder) {
   return "Mensaje sin texto.";
 }
 
-function MessageThread({ items }: { items: TimelineItem[] }) {
+function MessageThread({ items, expanded = false }: { items: TimelineItem[]; expanded?: boolean }) {
   const scroller = useRef<HTMLDivElement>(null);
   const ordered = [...items].sort((a, b) => {
     const ta = new Date(a.at).getTime();
@@ -89,55 +132,60 @@ function MessageThread({ items }: { items: TimelineItem[] }) {
       ref={scroller}
       role="log"
       aria-label="Mensajes del cobro"
-      className="mt-5 max-h-[min(55vh,26rem)] min-h-[16rem] w-full min-w-0 overflow-y-auto rounded-2xl bg-[#efeae2] px-3 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] dark:bg-[#0b141a] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black/20"
+      className={
+        expanded
+          ? "h-full min-h-0 w-full min-w-0 overflow-y-auto rounded-2xl border border-surface-border bg-surface/80 px-4 py-5 [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
+          : "mt-5 max-h-[min(55vh,28rem)] min-h-[16rem] w-full min-w-0 overflow-y-auto rounded-2xl border border-surface-border bg-surface/80 px-3 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
+      }
     >
       {ordered.length === 0 ? (
-        <p className="px-2 py-8 text-center text-sm text-ink-muted">Aún no hay mensajes en este cobro.</p>
+        <p className="px-2 py-10 text-center text-sm text-ink-muted">Aún no hay mensajes en este cobro.</p>
       ) : (
-        <ol className="flex flex-col gap-1.5">
+        <ol className="flex flex-col gap-3">
           {ordered.map((item) => {
             const day = chatDayLabel(item.at);
             const showDay = day !== previousDay;
             previousDay = day;
-            const outgoing = item.kind === "reminder";
-            const email = outgoing && item.reminder.channel === "email";
-            const scheduled = outgoing && item.reminder.status === "scheduled";
+            const outboundReply = item.kind === "reply" && item.reply.direction === "outbound";
+            const outgoing = item.kind === "reminder" || outboundReply;
+            const email = item.kind === "reminder" && item.reminder.channel === "email";
+            const scheduled = item.kind === "reminder" && item.reminder.status === "scheduled";
             const text = item.kind === "reply" ? item.reply.content?.trim() || "Mensaje sin texto." : reminderBody(item.reminder);
             const clock = chatClock(item.at);
+            const label = item.kind === "reply" && !outboundReply ? "Cliente" : email ? "Correo" : "WhatsApp";
             return (
               <li key={item.id} className="min-w-0">
                 {showDay && day ? (
-                  <div className="my-2 flex justify-center">
-                    <span className="rounded-lg bg-white/80 px-2.5 py-1 text-[11px] font-medium text-ink-muted shadow-sm dark:bg-[#182229] dark:text-white/70">
-                      {day}
-                    </span>
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="h-px flex-1 bg-surface-border" />
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">{day}</span>
+                    <span className="h-px flex-1 bg-surface-border" />
                   </div>
                 ) : null}
                 {scheduled ? (
-                  <div className="flex justify-center px-6 py-1">
-                    <p className="max-w-[90%] rounded-lg bg-white/70 px-3 py-1.5 text-center text-xs text-ink-muted dark:bg-[#182229] dark:text-white/70">
-                      {item.reminder.channel === "email" ? "Email programado" : "WhatsApp programado"}
-                      {clock ? ` · ${clock}` : ""}
-                    </p>
-                  </div>
+                  <p className="py-1 text-center text-xs text-ink-muted">
+                    {item.reminder.channel === "email" ? "Correo programado" : "WhatsApp programado"}
+                    {clock ? ` · ${clock}` : ""}
+                  </p>
                 ) : (
-                  <div className={outgoing ? "flex justify-end" : "flex justify-start"}>
+                  <div className={outgoing ? (expanded ? "flex justify-end pl-16" : "flex justify-end pl-8") : expanded ? "flex justify-start pr-16" : "flex justify-start pr-8"}>
                     <div
                       className={
-                        outgoing
+                        (outgoing
                           ? email
-                            ? "max-w-[85%] rounded-2xl rounded-br-md bg-white px-3 py-1.5 text-ink shadow-sm dark:bg-[#202c33] dark:text-white"
-                            : "max-w-[85%] rounded-2xl rounded-br-md bg-[#d9fdd3] px-3 py-1.5 text-[#111b21] shadow-sm dark:bg-[#005c4b] dark:text-white"
-                          : "max-w-[85%] rounded-2xl rounded-bl-md bg-white px-3 py-1.5 text-[#111b21] shadow-sm dark:bg-[#202c33] dark:text-white"
+                            ? "rounded-2xl rounded-br-md border border-surface-border bg-surface-card px-3.5 py-2.5"
+                            : "rounded-2xl rounded-br-md border border-brand/20 bg-brand-soft px-3.5 py-2.5"
+                          : "rounded-2xl rounded-bl-md border border-surface-border bg-surface-card px-3.5 py-2.5") +
+                        (expanded ? " max-w-xl" : " max-w-full")
                       }
                     >
-                      <p className="mb-0.5 text-[11px] font-semibold text-[#027eb5] dark:text-[#53bdeb]">
-                        {item.kind === "reply" ? "Cliente" : email ? "Email" : "WhatsApp"}
-                      </p>
-                      <p className="whitespace-pre-wrap break-words text-sm leading-snug">{text}</p>
-                      {clock ? (
-                        <p className="mt-1 text-right text-[10px] text-black/45 dark:text-white/50">{clock}</p>
-                      ) : null}
+                      <div className="mb-1.5 flex items-baseline justify-between gap-4">
+                        <span className={outgoing && !email ? "text-[11px] font-semibold uppercase tracking-wide text-brand" : "text-[11px] font-semibold uppercase tracking-wide text-ink-muted"}>
+                          {label}
+                        </span>
+                        {clock ? <span className="shrink-0 text-[11px] text-ink-muted">{clock}</span> : null}
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink">{text}</p>
                     </div>
                   </div>
                 )}
@@ -173,6 +221,9 @@ export default function ChargeDetail() {
   const [reminding, setReminding] = useState(false);
   const [paying, setPaying] = useState(false);
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [threadOpen, setThreadOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replying, setReplying] = useState(false);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
   const load = async (silent = false) => {
     if (!silent) {
@@ -214,6 +265,15 @@ export default function ChargeDetail() {
       .then(setClients)
       .catch(() => setClients([]));
   }, []);
+
+  useEffect(() => {
+    if (!threadOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setThreadOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [threadOpen]);
 
   useEffect(() => {
     if (!ch) return;
@@ -296,6 +356,29 @@ export default function ChargeDetail() {
       setToast({ text: "No se pudo guardar el cobro. Revisa los datos e inténtalo de nuevo.", tone: "error" });
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function onReply(e: React.FormEvent) {
+    e.preventDefault();
+    const text = replyText.trim();
+    if (!text) return;
+    setReplying(true);
+    setToast(null);
+    try {
+      await sendChargeWhatsAppReply(chargeId, text);
+      setReplyText("");
+      setToast({ text: "Mensaje enviado por WhatsApp.", tone: "success" });
+      await load(true);
+    } catch (err: unknown) {
+      let textErr = "No se pudo enviar el mensaje.";
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { error?: string } | undefined;
+        if (data?.error) textErr = data.error;
+      }
+      setToast({ text: textErr, tone: "error" });
+    } finally {
+      setReplying(false);
     }
   }
 
@@ -524,11 +607,29 @@ export default function ChargeDetail() {
         </div>
 
         <section className="w-full min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
-          <h2 className="text-lg font-semibold text-ink">Línea de tiempo</h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Los mensajes que enviaste quedan a la derecha. Las respuestas del cliente por WhatsApp, a la izquierda.
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Línea de tiempo</h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                Lo que enviaste queda a la derecha. La respuesta del cliente, a la izquierda.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setThreadOpen(true)}
+              className="shrink-0 rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface"
+            >
+              Abrir en grande
+            </button>
+          </div>
           <MessageThread items={timelineItems} />
+          <ReplyComposer
+            id="charge-whatsapp-reply"
+            value={replyText}
+            onChange={setReplyText}
+            onSubmit={(e) => void onReply(e)}
+            sending={replying}
+          />
 
           <div className="mt-6 border-t border-surface-border pt-6">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Acciones rápidas</h3>
@@ -563,6 +664,37 @@ export default function ChargeDetail() {
         </section>
       </div>
 
+      {threadOpen && (
+        <AppModal onBackdropClick={() => setThreadOpen(false)}>
+          <div className="flex h-[min(92dvh,48rem)] w-full flex-col bg-surface-card shadow-2xl sm:w-[min(92vw,48rem)] sm:rounded-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-surface-border px-5 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-ink">Mensajes</h3>
+                <p className="mt-0.5 text-sm text-ink-muted">Lo enviado a la derecha, la respuesta del cliente a la izquierda.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setThreadOpen(false)}
+                className="rounded-lg px-2 py-1 text-sm font-medium text-ink-muted hover:bg-surface"
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 p-3 sm:p-4">
+              <MessageThread items={timelineItems} expanded />
+            </div>
+            <div className="border-t border-surface-border px-4 py-3 sm:px-5">
+              <ReplyComposer
+                id="charge-whatsapp-reply-large"
+                value={replyText}
+                onChange={setReplyText}
+                onSubmit={(e) => void onReply(e)}
+                sending={replying}
+              />
+            </div>
+          </div>
+        </AppModal>
+      )}
     </div>
   );
 }
