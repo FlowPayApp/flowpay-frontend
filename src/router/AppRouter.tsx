@@ -19,6 +19,7 @@ import Profile from '../pages/Profile';
 import PlatformOverview from '../pages/PlatformOverview';
 import PlatformCompanies from '../pages/PlatformCompanies';
 import PlatformAdmins from '../pages/PlatformAdmins';
+import PlatformPlans from '../pages/PlatformPlans';
 import PayPage from '../pages/PayPage';
 import PayReturnPage from '../pages/PayReturnPage';
 
@@ -69,6 +70,7 @@ const AppRouter = () => {
           <Route path="platform" element={<PlatformOverview />} />
           <Route path="platform/companies" element={<PlatformCompanies />} />
           <Route path="platform/admins" element={<PlatformAdmins />} />
+          <Route path="platform/plans" element={<PlatformPlans />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

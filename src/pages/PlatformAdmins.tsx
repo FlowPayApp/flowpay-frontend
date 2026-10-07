@@ -1,7 +1,8 @@
-import { Check, Filter, KeyRound, Pencil, Plus, UserCog, Users, X } from "lucide-react";
+import { Check, Filter, KeyRound, Pencil, Plus, Trash2, UserCog, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   createAdminForCompany,
+  deleteCompanyAdmin,
   listCompanies,
   listCompanyAdmins,
   resetCompanyAdminPassword,
@@ -14,9 +15,10 @@ import AppSelect from "../components/AppSelect";
 import FilterTray from "../components/FilterTray";
 import IconActionButton from "../components/IconActionButton";
 import ResetPasswordModal, { type ResetPasswordModalState } from "../components/ResetPasswordModal";
-import LoadingOverlay from "../components/LoadingOverlay";
+import PageLoading from "../components/PageLoading";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { useToast } from "../components/Toast";
+import { useMinLoading } from "../lib/useMinLoading";
 
 function isAdminActive(a: CompanyAdminDTO): boolean {
   return a.is_active !== false;
@@ -31,12 +33,11 @@ type EditModalState = {
 };
 
 export default function PlatformAdmins() {
-  const MIN_LOADING_MS = 1000;
   const [admins, setAdmins] = useState<CompanyAdminDTO[]>([]);
   const [companies, setCompanies] = useState<CompanyDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
-  const [actionLoading, setActionLoading] = useState(false);
+  const [loadingRaw, setLoadingRaw] = useState(true);
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
   const [editModal, setEditModal] = useState<EditModalState | null>(null);
@@ -56,6 +57,10 @@ export default function PlatformAdmins() {
   const [tempCred, setTempCred] = useState<{ email: string; temporary_password: string } | null>(null);
   const [resetPwdModal, setResetPwdModal] = useState<ResetPasswordModalState | null>(null);
   const [resetBusy, setResetBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CompanyAdminDTO | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const loading = useMinLoading(loadingRaw);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const load = async () => {
     const [a, c] = await Promise.all([listCompanyAdmins(), listCompanies()]);
@@ -68,24 +73,25 @@ export default function PlatformAdmins() {
     }
   };
 
-  const ensureLoadingTime = async (startedAt: number) => {
-    const elapsed = Date.now() - startedAt;
-    const remaining = Math.max(0, MIN_LOADING_MS - elapsed);
-    if (remaining > 0) {
-      await new Promise((resolve) => window.setTimeout(resolve, remaining));
-    }
-  };
-
   useEffect(() => {
-    load().catch((e) => setError(e instanceof Error ? e.message : "Error"));
+    let cancelled = false;
+    load()
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRaw(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function onCreate(e: React.FormEvent): Promise<boolean> {
     e.preventDefault();
     setError(null);
     setTempCred(null);
-    const startedAt = Date.now();
-    setActionLoading(true);
+    setActionBusy(true);
     const emailUsed = form.email;
     try {
       const created = await createAdminForCompany(form);
@@ -98,8 +104,7 @@ export default function PlatformAdmins() {
       toast.error(e instanceof Error ? e.message : "No se pudo crear el admin.");
       return false;
     } finally {
-      await ensureLoadingTime(startedAt);
-      setActionLoading(false);
+      setActionBusy(false);
     }
   }
 
@@ -125,8 +130,7 @@ export default function PlatformAdmins() {
 
   async function onToggleActive(userId: number, active: boolean) {
     setError(null);
-    const startedAt = Date.now();
-    setActionLoading(true);
+    setActionBusy(true);
     try {
       await updateCompanyAdmin(userId, { is_active: active });
       await load();
@@ -134,8 +138,7 @@ export default function PlatformAdmins() {
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "No se pudo actualizar el estado.");
     } finally {
-      await ensureLoadingTime(startedAt);
-      setActionLoading(false);
+      setActionBusy(false);
     }
   }
 
@@ -158,7 +161,7 @@ export default function PlatformAdmins() {
     }
   }
 
-  const tableBusy = actionLoading || resetBusy || editBusy;
+  const tableBusy = actionBusy || resetBusy || editBusy || deleting;
   const filteredAdmins = useMemo(() => {
     const qCompany = filters.company.trim().toLowerCase();
     const qEmail = filters.email.trim().toLowerCase();
@@ -186,7 +189,7 @@ export default function PlatformAdmins() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-0">
-      {actionLoading && !resetPwdModal && !editModal && <LoadingOverlay message="Guardando cambios..." />}
+      {loading && <PageLoading />}
       {error && <div className="mb-4 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div>}
       {tempCred && (
         <div className="mb-4 rounded-xl border border-warn/30 bg-warn-soft p-3 text-sm text-warn">
@@ -353,6 +356,13 @@ export default function PlatformAdmins() {
                             })
                           }
                         />
+                        <IconActionButton
+                          icon={Trash2}
+                          label="Borrar admin"
+                          variant="danger"
+                          disabled={tableBusy}
+                          onClick={() => setDeleteTarget(a)}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -362,6 +372,49 @@ export default function PlatformAdmins() {
           </table>
         </div>
       </section>
+
+      {deleteTarget && (
+        <AppModal onBackdropClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-ink">¿Borrar este admin?</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Se borra la cuenta de <span className="font-semibold text-ink">{deleteTarget.name}</span> ({deleteTarget.email}). La empresa {deleteTarget.company_name} se mantiene. No se puede deshacer.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                className="inline-flex items-center gap-2 rounded-xl bg-danger px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                onClick={() => {
+                  const target = deleteTarget;
+                  setDeleting(true);
+                  void deleteCompanyAdmin(target.user_id)
+                    .then(async () => {
+                      setDeleteTarget(null);
+                      setEditModal((current) => (current?.user_id === target.user_id ? null : current));
+                      await load();
+                      toast.success("Admin borrado.");
+                    })
+                    .catch((err: unknown) => {
+                      toast.error(err instanceof Error ? err.message : "No se pudo borrar el admin.");
+                    })
+                    .finally(() => setDeleting(false));
+                }}
+              >
+                {deleting ? "Borrando…" : "Borrar"}
+              </button>
+            </div>
+          </div>
+        </AppModal>
+      )}
 
       <ResetPasswordModal
         state={resetPwdModal}

@@ -64,11 +64,7 @@ export default function PlatformOverview() {
   }, [data]);
 
   if (loading) {
-    return (
-      <div className="mx-auto w-full max-w-6xl px-0">
-        <PageLoading />
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (error && !data) {

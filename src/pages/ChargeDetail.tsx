@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
@@ -135,8 +136,13 @@ export default function ChargeDetail() {
       await sendReminderNow(chargeId);
       setToast({ text: "Listo: enviamos recordatorios por email y WhatsApp.", tone: "success" });
       await load(true);
-    } catch {
-      setToast({ text: "No se pudo enviar (¿ya está cobrado?).", tone: "error" });
+    } catch (e: unknown) {
+      let text = "No se pudo enviar el recordatorio.";
+      if (axios.isAxiosError(e)) {
+        const data = e.response?.data as { error?: string } | undefined;
+        if (data?.error) text = data.error;
+      }
+      setToast({ text, tone: "error" });
     } finally {
       setReminding(false);
     }

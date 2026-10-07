@@ -1,4 +1,5 @@
 import {
+  BadgePercent,
   Building2,
   ChevronLeft,
   ChevronRight,
@@ -54,7 +55,7 @@ function mobileTabs(isPlatformAdmin: boolean): NavItem[] {
 }
 
 function moreLinks(role: string, isPlatformAdmin: boolean): NavItem[] {
-  if (isPlatformAdmin) return [];
+  if (isPlatformAdmin) return [{ to: "/platform/plans", label: "Planes", icon: BadgePercent }];
   if (role !== "admin") return [];
   return [{ to: "/equipo", label: "Equipo", icon: UserCog }];
 }
@@ -63,6 +64,7 @@ const platformNav: NavItem[] = [
   { to: "/platform", end: true, label: "Inicio", icon: LayoutDashboard },
   { to: "/platform/companies", label: "Empresas", icon: Building2 },
   { to: "/platform/admins", label: "Admins", icon: UserCog },
+  { to: "/platform/plans", label: "Planes", icon: BadgePercent },
 ];
 
 function readCollapsed(): boolean {
