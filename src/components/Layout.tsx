@@ -17,6 +17,8 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { getSessionClaims, getToken, logout } from "../lib/auth";
 import BrandLogo from "./BrandLogo";
+import InboxBell from "./InboxBell";
+import { InboxProvider } from "./InboxProvider";
 
 const SIDEBAR_COLLAPSED_KEY = "flowpay-sidebar-collapsed";
 
@@ -101,6 +103,7 @@ export default function Layout() {
   const tabs = mobileTabs(isPlatformAdmin);
   const overflow = moreLinks(role, isPlatformAdmin);
   const isCompanyAdmin = role === "admin" && !isPlatformAdmin;
+  const showInbox = hasToken && !isPlatformAdmin;
   const settingsActive = isCompanyAdmin && tabActive(location.pathname, { to: "/mensajes", label: "Configuración", icon: Settings });
   const profileActive = tabActive(location.pathname, { to: "/perfil", end: true, label: "Perfil", icon: CircleUserRound });
   const moreActive = overflow.some((item) => tabActive(location.pathname, item)) || settingsActive || profileActive;
@@ -229,10 +232,11 @@ export default function Layout() {
     );
   };
 
-  return (
+  const content = (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
-      <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b border-surface-border bg-surface-card px-4 pb-2 lg:hidden">
-        <BrandLogo className="h-7" />
+      <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b border-surface-border bg-surface-card px-4 pb-1 lg:hidden">
+        <BrandLogo className="mb-1 h-7" />
+        {showInbox && <InboxBell align="right" />}
       </header>
 
       <aside
@@ -255,11 +259,13 @@ export default function Layout() {
             >
               <ChevronRight className="h-5 w-5" strokeWidth={2} />
             </button>
+            {showInbox && <InboxBell />}
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2 px-2">
             <BrandLogo className="h-8" />
-            <div className="flex items-center gap-1">
+            <div className="flex items-center">
+              {showInbox && <InboxBell />}
               <button
                 type="button"
                 title="Ocultar menú"
@@ -396,4 +402,6 @@ export default function Layout() {
       </div>
     </div>
   );
+
+  return showInbox ? <InboxProvider>{content}</InboxProvider> : content;
 }

@@ -39,7 +39,26 @@ export interface ChargeInboundWhatsApp {
   from_number: string;
   to_number: string;
   content: string;
+  /** Fotos, audios o documentos del mensaje. */
+  media?: { content_type: string; file_name?: string }[] | null;
   direction: string;
   status: string;
+  /** Solo en respuestas del cliente: cuándo alguien de la empresa la vio. */
+  read_at?: string | null;
   created_at: string;
+}
+
+/** Respuestas sin leer de un cobro. */
+export interface UnreadThread {
+  charge_id: number;
+  client_name: string;
+  unread: number;
+  last_at: string;
+  preview: string;
+  has_media: boolean;
+}
+
+export interface Inbox {
+  total: number;
+  threads: UnreadThread[];
 }

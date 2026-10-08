@@ -1,6 +1,6 @@
 import { getToken } from "../../lib/auth";
 import { api } from "../client";
-import type { ChargeDTO, ChargeInboundWhatsApp, Reminder } from "../types";
+import type { ChargeDTO, ChargeInboundWhatsApp, Inbox, Reminder } from "../types";
 
 export async function fetchCharges() {
   const { data } = await api.get<ChargeDTO[]>("/api/charges");
@@ -52,6 +52,13 @@ export async function fetchChargeInboundWhatsApp(chargeId: number) {
   }
 }
 
+export async function fetchChargeInboundMedia(chargeId: number, messageId: number, index: number) {
+  const { data } = await api.get<Blob>(`/api/charges/${chargeId}/inbound-whatsapp/${messageId}/media/${index}`, {
+    responseType: "blob",
+  });
+  return data;
+}
+
 /** Demo: inserta un WhatsApp entrante vinculado al cobro (misma línea de tiempo que Twilio real). */
 export async function simulateChargeInboundWhatsApp(chargeId: number, text?: string) {
   const { data } = await api.post<ChargeInboundWhatsApp>(`/api/charges/${chargeId}/inbound-whatsapp/simulate`, {
@@ -66,6 +73,40 @@ export async function sendReminderNow(chargeId: number) {
 
 export async function sendChargeWhatsAppReply(chargeId: number, text: string) {
   const { data } = await api.post<ChargeInboundWhatsApp>(`/api/charges/${chargeId}/whatsapp`, { text });
+  return data;
+}
+
+/** Foto JPG/PNG o PDF de hasta 5 MB, con texto opcional como pie. */
+export async function sendChargeWhatsAppFile(chargeId: number, file: File, text: string) {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (text.trim()) fd.append("text", text.trim());
+  const headers: HeadersInit = {};
+  const t = getToken();
+  if (t) {
+    headers.Authorization = `Bearer ${t}`;
+  }
+  const res = await fetch(`/api/charges/${chargeId}/whatsapp/file`, { method: "POST", headers, body: fd });
+  const body = await res.text();
+  if (!res.ok) {
+    let message = "No se pudo enviar el archivo.";
+    try {
+      const data = JSON.parse(body) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      /* el cuerpo no es JSON */
+    }
+    throw new Error(message);
+  }
+  return JSON.parse(body) as ChargeInboundWhatsApp;
+}
+
+export async function markChargeRead(chargeId: number) {
+  await api.post(`/api/charges/${chargeId}/read`);
+}
+
+export async function fetchInbox() {
+  const { data } = await api.get<Inbox>("/api/inbox");
   return data;
 }
 

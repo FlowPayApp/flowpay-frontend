@@ -1,20 +1,25 @@
 import axios from "axios";
+import { FileText, Image as ImageIcon, Paperclip, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
 import {
   fetchCharge,
+  fetchChargeInboundMedia,
   fetchChargeInboundWhatsApp,
   fetchClients,
   fetchReminders,
+  markChargeRead,
   patchCharge,
   recordPayment,
+  sendChargeWhatsAppFile,
   sendChargeWhatsAppReply,
   sendReminderNow,
   uploadChargeAttachment,
 } from "../api";
 import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder } from "../api";
 import AppModal from "../components/AppModal";
+import { notifyInboxChanged } from "../components/InboxProvider";
 import { useToast, type ToastNotice } from "../components/Toast";
 import InvoicePreview from "../components/InvoicePreview";
 import AppDatePicker from "../components/AppDatePicker";
@@ -61,21 +66,81 @@ function chatDayLabel(iso: string) {
   return d.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" });
 }
 
+const LIVE_MS = 5000;
+const CHAT_FILE_MAX = 5 * 1024 * 1024;
+const CHAT_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const CHAT_FILE_ACCEPT = "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf";
+
+function fileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+}
+
+/** Devuelve el motivo si el archivo no se puede enviar por WhatsApp. */
+function chatFileProblem(file: File) {
+  if (!CHAT_FILE_TYPES.includes(file.type)) return "Solo puedes enviar fotos JPG o PNG, o un PDF.";
+  if (file.size > CHAT_FILE_MAX) return "El archivo puede pesar hasta 5 MB.";
+  return null;
+}
+
+function AttachedFile({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const isImage = file.type.startsWith("image/");
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isImage) return;
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file, isImage]);
+
+  return (
+    <div className="mb-2 flex items-center gap-3 rounded-xl border border-surface-border bg-surface px-2.5 py-2">
+      {preview ? (
+        <img src={preview} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+      ) : (
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand">
+          {isImage ? <ImageIcon className="h-5 w-5" strokeWidth={2} /> : <FileText className="h-5 w-5" strokeWidth={2} />}
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-ink">{file.name}</span>
+        <span className="block text-xs text-ink-muted">{fileSize(file.size)}</span>
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Quitar archivo"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-ink-muted hover:bg-surface-card hover:text-ink lg:h-8 lg:w-8"
+      >
+        <X className="h-4 w-4" strokeWidth={2} />
+      </button>
+    </div>
+  );
+}
+
 function ReplyComposer({
   id,
   value,
   onChange,
+  file,
+  onFile,
   onSubmit,
   sending,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
+  file: File | null;
+  onFile: (file: File | null) => void;
   onSubmit: (e: React.FormEvent) => void;
   sending: boolean;
 }) {
+  const picker = useRef<HTMLInputElement>(null);
+
   return (
     <form onSubmit={onSubmit} className="mt-3">
+      {file && <AttachedFile file={file} onRemove={() => onFile(null)} />}
       <label className="sr-only" htmlFor={id}>
         Responder por WhatsApp
       </label>
@@ -83,22 +148,145 @@ function ReplyComposer({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onPaste={(e) => {
+          const pasted = Array.from(e.clipboardData.files)[0];
+          if (pasted) {
+            e.preventDefault();
+            onFile(pasted);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            e.currentTarget.form?.requestSubmit();
+          }
+        }}
         rows={2}
         maxLength={1000}
-        placeholder="Responder por WhatsApp"
+        placeholder={file ? "Agrega un texto (opcional)" : "Responder por WhatsApp"}
         className="w-full resize-none rounded-xl border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       />
+      <input
+        ref={picker}
+        type="file"
+        accept={CHAT_FILE_ACCEPT}
+        className="hidden"
+        onChange={(e) => {
+          onFile(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
       <div className="mt-2 flex items-center justify-between gap-3">
-        <p className="text-xs text-ink-muted">Se envía si el cliente escribió en las últimas 24 horas.</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => picker.current?.click()}
+            disabled={sending}
+            aria-label="Adjuntar foto o PDF"
+            title="Adjuntar foto o PDF (hasta 5 MB)"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-surface-border text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-60 lg:h-9 lg:w-9"
+          >
+            <Paperclip className="h-4 w-4" strokeWidth={2} />
+          </button>
+          <p className="text-xs text-ink-muted">Se envía si el cliente escribió en las últimas 24 horas.</p>
+        </div>
         <button
           type="submit"
-          disabled={sending || value.trim() === ""}
+          disabled={sending || (value.trim() === "" && !file)}
           className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
         >
           {sending ? "Enviando…" : "Enviar"}
         </button>
       </div>
     </form>
+  );
+}
+
+type AttachmentKind = "image" | "audio" | "video" | "pdf" | "file";
+
+function attachmentKind(contentType: string): AttachmentKind {
+  const type = contentType.split(";")[0].trim().toLowerCase();
+  if (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(type)) return "image";
+  if (type.startsWith("audio/")) return "audio";
+  if (type.startsWith("video/")) return "video";
+  if (type === "application/pdf") return "pdf";
+  return "file";
+}
+
+function MessageAttachment({
+  chargeId,
+  messageId,
+  index,
+  contentType,
+  fileName,
+}: {
+  chargeId: number;
+  messageId: number;
+  index: number;
+  contentType: string;
+  fileName?: string;
+}) {
+  const kind = attachmentKind(contentType);
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    let objectUrl = "";
+    fetchChargeInboundMedia(chargeId, messageId, index)
+      .then((blob) => {
+        if (!alive) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [chargeId, messageId, index]);
+
+  if (failed) {
+    return <p className="text-xs text-ink-muted">No se pudo cargar el archivo.</p>;
+  }
+  if (!url) {
+    return (
+      <div
+        className={`animate-pulse rounded-xl bg-surface-border/60 ${kind === "image" || kind === "video" ? "h-40 w-56 max-w-full" : "h-10 w-48"}`}
+        aria-label="Cargando archivo"
+      />
+    );
+  }
+  if (kind === "image") {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="block w-fit">
+        <img src={url} alt="Imagen enviada por el cliente" className="max-h-64 max-w-full rounded-xl object-contain" />
+      </a>
+    );
+  }
+  if (kind === "audio") {
+    return <audio controls src={url} className="w-64 max-w-full" />;
+  }
+  if (kind === "video") {
+    return <video controls src={url} className="max-h-64 max-w-full rounded-xl" />;
+  }
+  const linkClass =
+    "inline-flex max-w-full items-center gap-2 rounded-lg border border-surface-border bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-card";
+  if (kind === "pdf") {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className={linkClass}>
+        <FileText className="h-4 w-4 shrink-0 text-brand" strokeWidth={2} />
+        <span className="truncate">{fileName || "Ver PDF"}</span>
+      </a>
+    );
+  }
+  return (
+    <a href={url} download={fileName || `adjunto-${messageId}-${index + 1}`} className={linkClass}>
+      <Paperclip className="h-4 w-4 shrink-0" strokeWidth={2} />
+      <span className="truncate">{fileName || "Descargar archivo"}</span>
+    </a>
   );
 }
 
@@ -118,24 +306,42 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
     return a.id.localeCompare(b.id);
   });
   const lastId = ordered[ordered.length - 1]?.id ?? "";
+  const pinned = useRef(true);
 
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
+    pinned.current = true;
   }, [ordered.length, lastId]);
+
+  const empty = ordered.length === 0;
+  useEffect(() => {
+    const el = scroller.current;
+    const list = el?.firstElementChild;
+    if (!el || !list || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (pinned.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [empty]);
 
   let previousDay = "";
 
   return (
     <div
       ref={scroller}
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+      }}
       role="log"
       aria-label="Mensajes del cobro"
       className={
         expanded
-          ? "h-full min-h-0 w-full min-w-0 overflow-y-auto rounded-2xl border border-surface-border bg-surface/80 px-4 py-5 [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
-          : "mt-5 max-h-[min(55vh,28rem)] min-h-[16rem] w-full min-w-0 overflow-y-auto rounded-2xl border border-surface-border bg-surface/80 px-3 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
+          ? "h-full min-h-0 w-full min-w-0 overflow-y-auto rounded-2xl border border-surface-border bg-surface/80 [overflow-anchor:none] px-4 py-5 [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
+          : "mt-5 max-h-[min(55vh,28rem)] min-h-[16rem] w-full min-w-0 overflow-y-auto rounded-2xl border border-surface-border bg-surface/80 [overflow-anchor:none] px-3 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
       }
     >
       {ordered.length === 0 ? (
@@ -150,7 +356,11 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
             const outgoing = item.kind === "reminder" || outboundReply;
             const email = item.kind === "reminder" && item.reminder.channel === "email";
             const scheduled = item.kind === "reminder" && item.reminder.status === "scheduled";
-            const text = item.kind === "reply" ? item.reply.content?.trim() || "Mensaje sin texto." : reminderBody(item.reminder);
+            const media = item.kind === "reply" && item.reply.charge_id ? item.reply.media ?? [] : [];
+            const text =
+              item.kind === "reply"
+                ? item.reply.content?.trim() || (media.length > 0 ? "" : "Mensaje sin texto.")
+                : reminderBody(item.reminder);
             const clock = chatClock(item.at);
             const label = item.kind === "reply" && !outboundReply ? "Cliente" : email ? "Correo" : "WhatsApp";
             return (
@@ -185,7 +395,23 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
                         </span>
                         {clock ? <span className="shrink-0 text-[11px] text-ink-muted">{clock}</span> : null}
                       </div>
-                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink">{text}</p>
+                      {item.kind === "reply" && item.reply.charge_id && media.length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                          {media.map((file, index) => (
+                            <MessageAttachment
+                              key={index}
+                              chargeId={item.reply.charge_id!}
+                              messageId={item.reply.id}
+                              index={index}
+                              contentType={file.content_type}
+                              fileName={file.file_name}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                      {text ? (
+                        <p className={`whitespace-pre-wrap break-words text-sm leading-relaxed text-ink${media.length > 0 ? " mt-2" : ""}`}>{text}</p>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -223,6 +449,7 @@ export default function ChargeDetail() {
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
   const [threadOpen, setThreadOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
+  const [replyFile, setReplyFile] = useState<File | null>(null);
   const [replying, setReplying] = useState(false);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
   const load = async (silent = false) => {
@@ -259,6 +486,50 @@ export default function ChargeDetail() {
     }
     void load();
   }, [chargeId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(chargeId) || chargeId <= 0) return;
+    let busy = false;
+    const refreshThread = async () => {
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        const [r, wa] = await Promise.all([fetchReminders(chargeId), fetchChargeInboundWhatsApp(chargeId)]);
+        setRems(Array.isArray(r) ? r : []);
+        setInboundWA(Array.isArray(wa) ? wa : []);
+      } catch {
+        /* se reintenta en el próximo ciclo */
+      } finally {
+        busy = false;
+      }
+    };
+    const timer = window.setInterval(() => void refreshThread(), LIVE_MS);
+    const onVisible = () => void refreshThread();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [chargeId]);
+
+  const marking = useRef(false);
+  const hasUnread = inboundWA.some((m) => m.direction === "inbound" && !m.read_at);
+  useEffect(() => {
+    if (!hasUnread || marking.current || document.visibilityState !== "visible") return;
+    marking.current = true;
+    markChargeRead(chargeId)
+      .then(() => {
+        const now = new Date().toISOString();
+        setInboundWA((list) => list.map((m) => (m.direction === "inbound" && !m.read_at ? { ...m, read_at: now } : m)));
+        notifyInboxChanged();
+      })
+      .catch(() => {
+        /* queda sin leer; se reintenta con la próxima actualización */
+      })
+      .finally(() => {
+        marking.current = false;
+      });
+  }, [hasUnread, chargeId, inboundWA]);
 
   useEffect(() => {
     fetchClients()
@@ -359,22 +630,40 @@ export default function ChargeDetail() {
     }
   }
 
+  function onReplyFile(file: File | null) {
+    if (file) {
+      const problem = chatFileProblem(file);
+      if (problem) {
+        setToast({ text: problem, tone: "error" });
+        return;
+      }
+    }
+    setReplyFile(file);
+  }
+
   async function onReply(e: React.FormEvent) {
     e.preventDefault();
     const text = replyText.trim();
-    if (!text) return;
+    if (!text && !replyFile) return;
     setReplying(true);
     setToast(null);
     try {
-      await sendChargeWhatsAppReply(chargeId, text);
+      if (replyFile) {
+        await sendChargeWhatsAppFile(chargeId, replyFile, text);
+      } else {
+        await sendChargeWhatsAppReply(chargeId, text);
+      }
       setReplyText("");
-      setToast({ text: "Mensaje enviado por WhatsApp.", tone: "success" });
+      setReplyFile(null);
+      setToast({ text: replyFile ? "Archivo enviado por WhatsApp." : "Mensaje enviado por WhatsApp.", tone: "success" });
       await load(true);
     } catch (err: unknown) {
-      let textErr = "No se pudo enviar el mensaje.";
+      let textErr = replyFile ? "No se pudo enviar el archivo." : "No se pudo enviar el mensaje.";
       if (axios.isAxiosError(err)) {
         const data = err.response?.data as { error?: string } | undefined;
         if (data?.error) textErr = data.error;
+      } else if (err instanceof Error && err.message) {
+        textErr = err.message;
       }
       setToast({ text: textErr, tone: "error" });
     } finally {
@@ -627,6 +916,8 @@ export default function ChargeDetail() {
             id="charge-whatsapp-reply"
             value={replyText}
             onChange={setReplyText}
+            file={replyFile}
+            onFile={onReplyFile}
             onSubmit={(e) => void onReply(e)}
             sending={replying}
           />
@@ -688,6 +979,8 @@ export default function ChargeDetail() {
                 id="charge-whatsapp-reply-large"
                 value={replyText}
                 onChange={setReplyText}
+                file={replyFile}
+                onFile={onReplyFile}
                 onSubmit={(e) => void onReply(e)}
                 sending={replying}
               />
