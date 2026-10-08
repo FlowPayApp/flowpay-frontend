@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Check, Mail, Menu, X } from "lucide-react";
+import { ArrowRight, Check, Mail, Menu, Moon, Sun, X } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
 import { getToken } from "../lib/auth";
+import { useTheme } from "../theme";
 
 const CONTACT = "contacto@geldflus.com";
 const STEP_MS = 10000;
@@ -69,6 +70,8 @@ function mailHref() {
 
 export default function Landing() {
   const loggedIn = !!getToken();
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
   const [menu, setMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -133,20 +136,47 @@ export default function Landing() {
                 {item.label}
               </a>
             ))}
+            {!loggedIn && (
+              <a
+                href="#empezar"
+                className={`-mx-1 rounded-full px-3 py-1.5 font-semibold transition-colors ${
+                  solidNav
+                    ? "bg-brand-soft text-brand hover:bg-brand hover:text-white dark:text-[#8fd4cf]"
+                    : "bg-[#8fd4cf]/15 text-[#8fd4cf] hover:bg-[#8fd4cf] hover:text-[#141716]"
+                }`}
+              >
+                Empezar
+              </a>
+            )}
           </nav>
-          {loggedIn && (
-            <Link to="/" className="hidden rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover sm:inline-flex">
-              Ir al panel
-            </Link>
-          )}
-          <button
-            type="button"
-            className={`grid size-10 place-items-center rounded-xl md:hidden ${solidNav ? "text-ink" : "text-white"}`}
-            aria-label={menu ? "Cerrar menú" : "Abrir menú"}
-            onClick={() => setMenu((v) => !v)}
-          >
-            {menu ? <X className="size-5" /> : <Menu className="size-5" />}
-          </button>
+          <div className="flex items-center gap-2 md:ml-6">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title={isDark ? "Modo claro" : "Modo oscuro"}
+              aria-label={isDark ? "Activar modo claro" : "Activar modo oscuro"}
+              className={`grid size-9 place-items-center rounded-lg border transition-colors ${
+                solidNav
+                  ? "border-surface-border bg-surface-card text-ink-muted hover:text-ink"
+                  : "border-white/15 bg-white/5 text-[rgb(245_242_234)]/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </button>
+            {loggedIn && (
+              <Link to="/" className="hidden rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover sm:inline-flex">
+                Ir al panel
+              </Link>
+            )}
+            <button
+              type="button"
+              className={`grid size-10 place-items-center rounded-xl md:hidden ${solidNav ? "text-ink" : "text-white"}`}
+              aria-label={menu ? "Cerrar menú" : "Abrir menú"}
+              onClick={() => setMenu((v) => !v)}
+            >
+              {menu ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
+          </div>
         </div>
         {menu && (
           <div className="border-t border-surface-border bg-surface px-4 py-4 md:hidden">
@@ -156,10 +186,18 @@ export default function Landing() {
                   {item.label}
                 </a>
               ))}
-              {loggedIn && (
+              {loggedIn ? (
                 <Link to="/" className="mt-2 rounded-xl bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-hover">
                   Ir al panel
                 </Link>
+              ) : (
+                <a
+                  href="#empezar"
+                  onClick={() => setMenu(false)}
+                  className="-ml-3 w-fit rounded-full bg-brand-soft px-3 py-1.5 font-semibold text-brand dark:text-[#8fd4cf]"
+                >
+                  Empezar
+                </a>
               )}
             </div>
           </div>
@@ -201,9 +239,9 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="recorrido" className="scroll-mt-24 px-4 py-20 sm:px-6">
+        <section id="recorrido" className="scroll-mt-4 px-4 py-20 sm:px-6">
           <div className="mx-auto max-w-6xl">
-            <p className="text-sm font-semibold text-brand">Cómo funciona</p>
+            <p className="text-sm font-semibold text-brand dark:text-[#8fd4cf]">Cómo funciona</p>
             <h2 className="mt-2 max-w-xl font-display text-3xl font-medium tracking-tight sm:text-4xl">
               Un local, de la fecha al pago
             </h2>
@@ -256,12 +294,12 @@ export default function Landing() {
                         <span className="flex items-center gap-3">
                           <span
                             className={`grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold transition-colors duration-700 ${
-                              active ? "bg-brand text-white" : "bg-brand-soft text-brand"
+                              active ? "bg-brand text-white" : "bg-brand-soft text-brand dark:text-[#8fd4cf]"
                             }`}
                           >
                             {index + 1}
                           </span>
-                          <span className="text-xs font-semibold uppercase tracking-widest text-brand">{item.kicker}</span>
+                          <span className="text-xs font-semibold uppercase tracking-widest text-brand dark:text-[#8fd4cf]">{item.kicker}</span>
                         </span>
                         <span className="mt-4 block font-display text-2xl font-medium tracking-tight">{item.title}</span>
                         <span className="mt-2 block text-sm leading-relaxed text-ink-muted">{item.text}</span>
@@ -296,23 +334,45 @@ export default function Landing() {
                 );
               })}
             </ol>
-            <div className="mx-auto mt-14 flex max-w-md flex-col items-center text-center">
-              <p className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Empieza con los cobros de este mes</p>
-              <p className="mt-3 text-base leading-relaxed text-ink-muted">
-                Pide tu cuenta. La revisamos, la activamos y te enviamos la contraseña.
-              </p>
+          </div>
+        </section>
+
+        <section id="empezar" className="scroll-mt-24 px-4 sm:px-6">
+          <div className="land-cta relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] px-6 py-14 text-center text-[rgb(245_242_234)] dark:ring-1 dark:ring-white/10 sm:px-12 sm:py-20">
+            <p className="text-sm font-semibold tracking-wide text-[#8fd4cf]">Listo para partir</p>
+            <h2 className="mx-auto mt-4 max-w-3xl font-display text-4xl font-medium leading-[1.05] tracking-tight text-balance sm:text-6xl">
+              Empieza con los cobros de <span className="text-[#8fd4cf]">este mes</span>
+            </h2>
+            <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[rgb(245_242_234)]/75">
+              Pide tu cuenta hoy. La revisamos, la activamos y te enviamos la contraseña.
+            </p>
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 to={loggedIn ? "/" : "/register"}
-                className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover"
+                className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#8fd4cf] px-8 text-base font-semibold text-[#141716] transition-colors hover:bg-white sm:w-auto"
               >
                 {loggedIn ? "Ir al panel" : "Quiero mi cuenta"}
                 <ArrowRight className="size-4" />
               </Link>
+              <a
+                href="#planes"
+                className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border border-white/20 px-8 text-base font-semibold hover:bg-white/10 sm:w-auto"
+              >
+                Ver los planes
+              </a>
             </div>
+            <ul className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center gap-3 text-sm text-[rgb(245_242_234)]/75 sm:flex-row sm:gap-8">
+              {["Funciona desde el navegador", "El local no crea una cuenta", "Avisos por WhatsApp y correo"].map((item) => (
+                <li key={item} className="flex items-center gap-2">
+                  <Check className="size-4 shrink-0 text-[#8fd4cf]" />
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        <section id="planes" className="scroll-mt-24 px-4 py-20 sm:px-6">
+        <section id="planes" className="scroll-mt-4 px-4 py-20 sm:px-6">
           <div className="mx-auto max-w-5xl">
             <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Pagas según cuántos locales tienes</h2>
             <p className="mt-3 max-w-lg text-ink-muted">Todos los planes incluyen los avisos por WhatsApp y correo, y el enlace para pagar.</p>
@@ -322,7 +382,7 @@ export default function Landing() {
                   key={plan.name}
                   className={`flex h-full flex-col rounded-2xl border p-6 ${
                     plan.highlight
-                      ? "border-brand bg-[#141716] text-[rgb(245_242_234)] md:-translate-y-2"
+                      ? "border-brand bg-[#141716] text-[rgb(245_242_234)] dark:bg-[#0c0f0e] md:-translate-y-2"
                       : "border-surface-border bg-surface-card"
                   }`}
                 >
@@ -336,7 +396,7 @@ export default function Landing() {
                   <ul className="mt-5 space-y-2 text-sm">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex gap-2">
-                        <Check className={`mt-0.5 size-4 shrink-0 ${plan.highlight ? "text-[#8fd4cf]" : "text-brand"}`} />
+                        <Check className={`mt-0.5 size-4 shrink-0 ${plan.highlight ? "text-[#8fd4cf]" : "text-brand dark:text-[#8fd4cf]"}`} />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -380,8 +440,8 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="contacto" className="scroll-mt-24 px-4 py-20 text-center sm:px-6">
-          <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl bg-[#141716] px-6 py-14 text-[rgb(245_242_234)]">
+        <section id="contacto" className="scroll-mt-4 px-4 py-20 text-center sm:px-6">
+          <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl bg-[#141716] px-6 py-14 text-[rgb(245_242_234)] dark:ring-1 dark:ring-white/10">
             <div className="relative">
               <h2 className="font-display text-3xl font-medium tracking-tight">¿Prefieres conversarlo antes?</h2>
               <p className="mt-3 text-[rgb(245_242_234)]/75">Escríbenos cuántos locales tienes y cómo cobras hoy. Te respondemos por correo.</p>
@@ -407,6 +467,13 @@ export default function Landing() {
         .land-hero {
           background:
             radial-gradient(42rem 24rem at 0% 20%, rgb(15 110 107 / 0.35), transparent 70%),
+            #141716;
+        }
+        html { scroll-behavior: smooth; }
+        .land-cta {
+          background:
+            radial-gradient(38rem 22rem at 100% 0%, rgb(143 212 207 / 0.22), transparent 70%),
+            radial-gradient(42rem 26rem at 0% 100%, rgb(15 110 107 / 0.55), transparent 70%),
             #141716;
         }
         .land-settle {
@@ -438,6 +505,7 @@ export default function Landing() {
           to { transform: scaleX(1); }
         }
         @media (prefers-reduced-motion: reduce) {
+          html { scroll-behavior: auto; }
           .land-settle, .land-step, .land-row { animation: none; }
         }
       `}</style>
@@ -512,7 +580,7 @@ function LoadScene({ live }: SceneProps) {
               <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-muted">{label}</span>
               <span className="text-sm font-semibold">{value}</span>
             </span>
-            <span className={`grid size-5 shrink-0 place-items-center rounded-full ${live ? "bg-brand text-white" : "bg-brand-soft text-brand"}`}>
+            <span className={`grid size-5 shrink-0 place-items-center rounded-full ${live ? "bg-brand text-white" : "bg-brand-soft text-brand dark:text-[#8fd4cf]"}`}>
               <Check className="size-3" />
             </span>
           </li>
@@ -547,7 +615,7 @@ function MessageScene({ live, playing, onUse }: SceneProps) {
   }
 
   return (
-    <div className="flex h-full flex-col rounded-2xl bg-[#141716] p-4 text-[rgb(245_242_234)]">
+    <div className="flex h-full flex-col rounded-2xl bg-[#141716] p-4 text-[rgb(245_242_234)] dark:bg-[#0c0f0e] dark:ring-1 dark:ring-white/10">
       <div className="flex w-fit gap-1 rounded-full bg-white/10 p-1" role="group" aria-label="Canal">
         {CHANNELS.map((label, index) => (
           <button
@@ -603,7 +671,7 @@ function PayScene({ live }: SceneProps) {
           <Check className="size-4" />
         </span>
         <span>
-          <span className="block text-xs font-semibold uppercase tracking-widest text-brand">Pagado</span>
+          <span className="block text-xs font-semibold uppercase tracking-widest text-brand dark:text-[#8fd4cf]">Pagado</span>
           <span className="block text-xs text-ink-muted">Desde el enlace</span>
         </span>
       </div>
