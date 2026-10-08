@@ -403,12 +403,18 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
   });
   const lastId = ordered[ordered.length - 1]?.id ?? "";
   const pinned = useRef(true);
+  const knownHeight = useRef(0);
 
-  useEffect(() => {
+  const toBottom = () => {
     const el = scroller.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
+    knownHeight.current = el.scrollHeight;
+  };
+
+  useLayoutEffect(() => {
     pinned.current = true;
+    toBottom();
   }, [ordered.length, lastId]);
 
   const empty = ordered.length === 0;
@@ -417,9 +423,10 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
     const list = el?.firstElementChild;
     if (!el || !list || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
-      if (pinned.current) el.scrollTop = el.scrollHeight;
+      if (pinned.current) toBottom();
     });
     observer.observe(list);
+    observer.observe(el);
     return () => observer.disconnect();
   }, [empty]);
 
@@ -430,6 +437,11 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
       ref={scroller}
       onScroll={(e) => {
         const el = e.currentTarget;
+        // Cuando una foto o archivo termina de cargar, el alto cambia y llega un scroll que no hizo la persona.
+        if (el.scrollHeight !== knownHeight.current) {
+          knownHeight.current = el.scrollHeight;
+          return;
+        }
         pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
       }}
       role="log"
