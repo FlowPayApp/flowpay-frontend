@@ -33,8 +33,7 @@ export default function AuthShell({ title, lede, children, footer, aside }: Prop
       </aside>
 
       <div className="auth-form-panel relative flex h-dvh flex-col overflow-y-auto px-4 py-5 sm:px-8">
-        <div className="flex items-center justify-between lg:justify-end">
-          <BrandLogo className="h-8 lg:hidden" />
+        <div className="flex items-center justify-end">
           <ThemeToggle compact />
         </div>
         <div className="mx-auto my-auto w-full max-w-md py-6">
