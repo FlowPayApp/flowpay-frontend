@@ -48,8 +48,16 @@ const FAQ = [
     a: "No. Le llega el enlace, ve el monto y paga. Tú sigues en tu panel.",
   },
   {
-    q: "¿Y si paga por transferencia?",
-    a: "Lo marcas como pagado. El enlace es para cuando paga con tarjeta.",
+    q: "¿El local puede responder el mensaje?",
+    a: "Sí. Su respuesta queda en el mismo cobro, y tú la ves en tu panel.",
+  },
+  {
+    q: "¿Y si paga por transferencia o con cheque?",
+    a: "Lo marcas como pagado y deja de recibir avisos. El enlace es para cuando paga con tarjeta.",
+  },
+  {
+    q: "¿Tengo que cargar los locales uno por uno?",
+    a: "No. En los planes Crecimiento y Empresa los subes todos desde una planilla.",
   },
 ] as const;
 
@@ -167,7 +175,7 @@ export default function Landing() {
                 Cobra a tus locales <span className="text-[#8fd4cf]">sin perseguirlos</span>
               </h1>
               <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[rgb(245_242_234)]/72">
-                Cargas el local y la fecha. GeldFlus avisa solo. El local paga desde el enlace.
+                GeldFlus le avisa a cada local antes de que venza, por WhatsApp y correo, con un enlace para pagar. Tú dejas de llamar uno por uno.
               </p>
               <div className="mt-8 flex justify-center">
                 {loggedIn ? (
@@ -266,15 +274,16 @@ export default function Landing() {
                 );
               })}
             </ol>
-            <div className="mt-12 flex flex-col items-start justify-between gap-5 border-t border-surface-border pt-10 sm:flex-row sm:items-center">
-              <p className="max-w-md text-base leading-relaxed text-ink-muted">
-                El cobro queda en un solo lugar: la fecha, el aviso y el pago.
+            <div className="mx-auto mt-14 flex max-w-md flex-col items-center text-center">
+              <p className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Empieza con los cobros de este mes</p>
+              <p className="mt-3 text-base leading-relaxed text-ink-muted">
+                Pide tu cuenta. La revisamos, la activamos y te enviamos la contraseña.
               </p>
               <Link
                 to={loggedIn ? "/" : "/register"}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover sm:w-auto"
+                className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover"
               >
-                {loggedIn ? "Ir al panel" : "Crear cuenta"}
+                {loggedIn ? "Ir al panel" : "Quiero mi cuenta"}
                 <ArrowRight className="size-4" />
               </Link>
             </div>
@@ -283,8 +292,8 @@ export default function Landing() {
 
         <section id="planes" className="scroll-mt-24 px-4 py-20 sm:px-6">
           <div className="mx-auto max-w-5xl">
-            <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Tres tamaños. El mismo producto.</h2>
-            <p className="mt-3 max-w-lg text-ink-muted">Eliges uno al crear la cuenta. La activamos y te enviamos la contraseña.</p>
+            <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Pagas según cuántos locales tienes</h2>
+            <p className="mt-3 max-w-lg text-ink-muted">Todos los planes incluyen los avisos por WhatsApp y correo, y el enlace para pagar.</p>
             <div className="mt-8 grid items-stretch gap-4 md:grid-cols-3">
               {PLANS.map((plan) => (
                 <article
@@ -295,7 +304,7 @@ export default function Landing() {
                       : "border-surface-border bg-surface-card"
                   }`}
                 >
-                  {plan.highlight && <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#8fd4cf]">El más usado</p>}
+                  {plan.highlight && <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#8fd4cf]">Recomendado</p>}
                   <h3 className="text-2xl font-semibold">{plan.name}</h3>
                   <p className={`mt-2 text-sm ${plan.highlight ? "text-[rgb(245_242_234)]/65" : "text-ink-muted"}`}>{plan.detail}</p>
                   <p className="mt-5 font-display text-4xl">
@@ -352,8 +361,8 @@ export default function Landing() {
         <section id="contacto" className="scroll-mt-24 px-4 py-20 text-center sm:px-6">
           <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl bg-[#141716] px-6 py-14 text-[rgb(245_242_234)]">
             <div className="relative">
-              <h2 className="font-display text-3xl font-medium tracking-tight">Cuéntanos de tu red</h2>
-              <p className="mt-3 text-[rgb(245_242_234)]/75">Locales, montos y fechas. Te respondemos a la brevedad.</p>
+              <h2 className="font-display text-3xl font-medium tracking-tight">¿Prefieres conversarlo antes?</h2>
+              <p className="mt-3 text-[rgb(245_242_234)]/75">Escríbenos cuántos locales tienes y cómo cobras hoy. Te respondemos por correo.</p>
               <a
                 href={mailHref()}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-[#141716]"
@@ -425,7 +434,7 @@ const STEPS = [
     kicker: "Tú cargas",
     title: "El local y la fecha",
     line: "Tú dejas el local, el monto y la fecha.",
-    text: "Si ya están en una planilla, entran juntos.",
+    text: "Lo haces una vez. Desde ahí, el resto sale solo.",
     scene: (live: boolean) => <LoadScene live={live} />,
   },
   {
@@ -499,7 +508,7 @@ function PayScene({ live }: { live: boolean }) {
         </span>
         <span>
           <span className="block text-xs font-semibold uppercase tracking-widest text-brand">Pagado</span>
-          <span className="block text-xs text-ink-muted">El mismo día</span>
+          <span className="block text-xs text-ink-muted">Desde el enlace</span>
         </span>
       </div>
       <p className={`mt-4 font-display text-4xl ${live ? "land-settle" : ""}`}>{EXAMPLE.amount}</p>
