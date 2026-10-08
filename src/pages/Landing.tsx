@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Check, Mail, Menu, X } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
@@ -218,10 +218,15 @@ export default function Landing() {
                 <p className="text-sm text-ink-muted">Vence el {EXAMPLE.due}</p>
               </div>
             </div>
-            <p key={step} className="land-settle mt-6 font-display text-2xl font-medium tracking-tight sm:text-3xl">
-              {STEPS[step].line}
-            </p>
-            {pinned && <p className="mt-2 text-sm text-ink-muted">Pausado. Toca el mismo paso para que siga solo.</p>}
+            <div className="mt-6 flex flex-col justify-between gap-2 lg:flex-row lg:items-center">
+              <p
+                key={step}
+                className="land-settle min-h-[4rem] font-display text-2xl font-medium leading-8 tracking-tight sm:min-h-[4.5rem] sm:text-3xl sm:leading-9 lg:min-h-[2.25rem]"
+              >
+                {STEPS[step].line}
+              </p>
+              <p className="shrink-0 text-sm text-ink-muted">{pinned ? "En pausa · toca el paso para seguir" : "Avanza solo"}</p>
+            </div>
             <ol
               className={`mt-6 grid gap-4 md:grid-cols-3 ${hold || pinned ? "land-hold" : ""}`}
               onMouseEnter={() => setHold(true)}
@@ -231,29 +236,46 @@ export default function Landing() {
                 const active = step === index;
                 return (
                   <li key={item.kicker} className="relative h-full">
-                    <button
-                      type="button"
-                      aria-pressed={active}
+                    <div
                       onClick={() => chooseStep(index)}
-                      className={`relative flex h-full w-full flex-col overflow-hidden rounded-[1.4rem] border bg-surface-card p-5 text-left transition-[border-color,box-shadow,transform] duration-700 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                      className={`relative flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-[1.4rem] border bg-surface-card p-5 text-left transition-[border-color,box-shadow,transform] duration-700 ease-out ${
                         active
                           ? "border-brand shadow-[0_18px_40px_-28px_rgb(15_110_107)] md:-translate-y-1.5"
                           : "border-surface-border hover:border-brand/40"
                       }`}
                     >
-                      <span className="flex items-center gap-3">
-                        <span
-                          className={`grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold transition-colors duration-700 ${
-                            active ? "bg-brand text-white" : "bg-brand-soft text-brand"
-                          }`}
-                        >
-                          {index + 1}
+                      <button
+                        type="button"
+                        aria-pressed={active}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          chooseStep(index);
+                        }}
+                        className="block w-full rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+                      >
+                        <span className="flex items-center gap-3">
+                          <span
+                            className={`grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold transition-colors duration-700 ${
+                              active ? "bg-brand text-white" : "bg-brand-soft text-brand"
+                            }`}
+                          >
+                            {index + 1}
+                          </span>
+                          <span className="text-xs font-semibold uppercase tracking-widest text-brand">{item.kicker}</span>
                         </span>
-                        <span className="text-xs font-semibold uppercase tracking-widest text-brand">{item.kicker}</span>
-                      </span>
-                      <span className="mt-4 block font-display text-2xl font-medium tracking-tight">{item.title}</span>
-                      <span className="mt-2 block text-sm leading-relaxed text-ink-muted">{item.text}</span>
-                      <div className="mt-5 flex-1">{item.scene(active)}</div>
+                        <span className="mt-4 block font-display text-2xl font-medium tracking-tight">{item.title}</span>
+                        <span className="mt-2 block text-sm leading-relaxed text-ink-muted">{item.text}</span>
+                      </button>
+                      <div className="mt-5 flex-1">
+                        {item.scene({
+                          live: active,
+                          playing: active && motion && !pinned && !hold,
+                          onUse: () => {
+                            setStep(index);
+                            setPinned(true);
+                          },
+                        })}
+                      </div>
                       {active && motion && (
                         <span
                           className="land-step"
@@ -264,7 +286,7 @@ export default function Landing() {
                           }}
                         />
                       )}
-                    </button>
+                    </div>
                     {index < STEPS.length - 1 && (
                       <span className="pointer-events-none absolute -right-5 top-7 z-10 hidden size-6 place-items-center rounded-full border border-surface-border bg-surface text-ink-muted md:grid" aria-hidden>
                         <ArrowRight className="size-3.5" />
@@ -429,31 +451,53 @@ const EXAMPLE = {
   due: "9 de octubre",
 };
 
+type SceneProps = { live: boolean; playing: boolean; onUse: () => void };
+
 const STEPS = [
   {
     kicker: "Tú cargas",
     title: "El local y la fecha",
     line: "Tú dejas el local, el monto y la fecha.",
     text: "Lo haces una vez. Desde ahí, el resto sale solo.",
-    scene: (live: boolean) => <LoadScene live={live} />,
+    scene: (props: SceneProps) => <LoadScene {...props} />,
   },
   {
     kicker: "GeldFlus avisa",
     title: "El mensaje sale solo",
     line: "GeldFlus avisa por WhatsApp y por correo.",
-    text: "Antes de la fecha, el día y si se pasa.",
-    scene: (live: boolean) => <MessageScene live={live} />,
+    text: "Elige el canal y el momento para ver el mensaje.",
+    scene: (props: SceneProps) => <MessageScene {...props} />,
   },
   {
     kicker: "El local paga",
     title: "Sin crear una cuenta",
     line: "El local paga desde el enlace.",
     text: "Con tarjeta. Si transfiere o paga con cheque, lo marcas tú.",
-    scene: (live: boolean) => <PayScene live={live} />,
+    scene: (props: SceneProps) => <PayScene {...props} />,
   },
 ];
 
-function LoadScene({ live }: { live: boolean }) {
+const CHANNELS = ["WhatsApp", "Correo"] as const;
+
+const MOMENTS = [
+  {
+    label: "Antes",
+    subject: `Tu cuenta vence el ${EXAMPLE.due}`,
+    text: `Hola. Tu cuenta de ${EXAMPLE.amount} vence el ${EXAMPLE.due}. Puedes pagarla desde este enlace.`,
+  },
+  {
+    label: "El día",
+    subject: "Tu cuenta vence hoy",
+    text: `Hola. Hoy vence tu cuenta de ${EXAMPLE.amount}. Puedes pagarla desde este enlace.`,
+  },
+  {
+    label: "Si se pasa",
+    subject: "Tu cuenta está vencida",
+    text: `Hola. Tu cuenta de ${EXAMPLE.amount} venció el ${EXAMPLE.due}. Puedes pagarla desde este enlace.`,
+  },
+] as const;
+
+function LoadScene({ live }: SceneProps) {
   const rows = [
     ["Local", EXAMPLE.store],
     ["Monto", EXAMPLE.amount],
@@ -478,28 +522,80 @@ function LoadScene({ live }: { live: boolean }) {
   );
 }
 
-function MessageScene({ live }: { live: boolean }) {
+function MessageScene({ live, playing, onUse }: SceneProps) {
+  const [channel, setChannel] = useState(0);
+  const [moment, setMoment] = useState(0);
+  const fromUser = useRef(false);
+  const current = MOMENTS[moment];
+
+  useEffect(() => {
+    if (live && !fromUser.current) setMoment(0);
+    fromUser.current = false;
+  }, [live]);
+
+  useEffect(() => {
+    if (!playing) return;
+    const id = window.setInterval(() => setMoment((value) => (value + 1) % MOMENTS.length), STEP_MS / MOMENTS.length);
+    return () => window.clearInterval(id);
+  }, [playing]);
+
+  function pick(event: MouseEvent, apply: () => void) {
+    event.stopPropagation();
+    fromUser.current = true;
+    onUse();
+    apply();
+  }
+
   return (
     <div className="flex h-full flex-col rounded-2xl bg-[#141716] p-4 text-[rgb(245_242_234)]">
-      <div className="flex gap-2">
-        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold">WhatsApp</span>
-        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold">Correo</span>
-      </div>
-      <p className={`mt-4 rounded-2xl rounded-bl-md bg-[#0f6e6b] px-3 py-3 text-sm leading-relaxed ${live ? "land-settle" : ""}`}>
-        Tu cuenta de {EXAMPLE.amount} vence el {EXAMPLE.due}. Puedes pagarla desde este enlace.
-      </p>
-      <div className="mt-4 grid grid-cols-3 gap-1.5 text-center text-[11px] font-semibold text-[rgb(245_242_234)]/80">
-        {["Antes", "El día", "Si se pasa"].map((label) => (
-          <span key={label} className="rounded-lg bg-white/10 px-1 py-1.5">
+      <div className="flex w-fit gap-1 rounded-full bg-white/10 p-1" role="group" aria-label="Canal">
+        {CHANNELS.map((label, index) => (
+          <button
+            key={label}
+            type="button"
+            aria-pressed={channel === index}
+            onClick={(event) => pick(event, () => setChannel(index))}
+            className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors duration-300 ${
+              channel === index ? "bg-white text-[#141716]" : "text-[rgb(245_242_234)]/70 hover:text-white"
+            }`}
+          >
             {label}
-          </span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 min-h-[8.5rem]">
+        {channel === 0 ? (
+          <p key={`w${moment}`} className="land-settle rounded-2xl rounded-bl-md bg-[#0f6e6b] px-3 py-3 text-sm leading-relaxed">
+            {current.text}
+          </p>
+        ) : (
+          <div key={`c${moment}`} className="land-settle rounded-xl bg-white px-3 py-3 text-[#141716]">
+            <p className="text-[11px] text-[#141716]/55">Asunto</p>
+            <p className="text-sm font-semibold">{current.subject}</p>
+            <p className="mt-2 text-xs leading-relaxed text-[#141716]/70">{current.text}</p>
+          </div>
+        )}
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-1.5" role="group" aria-label="Momento del aviso">
+        {MOMENTS.map((item, index) => (
+          <button
+            key={item.label}
+            type="button"
+            aria-pressed={moment === index}
+            onClick={(event) => pick(event, () => setMoment(index))}
+            className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors duration-300 ${
+              moment === index ? "bg-[#8fd4cf] text-[#141716]" : "bg-white/10 text-[rgb(245_242_234)]/75 hover:bg-white/15"
+            }`}
+          >
+            {item.label}
+          </button>
         ))}
       </div>
     </div>
   );
 }
 
-function PayScene({ live }: { live: boolean }) {
+function PayScene({ live }: SceneProps) {
   return (
     <div className="flex h-full flex-col rounded-2xl bg-brand-soft p-4">
       <div className="flex items-center gap-3">
