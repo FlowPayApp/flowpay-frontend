@@ -1,4 +1,4 @@
-import { Bell, BellRing, Paperclip } from "lucide-react";
+import { Bell, Paperclip } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
@@ -16,12 +16,16 @@ function timeAgo(iso: string) {
 }
 
 type Props = {
-  /** Dónde se despliega la lista respecto del botón. */
-  align?: "left" | "right";
-  className?: string;
+  /** "header": ícono en la barra superior del celular. "sidebar": opción del menú lateral, con la lista a su derecha. */
+  variant?: "header" | "sidebar";
+  collapsed?: boolean;
 };
 
-export default function InboxBell({ align = "left", className = "" }: Props) {
+function countLabel(count: number) {
+  return count > 99 ? "99+" : String(count);
+}
+
+export default function InboxBell({ variant = "header", collapsed = false }: Props) {
   const { inbox, notifications, enableNotifications } = useInbox();
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<CSSProperties>({});
@@ -38,8 +42,13 @@ export default function InboxBell({ align = "left", className = "" }: Props) {
       const button = root.current?.getBoundingClientRect();
       if (!button) return;
       const width = Math.min(352, window.innerWidth - 32);
-      const preferred = align === "right" ? button.right - width : button.left;
-      const left = Math.max(16, Math.min(preferred, window.innerWidth - width - 16));
+      if (variant === "sidebar") {
+        const height = panel.current?.offsetHeight ?? 0;
+        const top = Math.max(16, Math.min(button.top, window.innerHeight - height - 16));
+        setPosition({ top, left: button.right + 24, width });
+        return;
+      }
+      const left = Math.max(16, Math.min(button.right - width, window.innerWidth - width - 16));
       setPosition({ top: button.bottom + 8, left, width });
     };
     place();
@@ -49,7 +58,7 @@ export default function InboxBell({ align = "left", className = "" }: Props) {
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, align]);
+  }, [open, variant, inbox.threads.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -71,24 +80,42 @@ export default function InboxBell({ align = "left", className = "" }: Props) {
 
   const label = count > 0 ? `Respuestas sin leer: ${count}` : "Sin respuestas nuevas";
 
+  const tone = open ? "bg-surface text-ink" : "text-ink-muted hover:bg-surface hover:text-ink";
+  const cornerBadge = count > 0 && (
+    <span className="absolute right-1.5 top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface-card">
+      {countLabel(count)}
+    </span>
+  );
+
   return (
-    <div ref={root} className={`relative ${className}`}>
+    <div ref={root} className={variant === "sidebar" ? "relative w-full" : "relative"}>
       <button
         type="button"
         aria-label={label}
-        title={label}
+        title={variant === "sidebar" && !collapsed ? undefined : label}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((value) => !value)}
-        className={`relative inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${
-          open ? "bg-surface text-ink" : "text-ink-muted hover:bg-surface hover:text-ink"
-        }`}
+        className={
+          variant === "header"
+            ? `relative inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${tone}`
+            : collapsed
+              ? `relative flex min-h-11 w-full items-center justify-center rounded-lg px-2 transition-colors ${tone}`
+              : `flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors ${tone}`
+        }
       >
-        {count > 0 ? <BellRing className="h-5 w-5" strokeWidth={2} /> : <Bell className="h-5 w-5" strokeWidth={2} />}
-        {count > 0 && (
-          <span className="absolute right-1.5 top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface-card">
-            {count > 99 ? "99+" : count}
-          </span>
+        <Bell className="h-5 w-5 shrink-0" strokeWidth={2} />
+        {variant === "sidebar" && !collapsed ? (
+          <>
+            <span className="flex-1 truncate text-left">Respuestas</span>
+            {count > 0 && (
+              <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold leading-none text-white">
+                {countLabel(count)}
+              </span>
+            )}
+          </>
+        ) : (
+          cornerBadge
         )}
       </button>
 

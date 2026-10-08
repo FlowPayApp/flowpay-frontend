@@ -1,12 +1,12 @@
 import {
   BadgePercent,
   Building2,
-  ChevronLeft,
-  ChevronRight,
   CircleUserRound,
   LayoutDashboard,
   LogOut,
   MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Receipt,
   Settings,
   UserCog,
@@ -164,6 +164,7 @@ export default function Layout() {
           >
             <CircleUserRound className="h-5 w-5" strokeWidth={2} />
           </NavLink>
+          {showInbox && <InboxBell variant="sidebar" collapsed />}
           {isCompanyAdmin && (
             <NavLink
               to="/mensajes"
@@ -206,6 +207,7 @@ export default function Layout() {
           <CircleUserRound className="h-5 w-5" strokeWidth={2} />
           Perfil
         </NavLink>
+        {showInbox && <InboxBell variant="sidebar" />}
         {isCompanyAdmin && (
           <NavLink
             to="/mensajes"
@@ -236,48 +238,41 @@ export default function Layout() {
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
       <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b border-surface-border bg-surface-card px-4 pb-1 lg:hidden">
         <BrandLogo className="mb-1 h-7" />
-        {showInbox && <InboxBell align="right" />}
+        {showInbox && <InboxBell />}
       </header>
 
       <aside
         className={[
-          "hidden shrink-0 flex-col border-r border-surface-border bg-surface-card lg:sticky lg:top-0 lg:flex lg:h-dvh",
+          "hidden shrink-0 flex-col border-r border-surface-border bg-surface-card lg:sticky lg:top-0 lg:z-20 lg:flex lg:h-dvh",
           sidebarCollapsed ? "w-[4.5rem] px-2 py-5" : "w-60 px-3 py-6",
         ].join(" ")}
       >
-        {sidebarCollapsed ? (
-          <div className="flex flex-col items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center dark:rounded-lg dark:bg-white" title="GeldFlus">
-              <BrandLogo variant="mark" tone="color" className="h-9" />
+        <div className="flex h-10 items-center justify-center">
+          {sidebarCollapsed ? (
+            <div className="grid h-9 w-9 place-items-center dark:rounded-lg dark:bg-white" title="GeldFlus">
+              <BrandLogo variant="mark" tone="color" className="h-7" />
             </div>
-            <button
-              type="button"
-              title="Expandir menú"
-              aria-label="Expandir menú"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink"
-              onClick={() => setSidebarCollapsed(false)}
-            >
-              <ChevronRight className="h-5 w-5" strokeWidth={2} />
-            </button>
-            {showInbox && <InboxBell />}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between gap-2 px-2">
+          ) : (
             <BrandLogo className="h-8" />
-            <div className="flex items-center">
-              {showInbox && <InboxBell />}
-              <button
-                type="button"
-                title="Ocultar menú"
-                aria-label="Ocultar menú lateral"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink"
-                onClick={() => setSidebarCollapsed(true)}
-              >
-                <ChevronLeft className="h-5 w-5" strokeWidth={2} />
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
+        <button
+          type="button"
+          title={sidebarCollapsed ? "Mostrar menú" : "Ocultar menú"}
+          aria-label={sidebarCollapsed ? "Mostrar menú lateral" : "Ocultar menú lateral"}
+          aria-expanded={!sidebarCollapsed}
+          className={[
+            "absolute -right-3.5 z-10 grid h-7 w-7 place-items-center rounded-full border border-surface-border bg-surface-card text-ink-muted shadow-sm transition-colors hover:border-brand hover:text-brand",
+            sidebarCollapsed ? "top-[1.625rem]" : "top-[1.875rem]",
+          ].join(" ")}
+          onClick={() => setSidebarCollapsed((value) => !value)}
+        >
+          {sidebarCollapsed ? (
+            <PanelLeftOpen className="h-4 w-4" strokeWidth={2} />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" strokeWidth={2} />
+          )}
+        </button>
 
         <nav className={`mt-8 flex flex-1 flex-col gap-1 ${sidebarCollapsed ? "" : ""}`}>
           {items.map((item) => (

@@ -4,7 +4,7 @@ import { firstPasswordChange } from "../api";
 import AuthShell from "../components/AuthShell";
 import AuthLoadingOverlay from "../components/AuthLoadingOverlay";
 import PasswordInput from "../components/PasswordInput";
-import Toast, { type ToastNotice } from "../components/Toast";
+import { useToast } from "../components/Toast";
 import { getDefaultHomePath, setToken } from "../lib/auth";
 import { prefetchHome } from "../lib/homePrefetch";
 import { useMinLoading, waitMinLoading } from "../lib/useMinLoading";
@@ -17,14 +17,12 @@ export default function Login() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastNotice | null>(null);
+  const toast = useToast();
   const [loadingRaw, setLoading] = useState(false);
   const loading = useMinLoading(loadingRaw);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
     setLoading(true);
     const startedAt = Date.now();
     try {
@@ -37,14 +35,14 @@ export default function Login() {
       if (!res.ok) {
         if ((data as { requires_password_change?: boolean }).requires_password_change) {
           setMustChangePassword(true);
-          setErr("Debes cambiar la contraseña temporal para continuar.");
+          toast.show({ text: "Debes cambiar la contraseña temporal para continuar.", tone: "info" });
           return;
         }
-        setErr(data.error ?? "No se pudo iniciar sesión");
+        toast.error(data.error ?? "No se pudo iniciar sesión");
         return;
       }
       if (!data.access_token) {
-        setErr("Respuesta inválida del servidor");
+        toast.error("Respuesta inválida del servidor");
         return;
       }
       setToken(data.access_token);
@@ -53,7 +51,7 @@ export default function Login() {
       await waitMinLoading(startedAt);
       nav(home, { replace: true });
     } catch {
-      setErr("Error de red. No pudimos conectar. Intenta de nuevo.");
+      toast.error("Error de red. No pudimos conectar. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -61,14 +59,13 @@ export default function Login() {
 
   async function onFirstChangePassword(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
     const policyError = getPasswordPolicyError(newPassword);
     if (policyError) {
-      setErr(policyError);
+      toast.error(policyError);
       return;
     }
     if (newPassword !== confirmNewPassword) {
-      setErr("La confirmación de contraseña no coincide.");
+      toast.error("La confirmación de contraseña no coincide.");
       return;
     }
     setLoading(true);
@@ -78,10 +75,9 @@ export default function Login() {
       setPassword(newPassword);
       setNewPassword("");
       setConfirmNewPassword("");
-      setErr(null);
-      setToast({ text: "Contraseña actualizada. Inicia sesión nuevamente.", tone: "success" });
+      toast.success("Contraseña actualizada. Inicia sesión nuevamente.");
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "No se pudo actualizar la contraseña");
+      toast.error(e instanceof Error ? e.message : "No se pudo actualizar la contraseña");
     } finally {
       setLoading(false);
     }
@@ -99,9 +95,6 @@ export default function Login() {
         </p>
       }
     >
-      {toast && (
-        <Toast key={`${toast.tone}:${toast.text}`} notice={toast} onClose={() => setToast(null)} />
-      )}
       {loading && (
         <AuthLoadingOverlay message={mustChangePassword ? "Actualizando tu contraseña…" : "Entrando a tu cuenta…"} />
       )}
@@ -145,7 +138,6 @@ export default function Login() {
             />
           </>
         )}
-        {err && <p className="text-sm text-danger">{err}</p>}
         <button
           type="submit"
           disabled={loading}
