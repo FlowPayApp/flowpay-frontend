@@ -14,11 +14,17 @@ export interface ChargeDTO {
   client_name?: string;
   client_email?: string | null;
   client_phone?: string | null;
+  /** Canal preferido de la sucursal: all, email, whatsapp o none. */
+  client_followup_channel?: string;
   attachment_token?: string | null;
   attachment_ext?: string | null;
   /** Si falta en la respuesta, la UI asume pendiente */
   status?: ChargeStatus;
+  /** Solo en el detalle: canales en espera y desde cuándo se puede volver a enviar un recordatorio. */
+  next_reminder_at?: Partial<Record<ReminderChannel, string>>;
 }
+
+export type ReminderChannel = "whatsapp" | "email";
 
 export interface Reminder {
   id: number;

@@ -1,5 +1,22 @@
 import axios from "axios";
-import { BellRing, Check, CheckCheck, ChevronDown, CircleAlert, CircleCheck, Clock3, FileText, Image as ImageIcon, Mail, Maximize2, Paperclip, SendHorizontal, X } from "lucide-react";
+import {
+  BellRing,
+  Check,
+  CheckCheck,
+  ChevronDown,
+  CircleAlert,
+  CircleCheck,
+  Clock3,
+  FileText,
+  Image as ImageIcon,
+  Mail,
+  Maximize2,
+  MessageCircle,
+  Paperclip,
+  RotateCcw,
+  SendHorizontal,
+  X,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
@@ -17,7 +34,7 @@ import {
   sendReminderNow,
   uploadChargeAttachment,
 } from "../api";
-import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder } from "../api";
+import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder, ReminderChannel } from "../api";
 import AppModal from "../components/AppModal";
 import { notifyInboxChanged } from "../components/InboxProvider";
 import { useToast, type ToastNotice } from "../components/Toast";
@@ -637,6 +654,162 @@ function ChatPanel({
   );
 }
 
+function ConfirmDialog({
+  title,
+  children,
+  confirmLabel,
+  busy,
+  confirmDisabled = false,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  children: React.ReactNode;
+  confirmLabel: string;
+  busy: boolean;
+  confirmDisabled?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <AppModal onBackdropClick={() => !busy && onCancel()}>
+      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
+        <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        <div className="mt-2 text-sm text-ink-muted">{children}</div>
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={busy || confirmDisabled}
+            onClick={onConfirm}
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+          >
+            {busy && <ActionSpinner />}
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </AppModal>
+  );
+}
+
+type ReminderOption = {
+  channel: ReminderChannel;
+  contact: string;
+  /** Hasta cuándo el canal está en espera, o null si se puede usar. */
+  waitUntil: string | null;
+};
+
+const CHANNEL_LABEL: Record<ReminderChannel, string> = { whatsapp: "WhatsApp", email: "Correo" };
+
+function channelsText(channels: ReminderChannel[]) {
+  return channels.map((c) => (c === "whatsapp" ? "WhatsApp" : "correo")).join(" y ");
+}
+
+function reminderUsable(option: ReminderOption) {
+  return option.contact !== "" && !option.waitUntil;
+}
+
+function ReminderDialog({
+  clientName,
+  options,
+  initial,
+  sending,
+  onCancel,
+  onConfirm,
+}: {
+  clientName: string;
+  options: ReminderOption[];
+  initial: ReminderChannel[];
+  sending: boolean;
+  onCancel: () => void;
+  onConfirm: (channels: ReminderChannel[]) => void;
+}) {
+  const [picked, setPicked] = useState<ReminderChannel[]>(initial);
+  const chosen = options.filter((o) => reminderUsable(o) && picked.includes(o.channel)).map((o) => o.channel);
+  const toggle = (channel: ReminderChannel) =>
+    setPicked((list) => (list.includes(channel) ? list.filter((c) => c !== channel) : [...list, channel]));
+
+  return (
+    <ConfirmDialog
+      title="¿Enviar recordatorio ahora?"
+      confirmLabel={sending ? "Enviando…" : "Enviar recordatorio"}
+      busy={sending}
+      confirmDisabled={chosen.length === 0}
+      onCancel={onCancel}
+      onConfirm={() => onConfirm(chosen)}
+    >
+      <p>
+        Se enviará a <span className="font-semibold text-ink">{clientName}</span> por los canales que marques.
+      </p>
+      <fieldset className="mt-4 space-y-2">
+        <legend className="sr-only">Canales del recordatorio</legend>
+        {options.map((o) => {
+          const usable = reminderUsable(o);
+          const checked = chosen.includes(o.channel);
+          const Icon = o.channel === "whatsapp" ? MessageCircle : Mail;
+          const note = !o.contact
+            ? o.channel === "whatsapp"
+              ? "Sin teléfono registrado"
+              : "Sin correo registrado"
+            : o.waitUntil
+              ? `Ya se envió uno hace poco. Disponible a las ${chatClock(o.waitUntil)}`
+              : o.contact;
+          return (
+            <label
+              key={o.channel}
+              className={[
+                "flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors",
+                checked ? "border-brand/50 bg-brand-soft" : "border-surface-border",
+                usable && !sending ? "cursor-pointer hover:bg-surface" : "cursor-not-allowed",
+              ].join(" ")}
+            >
+              <input
+                type="checkbox"
+                className="h-5 w-5 shrink-0"
+                checked={checked}
+                disabled={!usable || sending}
+                onChange={() => toggle(o.channel)}
+              />
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface text-ink-muted">
+                <Icon className="h-4 w-4" strokeWidth={2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={`block text-sm font-medium ${usable ? "text-ink" : "text-ink-muted"}`}>{CHANNEL_LABEL[o.channel]}</span>
+                <span className={`block truncate text-xs ${o.waitUntil ? "text-warn" : "text-ink-muted"}`}>{note}</span>
+              </span>
+            </label>
+          );
+        })}
+      </fieldset>
+      <p className="mt-3 text-xs">Para no saturar a la sucursal, cada canal admite un recordatorio manual por hora.</p>
+    </ConfirmDialog>
+  );
+}
+
+function daysUntil(iso: string) {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Math.round((new Date(y, m - 1, d).getTime() - start) / 86_400_000);
+}
+
+function statusDetail(ch: ChargeDTO) {
+  if (ch.status === "paid") return ch.paid_at ? `Pagado el ${formatDate(ch.paid_at)}` : "Pago registrado";
+  const days = daysUntil(ch.due_date);
+  if (days < 0) return `Venció hace ${-days} ${days === -1 ? "día" : "días"}`;
+  if (days === 0) return "Vence hoy";
+  if (days === 1) return "Vence mañana";
+  return `Vence en ${days} días`;
+}
+
 export default function ChargeDetail() {
   const { id } = useParams();
   const chargeId = Number(id);
@@ -654,11 +827,13 @@ export default function ChargeDetail() {
   const [formClientId, setFormClientId] = useState("");
   const [formDue, setFormDue] = useState("");
   const [formAmount, setFormAmount] = useState("");
-  /** keep = no tocar pagos; paid = marcar cobrado; unpaid = reabrir */
-  const [payAction, setPayAction] = useState<"keep" | "paid" | "unpaid">("keep");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [remindOpen, setRemindOpen] = useState(false);
   const [reminding, setReminding] = useState(false);
+  const [statusConfirm, setStatusConfirm] = useState<"pay" | "reopen" | null>(null);
   const [paying, setPaying] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
   const [threadOpen, setThreadOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
@@ -764,25 +939,48 @@ export default function ChargeDetail() {
     setFormClientId(String(ch.client_id));
     setFormDue(ch.due_date.slice(0, 10));
     setFormAmount(normalizeClpInput(String(Math.round(ch.amount))));
-    setPayAction("keep");
-  }, [ch?.id, ch?.client_id, ch?.due_date, ch?.amount, ch?.status]);
+  }, [ch?.id, ch?.client_id, ch?.due_date, ch?.amount]);
 
-  async function onRemind() {
+  const waiting = Object.values(ch?.next_reminder_at ?? {}).some((iso) => iso && Date.parse(iso) > now);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [waiting]);
+
+  async function onRemind(channels: ReminderChannel[]) {
     setReminding(true);
     setToast(null);
     try {
-      await sendReminderNow(chargeId);
-      setToast({ text: "Listo: enviamos recordatorios por email y WhatsApp.", tone: "success" });
-      await load(true);
+      await sendReminderNow(chargeId, channels);
+      setRemindOpen(false);
+      setToast({ text: `Recordatorio enviado por ${channelsText(channels)}.`, tone: "success" });
     } catch (e: unknown) {
       let text = "No se pudo enviar el recordatorio.";
       if (axios.isAxiosError(e)) {
         const data = e.response?.data as { error?: string } | undefined;
-        if (data?.error) text = data.error;
+        if (data?.error) text = data.error.charAt(0).toUpperCase() + data.error.slice(1);
       }
       setToast({ text, tone: "error" });
     } finally {
+      setNow(Date.now());
+      await load(true);
       setReminding(false);
+    }
+  }
+
+  async function onReopen() {
+    setReopening(true);
+    setToast(null);
+    try {
+      await patchCharge(chargeId, { set_paid: false });
+      setStatusConfirm(null);
+      setToast({ text: "Cobro reabierto. Vuelve a quedar por cobrar.", tone: "success" });
+      await load(true);
+    } catch {
+      setToast({ text: "No se pudo reabrir el cobro.", tone: "error" });
+    } finally {
+      setReopening(false);
     }
   }
 
@@ -820,21 +1018,8 @@ export default function ChargeDetail() {
         setToast({ text: "El monto debe ser mayor a 0.", tone: "error" });
         return;
       }
-      const body: {
-        client_id: number;
-        due_date: string;
-        amount: number;
-        set_paid?: boolean;
-      } = {
-        client_id: cid,
-        due_date: formDue,
-        amount: amt,
-      };
-      if (payAction === "paid") body.set_paid = true;
-      if (payAction === "unpaid") body.set_paid = false;
-      await patchCharge(chargeId, body);
+      await patchCharge(chargeId, { client_id: cid, due_date: formDue, amount: amt });
       setToast({ text: "Cobro guardado.", tone: "success" });
-      setPayAction("keep");
       await load(true);
     } catch {
       setToast({ text: "No se pudo guardar el cobro. Revisa los datos e inténtalo de nuevo.", tone: "error" });
@@ -890,6 +1075,7 @@ export default function ChargeDetail() {
     setToast(null);
     try {
       await recordPayment(ch.id, ch.amount);
+      setStatusConfirm(null);
       setToast({ text: "Pago registrado. Este cobro quedó como cobrado.", tone: "success" });
       await load(true);
     } catch {
@@ -948,7 +1134,33 @@ export default function ChargeDetail() {
   const isOverdue = ch.status === "overdue";
   const isPaid = ch.status === "paid";
   const dueLabel = isPaid ? "Cobrado" : isOverdue ? "Vencido" : "Al día";
-  const timelineBusy = reminding || paying;
+  const timelineBusy = reminding || paying || reopening;
+
+  const waitUntil = (channel: ReminderChannel) => {
+    const iso = ch.next_reminder_at?.[channel];
+    return iso && Date.parse(iso) > now ? iso : null;
+  };
+  const reminderOptions: ReminderOption[] = [
+    { channel: "whatsapp", contact: ch.client_phone?.trim() ?? "", waitUntil: waitUntil("whatsapp") },
+    { channel: "email", contact: ch.client_email?.trim() ?? "", waitUntil: waitUntil("email") },
+  ];
+  const reachable = reminderOptions.filter((o) => o.contact !== "");
+  const sendable = reachable.filter(reminderUsable).map((o) => o.channel);
+  const preference = ch.client_followup_channel?.trim().toLowerCase() || "all";
+  const preferred: ReminderChannel[] =
+    preference === "none" ? [] : preference === "all" ? ["whatsapp", "email"] : [preference as ReminderChannel];
+  const initialChannels = sendable.filter((c) => preferred.includes(c));
+  const nextFree = reachable
+    .map((o) => o.waitUntil)
+    .filter((iso): iso is string => !!iso)
+    .sort((a, b) => Date.parse(a) - Date.parse(b))[0];
+  const remindBlocked = sendable.length === 0;
+  const remindTitle =
+    reachable.length === 0
+      ? "La sucursal no tiene teléfono ni correo registrado"
+      : remindBlocked
+        ? "Cada canal admite un recordatorio manual por hora"
+        : "Elige por dónde enviar el recordatorio";
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -976,25 +1188,39 @@ export default function ChargeDetail() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => void onRemind()}
-                        disabled={timelineBusy}
-                        title="Envía ahora el recordatorio por los canales del cliente"
+                        onClick={() => setRemindOpen(true)}
+                        disabled={timelineBusy || remindBlocked}
+                        title={remindTitle}
                         className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-medium text-ink transition-colors hover:bg-surface disabled:opacity-60"
                       >
-                        {reminding ? <ActionSpinner /> : <BellRing className="h-4 w-4 text-ink-muted" strokeWidth={2} />}
-                        {reminding ? "Enviando…" : "Enviar recordatorio"}
+                        {remindBlocked && nextFree ? (
+                          <Clock3 className="h-4 w-4 text-ink-muted" strokeWidth={2} />
+                        ) : (
+                          <BellRing className="h-4 w-4 text-ink-muted" strokeWidth={2} />
+                        )}
+                        {remindBlocked && nextFree ? `Recordatorio disponible a las ${chatClock(nextFree)}` : "Enviar recordatorio"}
                       </button>
                       <button
                         type="button"
-                        onClick={() => void onPay()}
+                        onClick={() => setStatusConfirm("pay")}
                         disabled={timelineBusy}
                         className="inline-flex h-9 items-center gap-1.5 bg-brand text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-60 !min-h-0 !rounded-lg !px-3"
                       >
-                        {paying ? <ActionSpinner /> : <CircleCheck className="h-4 w-4" strokeWidth={2} />}
-                        {paying ? "Registrando…" : "Registrar pago"}
+                        <CircleCheck className="h-4 w-4" strokeWidth={2} />
+                        Marcar como cobrado
                       </button>
                     </div>
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setStatusConfirm("reopen")}
+                      disabled={timelineBusy}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-medium text-ink transition-colors hover:bg-surface disabled:opacity-60"
+                    >
+                      <RotateCcw className="h-4 w-4 text-ink-muted" strokeWidth={2} />
+                      Reabrir cobro
+                    </button>
+                  )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
@@ -1004,6 +1230,7 @@ export default function ChargeDetail() {
                   <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Estado</div>
                     <div className="mt-1 text-sm font-semibold text-ink">{dueLabel}</div>
+                    <div className={`mt-0.5 text-xs ${isOverdue ? "text-danger" : "text-ink-muted"}`}>{statusDetail(ch)}</div>
                   </div>
                   <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Recordatorios</div>
@@ -1058,9 +1285,10 @@ export default function ChargeDetail() {
           </section>
 
           <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
-            <h2 className="text-lg font-semibold text-ink">Editar cobro</h2>
+            <h2 className="text-lg font-semibold text-ink">Editar datos del cobro</h2>
             <p className="mt-1 text-sm text-ink-muted">
-              Actualiza sucursal o punto de venta, fecha, monto y estado operativo.
+              Actualiza sucursal o punto de venta, fecha y monto. Para cambiar el estado usa{" "}
+              {isPaid ? "Reabrir cobro" : "Marcar como cobrado"}, arriba.
             </p>
             <form className="mt-5 grid gap-4 lg:grid-cols-12" onSubmit={onSaveEdit}>
               <label className="block text-sm font-medium text-ink lg:col-span-6">
@@ -1088,23 +1316,11 @@ export default function ChargeDetail() {
                   onChange={(e) => setFormAmount(normalizeClpInput(e.target.value))}
                 />
               </label>
-              <label className="block text-sm font-medium text-ink lg:col-span-8">
-                Estado de cobro
-                <AppSelect
-                  value={payAction}
-                  onChange={(next) => setPayAction(next as "keep" | "paid" | "unpaid")}
-                  options={[
-                    { value: "keep", label: "Automático (sin cambios manuales)" },
-                    { value: "paid", label: "Marcar como cobrado" },
-                    { value: "unpaid", label: "Marcar como pendiente (reabrir)" },
-                  ]}
-                />
-              </label>
-              <div className="lg:col-span-4 lg:self-end">
+              <div className="flex justify-end lg:col-span-12">
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="w-full rounded-xl border border-transparent bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60 dark:shadow-none"
+                  className="w-full rounded-xl border border-transparent bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60 sm:w-auto dark:shadow-none"
                 >
                   {savingEdit ? "Guardando…" : "Guardar cambios"}
                 </button>
@@ -1165,6 +1381,43 @@ export default function ChargeDetail() {
             />
           </div>
         </AppModal>
+      )}
+
+      {remindOpen && (
+        <ReminderDialog
+          clientName={ch.client_name || "la sucursal"}
+          options={reminderOptions}
+          initial={initialChannels}
+          sending={reminding}
+          onCancel={() => setRemindOpen(false)}
+          onConfirm={(channels) => void onRemind(channels)}
+        />
+      )}
+
+      {statusConfirm === "pay" && (
+        <ConfirmDialog
+          title="¿Marcar este cobro como cobrado?"
+          confirmLabel={paying ? "Registrando…" : "Sí, marcar como cobrado"}
+          busy={paying}
+          onCancel={() => setStatusConfirm(null)}
+          onConfirm={() => void onPay()}
+        >
+          Se registrará un pago por <span className="font-semibold text-ink">{formatMoney(ch.amount)}</span> con fecha de hoy y
+          dejarán de enviarse recordatorios. Si te equivocas, puedes reabrirlo después.
+        </ConfirmDialog>
+      )}
+
+      {statusConfirm === "reopen" && (
+        <ConfirmDialog
+          title="¿Reabrir este cobro?"
+          confirmLabel={reopening ? "Reabriendo…" : "Sí, reabrir"}
+          busy={reopening}
+          onCancel={() => setStatusConfirm(null)}
+          onConfirm={() => void onReopen()}
+        >
+          Se quitará el pago registrado y el cobro volverá a quedar por cobrar: pendiente o vencido según su fecha de
+          vencimiento ({formatDate(ch.due_date)}). Los recordatorios automáticos se reanudan.
+        </ConfirmDialog>
       )}
     </div>
   );
