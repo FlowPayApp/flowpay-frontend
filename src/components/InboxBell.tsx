@@ -81,11 +81,16 @@ export default function InboxBell({ variant = "header", collapsed = false }: Pro
   const label = count > 0 ? `Respuestas sin leer: ${count}` : "Sin respuestas nuevas";
 
   const tone = open ? "bg-surface text-ink" : "text-ink-muted hover:bg-surface hover:text-ink";
-  const cornerBadge = count > 0 && (
-    <span className="absolute right-1.5 top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface-card">
-      {countLabel(count)}
-    </span>
-  );
+  const cornerBadge = (extra = "") =>
+    count > 0 && (
+      <span
+        className={`absolute right-1.5 top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface-card ${extra}`}
+      >
+        {countLabel(count)}
+      </span>
+    );
+  const fade = (visible: boolean) =>
+    `transition-opacity duration-200 motion-reduce:transition-none ${visible ? "opacity-100 delay-100" : "opacity-0"}`;
 
   return (
     <div ref={root} className={variant === "sidebar" ? "relative w-full" : "relative"}>
@@ -99,23 +104,24 @@ export default function InboxBell({ variant = "header", collapsed = false }: Pro
         className={
           variant === "header"
             ? `relative inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${tone}`
-            : collapsed
-              ? `relative flex min-h-11 w-full items-center justify-center rounded-lg px-2 transition-colors ${tone}`
-              : `flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors ${tone}`
+            : `relative flex min-h-11 w-full items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg px-3.5 text-sm font-semibold transition-colors ${tone}`
         }
       >
         <Bell className="h-5 w-5 shrink-0" strokeWidth={2} />
-        {variant === "sidebar" && !collapsed ? (
+        {variant === "sidebar" ? (
           <>
-            <span className="flex-1 truncate text-left">Respuestas</span>
-            {count > 0 && (
-              <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold leading-none text-white">
-                {countLabel(count)}
-              </span>
-            )}
+            <span className={`flex flex-1 items-center gap-3 ${fade(!collapsed)}`} aria-hidden={collapsed}>
+              <span className="flex-1 text-left">Respuestas</span>
+              {count > 0 && (
+                <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold leading-none text-white">
+                  {countLabel(count)}
+                </span>
+              )}
+            </span>
+            {cornerBadge(fade(collapsed))}
           </>
         ) : (
-          cornerBadge
+          cornerBadge()
         )}
       </button>
 
