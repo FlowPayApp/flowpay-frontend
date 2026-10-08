@@ -1,4 +1,15 @@
-export type { ChargeStatus, ChargeDTO, Reminder, ReminderChannel, ChargeInboundWhatsApp, Inbox, UnreadThread } from "./charge";
+export type {
+  ChargeStatus,
+  ChargeDTO,
+  Reminder,
+  ReminderChannel,
+  ReminderMode,
+  ReminderPolicy,
+  ChargeRemindersPayload,
+  ChargeInboundWhatsApp,
+  Inbox,
+  UnreadThread,
+} from "./charge";
 export type {
   ClientDTO,
   UpdateClientPayload,

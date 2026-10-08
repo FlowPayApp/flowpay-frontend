@@ -3,19 +3,23 @@ import { useMinLoading } from "../lib/useMinLoading";
 import { Filter, Loader2, Plus, Trash2 } from "lucide-react";
 import OpenLink from "../components/OpenLink";
 import { Link, useSearchParams } from "react-router-dom";
-import { createCharge, deleteCharge, fetchCharges, fetchClients } from "../api";
-import type { ChargeDTO, ClientDTO } from "../api";
+import { createCharge, deleteCharge, fetchCharges, fetchClients, fetchCompanyMessaging } from "../api";
+import type { ChargeDTO, ClientDTO, ReminderMode, ReminderPolicy } from "../api";
 import AppModal from "../components/AppModal";
 import AppDatePicker from "../components/AppDatePicker";
 import AppSelect from "../components/AppSelect";
 import { StatusBadge } from "../components/Badge";
 import FilterTray from "../components/FilterTray";
 import PageLoading from "../components/PageLoading";
+import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import TablePagination from "../components/TablePagination";
 import { useToast } from "../components/Toast";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
+import { DEFAULT_REMINDER_POLICY, describeReminderPolicy, reminderChannelOptions } from "../lib/reminderPolicy";
 import { isCompanyAdmin } from "../lib/roles";
+
+const EMPTY_REMINDERS = { mode: "company" as ReminderMode, channel: "" };
 
 function normalizeClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -71,6 +75,9 @@ export default function Cobros() {
   const [open, setOpen] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
   const [form, setForm] = useState({ client_id: "", amount: "", due_date: "" });
+  const [reminders, setReminders] = useState(EMPTY_REMINDERS);
+  const [companyPolicy, setCompanyPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
+  const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
   const [filters, setFilters] = useState<{ client: string; status: "all" | "pending" | "paid" | "overdue" }>({
     client: queryClientName,
     status: queryStatus,
@@ -91,6 +98,13 @@ export default function Cobros() {
   useEffect(() => {
     load();
     fetchClients().then(setClients);
+    fetchCompanyMessaging()
+      .then((data) => {
+        if (data.reminder_policy) setCompanyPolicy(data.reminder_policy);
+      })
+      .catch(() => {
+        /* se muestra la frecuencia por defecto */
+      });
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -101,9 +115,13 @@ export default function Cobros() {
         client_id: Number(form.client_id),
         amount: parseClpInput(form.amount),
         due_date: form.due_date,
+        reminder_mode: reminders.mode,
+        reminder_channel: reminders.channel,
+        ...(reminders.mode === "custom" ? { reminder_policy: policy } : {}),
       });
       setOpen(false);
       setForm({ client_id: "", amount: "", due_date: "" });
+      setReminders(EMPTY_REMINDERS);
       toast.success("Cobro creado.");
       setLoading(true);
       await load();
@@ -419,6 +437,40 @@ export default function Cobros() {
                   onChange={(due_date) => setForm((f) => ({ ...f, due_date }))}
                 />
               </div>
+              <fieldset className="space-y-3 rounded-xl border border-surface-border p-3">
+                <legend className="px-1 text-sm font-medium text-ink">Recordatorios automáticos</legend>
+                <AppSelect
+                  className="w-full"
+                  value={reminders.mode}
+                  onChange={(mode) => {
+                    if (mode === "custom" && reminders.mode !== "custom") setPolicy(companyPolicy);
+                    setReminders((r) => ({ ...r, mode: mode as ReminderMode }));
+                  }}
+                  options={[
+                    { value: "company", label: "Como la empresa" },
+                    { value: "custom", label: "Personalizados para este cobro" },
+                    { value: "off", label: "Desactivados" },
+                  ]}
+                />
+                {reminders.mode !== "off" ? (
+                  <label className="block text-xs text-ink-muted">
+                    Canal
+                    <AppSelect
+                      value={reminders.channel}
+                      onChange={(channel) => setReminders((r) => ({ ...r, channel }))}
+                      options={reminderChannelOptions(
+                        activeClients.find((c) => String(c.id) === form.client_id)?.followup_channel,
+                      )}
+                    />
+                  </label>
+                ) : null}
+                {reminders.mode === "custom" ? <ReminderPolicyFields value={policy} onChange={setPolicy} /> : null}
+                <p className="text-xs text-ink-muted">
+                  {reminders.mode === "off"
+                    ? "Solo se enviarán los recordatorios que mandes a mano."
+                    : describeReminderPolicy(reminders.mode === "custom" ? policy : companyPolicy)}
+                </p>
+              </fieldset>
               {error && <p className="text-sm text-danger">{error}</p>}
               <div className="flex justify-end gap-2 pt-2">
                 <button

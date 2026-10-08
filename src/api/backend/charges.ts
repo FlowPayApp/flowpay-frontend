@@ -1,6 +1,6 @@
 import { getToken } from "../../lib/auth";
 import { api } from "../client";
-import type { ChargeDTO, ChargeInboundWhatsApp, Inbox, Reminder, ReminderChannel } from "../types";
+import type { ChargeDTO, ChargeInboundWhatsApp, ChargeRemindersPayload, Inbox, Reminder, ReminderChannel } from "../types";
 
 export async function fetchCharges() {
   const { data } = await api.get<ChargeDTO[]>("/api/charges");
@@ -23,17 +23,19 @@ export async function patchCharge(
     due_date?: string;
     amount?: number;
     set_paid?: boolean;
-  },
+  } & ChargeRemindersPayload,
 ) {
   const { data } = await api.patch<ChargeDTO>(`/api/charges/${id}`, body);
   return data;
 }
 
-export async function createCharge(payload: {
-  client_id: number;
-  amount: number;
-  due_date: string;
-}) {
+export async function createCharge(
+  payload: {
+    client_id: number;
+    amount: number;
+    due_date: string;
+  } & ChargeRemindersPayload,
+) {
   const { data } = await api.post<{ id: number }>("/api/charges", payload);
   return data;
 }

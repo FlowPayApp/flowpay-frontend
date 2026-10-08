@@ -22,9 +22,37 @@ export interface ChargeDTO {
   status?: ChargeStatus;
   /** Solo en el detalle: canales en espera y desde cuándo se puede volver a enviar un recordatorio. */
   next_reminder_at?: Partial<Record<ReminderChannel, string>>;
+  /** Solo en el detalle: de dónde sale la frecuencia de los recordatorios automáticos. */
+  reminder_mode?: ReminderMode;
+  /** Solo en el detalle: canal de los automáticos; vacío usa el de la sucursal. */
+  reminder_channel?: string;
+  /** Solo en el detalle: la frecuencia que rige (la propia o la de la empresa). */
+  reminder_policy?: ReminderPolicy;
+  /** Solo en el detalle: la frecuencia de la empresa. */
+  company_reminder_policy?: ReminderPolicy;
 }
 
 export type ReminderChannel = "whatsapp" | "email";
+
+/** company = la frecuencia de la empresa; custom = una propia del cobro; off = sin recordatorios automáticos. */
+export type ReminderMode = "company" | "custom" | "off";
+
+/** Cuándo salen los recordatorios automáticos. */
+export interface ReminderPolicy {
+  /** Días antes del vencimiento; 0 es el mismo día. */
+  days_before: number[];
+  /** Con el cobro vencido, cada cuántos días se insiste. */
+  overdue_every: number;
+  /** Tope de avisos con el cobro vencido: 0 ninguno, -1 sin tope. */
+  overdue_max: number;
+}
+
+/** Cambios a los recordatorios automáticos de un cobro. */
+export interface ChargeRemindersPayload {
+  reminder_mode?: ReminderMode;
+  reminder_channel?: string;
+  reminder_policy?: ReminderPolicy;
+}
 
 export interface Reminder {
   id: number;

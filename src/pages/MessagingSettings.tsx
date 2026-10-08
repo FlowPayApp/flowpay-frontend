@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { fetchCompanyMessaging, saveCompanyMessaging } from "../api";
-import type { MessagingSettingsDTO, ReminderTemplateRowDTO } from "../api";
+import type { MessagingSettingsDTO, ReminderPolicy, ReminderTemplateRowDTO } from "../api";
 import PageLoading from "../components/PageLoading";
 import AppSelect from "../components/AppSelect";
+import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import { useToast } from "../components/Toast";
+import { DEFAULT_REMINDER_POLICY, describeReminderPolicy } from "../lib/reminderPolicy";
 
 type EditableTemplate = {
   key: string;
@@ -300,6 +302,8 @@ export default function MessagingSettings() {
   const [transfer, setTransfer] = useState("");
   const [paymentUrl, setPaymentUrl] = useState("");
   const [rows, setRows] = useState<EditableTemplate[]>([]);
+  const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
+  const [sendTime, setSendTime] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -308,6 +312,8 @@ export default function MessagingSettings() {
       const data: MessagingSettingsDTO = await fetchCompanyMessaging();
       setTransfer(data.transfer_instructions ?? "");
       setPaymentUrl(data.payment_url_template ?? "");
+      setPolicy(data.reminder_policy ?? DEFAULT_REMINDER_POLICY);
+      setSendTime(data.send_time ?? "");
       setRows((data.templates ?? []).map(dtoToEditable));
     } catch {
       setError("No se pudo cargar la configuración.");
@@ -340,11 +346,12 @@ export default function MessagingSettings() {
             body: r.body,
             whatsapp_body: r.whatsapp_body,
           })),
+        reminder_policy: policy,
       });
-      toast.success("Mensajes guardados.");
+      toast.success("Configuración guardada.");
       await load();
     } catch {
-      toast.error("No se pudieron guardar los mensajes. Revisa los datos e inténtalo de nuevo.");
+      toast.error("No se pudo guardar la configuración. Revisa los datos e inténtalo de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -381,6 +388,18 @@ export default function MessagingSettings() {
             <PaymentLinkField value={paymentUrl} onChange={setPaymentUrl} />
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+        <h2 className="text-lg font-semibold text-ink">Frecuencia de recordatorios</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          {sendTime ? `Se envían a las ${sendTime} (hora de Chile), solo los días que marques. ` : ""}
+          Cada cobro puede usar otra frecuencia o apagarlos desde su detalle.
+        </p>
+        <div className="mt-4">
+          <ReminderPolicyFields value={policy} onChange={setPolicy} />
+        </div>
+        <p className="mt-4 rounded-xl bg-surface px-3 py-2 text-sm text-ink">{describeReminderPolicy(policy)}</p>
       </section>
 
       <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">

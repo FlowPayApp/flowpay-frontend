@@ -34,7 +34,16 @@ import {
   sendReminderNow,
   uploadChargeAttachment,
 } from "../api";
-import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder, ReminderChannel } from "../api";
+import type {
+  ChargeDTO,
+  ChargeInboundWhatsApp,
+  ChargeRemindersPayload,
+  ClientDTO,
+  Reminder,
+  ReminderChannel,
+  ReminderMode,
+  ReminderPolicy,
+} from "../api";
 import AppModal from "../components/AppModal";
 import { notifyInboxChanged } from "../components/InboxProvider";
 import { useToast, type ToastNotice } from "../components/Toast";
@@ -43,8 +52,11 @@ import AppDatePicker from "../components/AppDatePicker";
 import AppSelect from "../components/AppSelect";
 import PageLoading from "../components/PageLoading";
 import { StatusBadge } from "../components/Badge";
+import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
+import { DEFAULT_REMINDER_POLICY, describeReminderPolicy, reminderChannelOptions } from "../lib/reminderPolicy";
+import { isCompanyAdmin } from "../lib/roles";
 
 function normalizeClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -794,6 +806,118 @@ function ReminderDialog({
   );
 }
 
+const MODE_OPTIONS: { value: ReminderMode; label: string }[] = [
+  { value: "company", label: "Como la empresa" },
+  { value: "custom", label: "Personalizada para este cobro" },
+  { value: "off", label: "Desactivados" },
+];
+
+function samePolicy(a: ReminderPolicy, b: ReminderPolicy) {
+  const days = (p: ReminderPolicy) => [...new Set(p.days_before)].sort((x, y) => y - x).join(",");
+  return days(a) === days(b) && a.overdue_every === b.overdue_every && a.overdue_max === b.overdue_max;
+}
+
+function ChargeRemindersCard({
+  charge,
+  onSave,
+}: {
+  charge: ChargeDTO;
+  onSave: (payload: ChargeRemindersPayload) => Promise<void>;
+}) {
+  const savedMode = charge.reminder_mode ?? "company";
+  const savedChannel = charge.reminder_channel ?? "";
+  const companyPolicy = charge.company_reminder_policy ?? DEFAULT_REMINDER_POLICY;
+  const savedPolicy = charge.reminder_policy ?? companyPolicy;
+  const [mode, setMode] = useState<ReminderMode>(savedMode);
+  const [channel, setChannel] = useState(savedChannel);
+  const [policy, setPolicy] = useState<ReminderPolicy>(savedPolicy);
+  const [saving, setSaving] = useState(false);
+  const policyKey = JSON.stringify(savedPolicy);
+
+  useEffect(() => {
+    setMode(savedMode);
+    setChannel(savedChannel);
+    setPolicy(savedPolicy);
+  }, [savedMode, savedChannel, policyKey]);
+
+  const dirty =
+    mode !== savedMode || channel !== savedChannel || (mode === "custom" && !samePolicy(policy, savedPolicy));
+  const isPaid = charge.status === "paid";
+
+  async function save() {
+    setSaving(true);
+    try {
+      await onSave({
+        reminder_mode: mode,
+        reminder_channel: channel,
+        ...(mode === "custom" ? { reminder_policy: policy } : {}),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+      <h2 className="text-lg font-semibold text-ink">Recordatorios automáticos</h2>
+      <p className="mt-1 text-sm text-ink-muted">
+        {isPaid
+          ? "Este cobro está cobrado, así que no se envían recordatorios."
+          : "Cuándo y por dónde se le recuerda este cobro a la sucursal, sin que tengas que hacer nada."}
+      </p>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-medium text-ink">
+          Frecuencia
+          <AppSelect
+            value={mode}
+            onChange={(next) => {
+              setMode(next as ReminderMode);
+              if (next === "custom" && mode !== "custom") setPolicy(companyPolicy);
+            }}
+            options={MODE_OPTIONS}
+          />
+        </label>
+        {mode !== "off" ? (
+          <label className="block text-sm font-medium text-ink">
+            Canal
+            <AppSelect value={channel} onChange={setChannel} options={reminderChannelOptions(charge.client_followup_channel)} />
+          </label>
+        ) : null}
+      </div>
+      {mode === "custom" ? (
+        <div className="mt-5">
+          <ReminderPolicyFields value={policy} onChange={setPolicy} />
+        </div>
+      ) : null}
+      <p className="mt-4 rounded-xl bg-surface px-3 py-2 text-sm text-ink">
+        {mode === "off"
+          ? "No se enviarán recordatorios automáticos. Puedes enviar uno manual cuando quieras."
+          : describeReminderPolicy(mode === "custom" ? policy : companyPolicy)}
+      </p>
+      {mode === "company" && isCompanyAdmin() ? (
+        <p className="mt-2 text-xs text-ink-muted">
+          La frecuencia de la empresa se cambia en{" "}
+          <Link to="/mensajes" className="font-medium text-brand hover:underline">
+            Configuración
+          </Link>
+          .
+        </p>
+      ) : null}
+      <div className="mt-5 flex justify-end">
+        <button
+          type="button"
+          disabled={!dirty || saving}
+          onClick={() => void save()}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60 sm:w-auto"
+        >
+          {saving && <ActionSpinner />}
+          {saving ? "Guardando…" : "Guardar recordatorios"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function daysUntil(iso: string) {
   const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
   const today = new Date();
@@ -966,6 +1090,22 @@ export default function ChargeDetail() {
       setNow(Date.now());
       await load(true);
       setReminding(false);
+    }
+  }
+
+  async function onSaveReminders(payload: ChargeRemindersPayload) {
+    setToast(null);
+    try {
+      await patchCharge(chargeId, payload);
+      setToast({ text: "Recordatorios automáticos guardados.", tone: "success" });
+      await load(true);
+    } catch (e: unknown) {
+      let text = "No se pudieron guardar los recordatorios.";
+      if (axios.isAxiosError(e)) {
+        const data = e.response?.data as { error?: string } | undefined;
+        if (data?.error) text = data.error.charAt(0).toUpperCase() + data.error.slice(1);
+      }
+      setToast({ text, tone: "error" });
     }
   }
 
@@ -1146,7 +1286,7 @@ export default function ChargeDetail() {
   ];
   const reachable = reminderOptions.filter((o) => o.contact !== "");
   const sendable = reachable.filter(reminderUsable).map((o) => o.channel);
-  const preference = ch.client_followup_channel?.trim().toLowerCase() || "all";
+  const preference = (ch.reminder_channel || ch.client_followup_channel)?.trim().toLowerCase() || "all";
   const preferred: ReminderChannel[] =
     preference === "none" ? [] : preference === "all" ? ["whatsapp", "email"] : [preference as ReminderChannel];
   const initialChannels = sendable.filter((c) => preferred.includes(c));
@@ -1283,6 +1423,8 @@ export default function ChargeDetail() {
               <p className="mt-4 text-sm text-ink-muted">Este cobro todavía no tiene factura.</p>
             )}
           </section>
+
+          <ChargeRemindersCard charge={ch} onSave={onSaveReminders} />
 
           <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
             <h2 className="text-lg font-semibold text-ink">Editar datos del cobro</h2>
