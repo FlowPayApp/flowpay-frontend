@@ -17,7 +17,7 @@ import {
 import BrandLogo from "../components/BrandLogo";
 import { getToken } from "../lib/auth";
 
-const CONTACT = "pablobarreraw@gmail.com";
+const CONTACT = "contacto@geldflus.com";
 
 const NAV = [
   { href: "#producto", label: "Producto" },
