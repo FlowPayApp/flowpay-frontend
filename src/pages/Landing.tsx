@@ -5,6 +5,7 @@ import BrandLogo from "../components/BrandLogo";
 import { getToken } from "../lib/auth";
 
 const CONTACT = "contacto@geldflus.com";
+const STEP_MS = 10000;
 
 const NAV = [
   { href: "#recorrido", label: "Cómo funciona" },
@@ -63,7 +64,22 @@ export default function Landing() {
   const [menu, setMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [step, setStep] = useState(0);
+  const [motion, setMotion] = useState(
+    () => typeof window !== "undefined" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches && document.visibilityState === "visible",
+  );
+  const [hold, setHold] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const solidNav = scrolled || menu;
+
+  function chooseStep(index: number) {
+    if (index === step) {
+      setPinned((value) => !value);
+      return;
+    }
+    setStep(index);
+    setPinned(true);
+  }
 
   useEffect(() => {
     const prev = document.title;
@@ -78,6 +94,18 @@ export default function Landing() {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setMotion(!media.matches && document.visibilityState === "visible");
+    sync();
+    media.addEventListener("change", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      media.removeEventListener("change", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
   }, []);
 
   return (
@@ -98,9 +126,11 @@ export default function Landing() {
               </a>
             ))}
           </nav>
-          <div className="hidden items-center gap-2 sm:flex">
-            <AccountLinks loggedIn={loggedIn} onDark={!solidNav} />
-          </div>
+          {loggedIn && (
+            <Link to="/" className="hidden rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover sm:inline-flex">
+              Ir al panel
+            </Link>
+          )}
           <button
             type="button"
             className={`grid size-10 place-items-center rounded-xl md:hidden ${solidNav ? "text-ink" : "text-white"}`}
@@ -118,7 +148,11 @@ export default function Landing() {
                   {item.label}
                 </a>
               ))}
-              <AccountLinks loggedIn={loggedIn} stacked />
+              {loggedIn && (
+                <Link to="/" className="mt-2 rounded-xl bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-hover">
+                  Ir al panel
+                </Link>
+              )}
             </div>
           </div>
         )}
@@ -135,20 +169,24 @@ export default function Landing() {
               <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[rgb(245_242_234)]/72">
                 Cargas el local y la fecha. GeldFlus avisa solo. El local paga desde el enlace.
               </p>
-              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link
-                  to={loggedIn ? "/" : "/register"}
-                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover sm:w-auto"
-                >
-                  {loggedIn ? "Ir al panel" : "Crear cuenta"}
-                  <ArrowRight className="size-4" />
-                </Link>
-                <a
-                  href="#recorrido"
-                  className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-white/15 bg-white/5 px-6 text-base font-semibold hover:bg-white/10 sm:w-auto"
-                >
-                  Cómo funciona
-                </a>
+              <div className="mt-8 flex justify-center">
+                {loggedIn ? (
+                  <Link
+                    to="/"
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover sm:w-auto"
+                  >
+                    Ir al panel
+                    <ArrowRight className="size-4" />
+                  </Link>
+                ) : (
+                  <a
+                    href="#recorrido"
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover sm:w-auto"
+                  >
+                    Cómo funciona
+                    <ArrowRight className="size-4" />
+                  </a>
+                )}
               </div>
             </div>
 
@@ -156,51 +194,90 @@ export default function Landing() {
         </section>
 
         <section id="recorrido" className="scroll-mt-24 px-4 py-20 sm:px-6">
-          <div className="mx-auto max-w-5xl">
+          <div className="mx-auto max-w-6xl">
             <p className="text-sm font-semibold text-brand">Cómo funciona</p>
             <h2 className="mt-2 max-w-xl font-display text-3xl font-medium tracking-tight sm:text-4xl">
               Un local, de la fecha al pago
             </h2>
-            <p className="mt-3 max-w-xl text-ink-muted">Ejemplo ficticio. Así se ve un cobro de principio a fin.</p>
-            <ol className="mt-10 grid gap-4 md:grid-cols-3">
-              <li className="flex flex-col rounded-2xl border border-surface-border bg-surface-card p-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-brand">1 · Tú cargas</p>
-                <h3 className="mt-3 text-xl font-semibold">El local y la fecha</h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-                  Nombre, monto y vencimiento. Si ya están en una planilla, los subes juntos.
-                </p>
-                <div className="mt-6 rounded-xl bg-surface px-4 py-4">
-                  <p className="text-sm font-semibold">Almacén Los Aromos</p>
-                  <p className="mt-1 font-display text-3xl">$186.000</p>
-                  <p className="mt-1 text-sm text-ink-muted">Vence el 9 de octubre</p>
-                </div>
-              </li>
-              <li className="flex flex-col rounded-2xl border border-surface-border bg-surface-card p-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-brand">2 · GeldFlus avisa</p>
-                <h3 className="mt-3 text-xl font-semibold">El mensaje sale solo</h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-                  Antes de la fecha, el día y si se pasa. Por WhatsApp y por correo.
-                </p>
-                <div className="mt-6 rounded-xl bg-[#141716] px-4 py-4 text-[rgb(245_242_234)]">
-                  <p className="text-xs text-[rgb(245_242_234)]/55">Mensaje al local</p>
-                  <p className="mt-2 text-sm leading-relaxed">
-                    Tu cuenta de $186.000 vence el 9 de octubre. Puedes pagarla desde este enlace.
-                  </p>
-                </div>
-              </li>
-              <li className="flex flex-col rounded-2xl border border-surface-border bg-surface-card p-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-brand">3 · El local paga</p>
-                <h3 className="mt-3 text-xl font-semibold">Sin crear una cuenta</h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-                  Abre el enlace y paga con tarjeta. Si transfiere o paga con cheque, lo marcas tú.
-                </p>
-                <div className="mt-6 rounded-xl bg-brand-soft px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-brand">Pagado</p>
-                  <p className="mt-1 font-display text-3xl">$186.000</p>
-                  <p className="mt-1 text-sm text-ink-muted">Entró el mismo día</p>
-                </div>
-              </li>
+            <p className="mt-3 max-w-xl text-ink-muted">Ejemplo ficticio. El mismo cobro, en tres momentos. Toca el que quieras ver.</p>
+            <div className="mt-8 flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-surface-border bg-surface-card px-5 py-4 sm:px-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted">El local</p>
+                <p className="mt-1 font-display text-2xl sm:text-3xl">{EXAMPLE.store}</p>
+              </div>
+              <div className="sm:text-right">
+                <p className="font-display text-2xl sm:text-3xl">{EXAMPLE.amount}</p>
+                <p className="text-sm text-ink-muted">Vence el {EXAMPLE.due}</p>
+              </div>
+            </div>
+            <p key={step} className="land-settle mt-6 font-display text-2xl font-medium tracking-tight sm:text-3xl">
+              {STEPS[step].line}
+            </p>
+            {pinned && <p className="mt-2 text-sm text-ink-muted">Pausado. Toca el mismo paso para que siga solo.</p>}
+            <ol
+              className={`mt-6 grid gap-4 md:grid-cols-3 ${hold || pinned ? "land-hold" : ""}`}
+              onMouseEnter={() => setHold(true)}
+              onMouseLeave={() => setHold(false)}
+            >
+              {STEPS.map((item, index) => {
+                const active = step === index;
+                return (
+                  <li key={item.kicker} className="relative h-full">
+                    <button
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => chooseStep(index)}
+                      className={`relative flex h-full w-full flex-col overflow-hidden rounded-[1.4rem] border bg-surface-card p-5 text-left transition-[border-color,box-shadow,transform] duration-700 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                        active
+                          ? "border-brand shadow-[0_18px_40px_-28px_rgb(15_110_107)] md:-translate-y-1.5"
+                          : "border-surface-border hover:border-brand/40"
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <span
+                          className={`grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold transition-colors duration-700 ${
+                            active ? "bg-brand text-white" : "bg-brand-soft text-brand"
+                          }`}
+                        >
+                          {index + 1}
+                        </span>
+                        <span className="text-xs font-semibold uppercase tracking-widest text-brand">{item.kicker}</span>
+                      </span>
+                      <span className="mt-4 block font-display text-2xl font-medium tracking-tight">{item.title}</span>
+                      <span className="mt-2 block text-sm leading-relaxed text-ink-muted">{item.text}</span>
+                      <div className="mt-5 flex-1">{item.scene(active)}</div>
+                      {active && motion && (
+                        <span
+                          className="land-step"
+                          onAnimationEnd={(event) => {
+                            if (event.animationName !== "land-step") return;
+                            setPinned(false);
+                            setStep((value) => (value + 1) % STEPS.length);
+                          }}
+                        />
+                      )}
+                    </button>
+                    {index < STEPS.length - 1 && (
+                      <span className="pointer-events-none absolute -right-5 top-7 z-10 hidden size-6 place-items-center rounded-full border border-surface-border bg-surface text-ink-muted md:grid" aria-hidden>
+                        <ArrowRight className="size-3.5" />
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
+            <div className="mt-12 flex flex-col items-start justify-between gap-5 border-t border-surface-border pt-10 sm:flex-row sm:items-center">
+              <p className="max-w-md text-base leading-relaxed text-ink-muted">
+                El cobro queda en un solo lugar: la fecha, el aviso y el pago.
+              </p>
+              <Link
+                to={loggedIn ? "/" : "/register"}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover sm:w-auto"
+              >
+                {loggedIn ? "Ir al panel" : "Crear cuenta"}
+                <ArrowRight className="size-4" />
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -301,37 +378,135 @@ export default function Landing() {
             radial-gradient(42rem 24rem at 0% 20%, rgb(15 110 107 / 0.35), transparent 70%),
             #141716;
         }
+        .land-settle {
+          animation: land-settle 0.9s ease;
+        }
+        .land-row { animation: land-settle 0.8s ease both; }
+        .land-row:nth-child(2) { animation-delay: 0.15s; }
+        .land-row:nth-child(3) { animation-delay: 0.3s; }
+        .land-step {
+          pointer-events: none;
+          position: absolute;
+          left: 0;
+          bottom: 0;
+          height: 2px;
+          width: 100%;
+          transform: scaleX(0);
+          transform-origin: left center;
+          background: #0f6e6b;
+          animation: land-step ${STEP_MS}ms linear forwards;
+        }
+        .land-hold .land-step {
+          animation-play-state: paused;
+        }
+        @keyframes land-settle {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: none; }
+        }
+        @keyframes land-step {
+          to { transform: scaleX(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .land-settle, .land-step, .land-row { animation: none; }
+        }
       `}</style>
     </div>
   );
 }
 
-function AccountLinks({ loggedIn, stacked = false, onDark = false }: { loggedIn: boolean; stacked?: boolean; onDark?: boolean }) {
-  if (loggedIn) {
-    return (
-      <Link to="/" className={`rounded-xl bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-hover ${stacked ? "mt-2" : ""}`}>
-        Ir al panel
-      </Link>
-    );
-  }
+const EXAMPLE = {
+  store: "Almacén Los Aromos",
+  amount: "$186.000",
+  due: "9 de octubre",
+};
+
+const STEPS = [
+  {
+    kicker: "Tú cargas",
+    title: "El local y la fecha",
+    line: "Tú dejas el local, el monto y la fecha.",
+    text: "Si ya están en una planilla, entran juntos.",
+    scene: (live: boolean) => <LoadScene live={live} />,
+  },
+  {
+    kicker: "GeldFlus avisa",
+    title: "El mensaje sale solo",
+    line: "GeldFlus avisa por WhatsApp y por correo.",
+    text: "Antes de la fecha, el día y si se pasa.",
+    scene: (live: boolean) => <MessageScene live={live} />,
+  },
+  {
+    kicker: "El local paga",
+    title: "Sin crear una cuenta",
+    line: "El local paga desde el enlace.",
+    text: "Con tarjeta. Si transfiere o paga con cheque, lo marcas tú.",
+    scene: (live: boolean) => <PayScene live={live} />,
+  },
+];
+
+function LoadScene({ live }: { live: boolean }) {
+  const rows = [
+    ["Local", EXAMPLE.store],
+    ["Monto", EXAMPLE.amount],
+    ["Vence", EXAMPLE.due],
+  ];
   return (
-    <div className={stacked ? "mt-2 flex flex-col gap-2" : "flex items-center gap-2"}>
-      <Link
-        to="/login"
-        className={`rounded-xl px-4 py-2.5 text-center text-sm font-semibold ${
-          stacked
-            ? "border border-surface-border text-ink"
-            : onDark
-              ? "text-[rgb(245_242_234)]/80 hover:text-white"
-              : "text-ink hover:bg-brand-soft"
-        }`}
-      >
-        Entrar
-      </Link>
-      <Link to="/register" className="rounded-xl bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-hover">
-        Crear cuenta
-      </Link>
+    <div className="rounded-2xl bg-surface p-2.5">
+      <ul>
+        {rows.map(([label, value]) => (
+          <li key={label} className={`mt-1.5 flex items-center justify-between gap-3 rounded-xl bg-surface-card px-3 py-2.5 first:mt-0 ${live ? "land-row" : ""}`}>
+            <span>
+              <span className="block text-[11px] font-medium uppercase tracking-wider text-ink-muted">{label}</span>
+              <span className="text-sm font-semibold">{value}</span>
+            </span>
+            <span className={`grid size-5 shrink-0 place-items-center rounded-full ${live ? "bg-brand text-white" : "bg-brand-soft text-brand"}`}>
+              <Check className="size-3" />
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
+
+function MessageScene({ live }: { live: boolean }) {
+  return (
+    <div className="flex h-full flex-col rounded-2xl bg-[#141716] p-4 text-[rgb(245_242_234)]">
+      <div className="flex gap-2">
+        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold">WhatsApp</span>
+        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold">Correo</span>
+      </div>
+      <p className={`mt-4 rounded-2xl rounded-bl-md bg-[#0f6e6b] px-3 py-3 text-sm leading-relaxed ${live ? "land-settle" : ""}`}>
+        Tu cuenta de {EXAMPLE.amount} vence el {EXAMPLE.due}. Puedes pagarla desde este enlace.
+      </p>
+      <div className="mt-4 grid grid-cols-3 gap-1.5 text-center text-[11px] font-semibold text-[rgb(245_242_234)]/80">
+        {["Antes", "El día", "Si se pasa"].map((label) => (
+          <span key={label} className="rounded-lg bg-white/10 px-1 py-1.5">
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PayScene({ live }: { live: boolean }) {
+  return (
+    <div className="flex h-full flex-col rounded-2xl bg-brand-soft p-4">
+      <div className="flex items-center gap-3">
+        <span className="grid size-9 place-items-center rounded-full bg-brand text-white">
+          <Check className="size-4" />
+        </span>
+        <span>
+          <span className="block text-xs font-semibold uppercase tracking-widest text-brand">Pagado</span>
+          <span className="block text-xs text-ink-muted">El mismo día</span>
+        </span>
+      </div>
+      <p className={`mt-4 font-display text-4xl ${live ? "land-settle" : ""}`}>{EXAMPLE.amount}</p>
+      <p className="mt-1 text-sm font-semibold">{EXAMPLE.store}</p>
+      <p className="mt-3 text-sm leading-relaxed text-ink-muted">Abrió el enlace y pagó. No creó una cuenta.</p>
+    </div>
+  );
+}
+
 
