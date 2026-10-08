@@ -130,12 +130,7 @@ export default function Landing() {
           <Link to="/landing" aria-label="GeldFlus">
             <BrandLogo tone={solidNav ? "auto" : "onDark"} className="h-8" />
           </Link>
-          <nav className={`hidden items-center gap-6 text-sm font-medium md:flex ${solidNav ? "text-ink-muted" : "text-[rgb(245_242_234)]/75"}`}>
-            {NAV.map((item) => (
-              <a key={item.href} href={item.href} className={solidNav ? "hover:text-ink" : "hover:text-white"}>
-                {item.label}
-              </a>
-            ))}
+          <nav className={`hidden items-center gap-6 text-sm font-medium md:flex ${solidNav ? "text-ink-muted" : "text-[#f5f2ea]/75"}`}>
             {!loggedIn && (
               <a
                 href="#empezar"
@@ -148,6 +143,11 @@ export default function Landing() {
                 Empezar
               </a>
             )}
+            {NAV.map((item) => (
+              <a key={item.href} href={item.href} className={solidNav ? "hover:text-ink" : "hover:text-white"}>
+                {item.label}
+              </a>
+            ))}
           </nav>
           <div className="flex items-center gap-2 md:ml-6">
             <button
@@ -158,7 +158,7 @@ export default function Landing() {
               className={`grid size-9 place-items-center rounded-lg border transition-colors ${
                 solidNav
                   ? "border-surface-border bg-surface-card text-ink-muted hover:text-ink"
-                  : "border-white/15 bg-white/5 text-[rgb(245_242_234)]/80 hover:bg-white/10 hover:text-white"
+                  : "border-white/15 bg-white/5 text-[#f5f2ea]/80 hover:bg-white/10 hover:text-white"
               }`}
             >
               {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -181,16 +181,7 @@ export default function Landing() {
         {menu && (
           <div className="border-t border-surface-border bg-surface px-4 py-4 md:hidden">
             <div className="flex flex-col gap-3 text-sm font-medium">
-              {NAV.map((item) => (
-                <a key={item.href} href={item.href} onClick={() => setMenu(false)} className="py-1 text-ink-muted">
-                  {item.label}
-                </a>
-              ))}
-              {loggedIn ? (
-                <Link to="/" className="mt-2 rounded-xl bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-hover">
-                  Ir al panel
-                </Link>
-              ) : (
+              {!loggedIn && (
                 <a
                   href="#empezar"
                   onClick={() => setMenu(false)}
@@ -198,6 +189,16 @@ export default function Landing() {
                 >
                   Empezar
                 </a>
+              )}
+              {NAV.map((item) => (
+                <a key={item.href} href={item.href} onClick={() => setMenu(false)} className="py-1 text-ink-muted">
+                  {item.label}
+                </a>
+              ))}
+              {loggedIn && (
+                <Link to="/" className="mt-2 rounded-xl bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-hover">
+                  Ir al panel
+                </Link>
               )}
             </div>
           </div>
@@ -212,7 +213,7 @@ export default function Landing() {
               <h1 className="mt-4 font-display text-5xl font-medium leading-[1.05] tracking-tight text-balance sm:text-7xl">
                 Cobra a tus locales <span className="text-[#8fd4cf]">sin perseguirlos</span>
               </h1>
-              <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[rgb(245_242_234)]/72">
+              <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[#f5f2ea]/75">
                 GeldFlus le avisa a cada local antes de que venza, por WhatsApp y correo, con un enlace para pagar. Tú dejas de llamar uno por uno.
               </p>
               <div className="mt-8 flex justify-center">
@@ -343,7 +344,7 @@ export default function Landing() {
             <h2 className="mx-auto mt-4 max-w-3xl font-display text-4xl font-medium leading-[1.05] tracking-tight text-balance sm:text-6xl">
               Empieza con los cobros de <span className="text-[#8fd4cf]">este mes</span>
             </h2>
-            <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[rgb(245_242_234)]/75">
+            <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[#f5f2ea]/75">
               Pide tu cuenta hoy. La revisamos, la activamos y te enviamos la contraseña.
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -361,7 +362,7 @@ export default function Landing() {
                 Ver los planes
               </a>
             </div>
-            <ul className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center gap-3 text-sm text-[rgb(245_242_234)]/75 sm:flex-row sm:gap-8">
+            <ul className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center gap-3 text-sm text-[#f5f2ea]/75 sm:flex-row sm:gap-8">
               {["Funciona desde el navegador", "El local no crea una cuenta", "Avisos por WhatsApp y correo"].map((item) => (
                 <li key={item} className="flex items-center gap-2">
                   <Check className="size-4 shrink-0 text-[#8fd4cf]" />
@@ -388,10 +389,10 @@ export default function Landing() {
                 >
                   {plan.highlight && <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#8fd4cf]">Recomendado</p>}
                   <h3 className="text-2xl font-semibold">{plan.name}</h3>
-                  <p className={`mt-2 text-sm ${plan.highlight ? "text-[rgb(245_242_234)]/65" : "text-ink-muted"}`}>{plan.detail}</p>
+                  <p className={`mt-2 text-sm ${plan.highlight ? "text-[#f5f2ea]/65" : "text-ink-muted"}`}>{plan.detail}</p>
                   <p className="mt-5 font-display text-4xl">
                     {plan.price}
-                    <span className={`ml-1 font-sans text-base ${plan.highlight ? "text-[rgb(245_242_234)]/55" : "text-ink-muted"}`}>/ mes</span>
+                    <span className={`ml-1 font-sans text-base ${plan.highlight ? "text-[#f5f2ea]/55" : "text-ink-muted"}`}>/ mes</span>
                   </p>
                   <ul className="mt-5 space-y-2 text-sm">
                     {plan.features.map((feature) => (
@@ -444,7 +445,7 @@ export default function Landing() {
           <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl bg-[#141716] px-6 py-14 text-[rgb(245_242_234)] dark:ring-1 dark:ring-white/10">
             <div className="relative">
               <h2 className="font-display text-3xl font-medium tracking-tight">¿Prefieres conversarlo antes?</h2>
-              <p className="mt-3 text-[rgb(245_242_234)]/75">Escríbenos cuántos locales tienes y cómo cobras hoy. Te respondemos por correo.</p>
+              <p className="mt-3 text-[#f5f2ea]/75">Escríbenos cuántos locales tienes y cómo cobras hoy. Te respondemos por correo.</p>
               <a
                 href={mailHref()}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-[#141716]"
@@ -624,7 +625,7 @@ function MessageScene({ live, playing, onUse }: SceneProps) {
             aria-pressed={channel === index}
             onClick={(event) => pick(event, () => setChannel(index))}
             className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors duration-300 ${
-              channel === index ? "bg-white text-[#141716]" : "text-[rgb(245_242_234)]/70 hover:text-white"
+              channel === index ? "bg-white text-[#141716]" : "text-[#f5f2ea]/70 hover:text-white"
             }`}
           >
             {label}
@@ -652,7 +653,7 @@ function MessageScene({ live, playing, onUse }: SceneProps) {
             aria-pressed={moment === index}
             onClick={(event) => pick(event, () => setMoment(index))}
             className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors duration-300 ${
-              moment === index ? "bg-[#8fd4cf] text-[#141716]" : "bg-white/10 text-[rgb(245_242_234)]/75 hover:bg-white/15"
+              moment === index ? "bg-[#8fd4cf] text-[#141716]" : "bg-white/10 text-[#f5f2ea]/75 hover:bg-white/15"
             }`}
           >
             {item.label}
