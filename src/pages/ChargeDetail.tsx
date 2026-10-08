@@ -1,6 +1,6 @@
 import axios from "axios";
-import { FileText, Image as ImageIcon, Paperclip, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { CheckCheck, ChevronDown, FileText, Image as ImageIcon, Mail, Maximize2, Paperclip, SendHorizontal, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -52,7 +52,7 @@ type TimelineItem =
 function chatClock(iso: string) {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return "";
-  return new Date(t).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+  return new Date(t).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 
 function chatDayLabel(iso: string) {
@@ -95,11 +95,11 @@ function AttachedFile({ file, onRemove }: { file: File; onRemove: () => void }) 
   }, [file, isImage]);
 
   return (
-    <div className="mb-2 flex items-center gap-3 rounded-xl border border-surface-border bg-surface px-2.5 py-2">
+    <div className="mb-2 flex items-center gap-3 rounded-xl bg-surface-card px-2.5 py-2 shadow-sm">
       {preview ? (
-        <img src={preview} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+        <img src={preview} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
       ) : (
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand">
           {isImage ? <ImageIcon className="h-5 w-5" strokeWidth={2} /> : <FileText className="h-5 w-5" strokeWidth={2} />}
         </span>
       )}
@@ -111,13 +111,15 @@ function AttachedFile({ file, onRemove }: { file: File; onRemove: () => void }) 
         type="button"
         onClick={onRemove}
         aria-label="Quitar archivo"
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-ink-muted hover:bg-surface-card hover:text-ink lg:h-8 lg:w-8"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-muted hover:bg-surface hover:text-ink lg:h-9 lg:w-9"
       >
         <X className="h-4 w-4" strokeWidth={2} />
       </button>
     </div>
   );
 }
+
+const COMPOSER_MAX_HEIGHT = 128;
 
 function ReplyComposer({
   id,
@@ -137,65 +139,74 @@ function ReplyComposer({
   sending: boolean;
 }) {
   const picker = useRef<HTMLInputElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const canSend = !sending && (value.trim() !== "" || !!file);
+
+  useLayoutEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
+  }, [value]);
 
   return (
-    <form onSubmit={onSubmit} className="mt-3">
+    <form onSubmit={onSubmit} className="border-t border-surface-border bg-surface-card px-3 py-2.5">
       {file && <AttachedFile file={file} onRemove={() => onFile(null)} />}
-      <label className="sr-only" htmlFor={id}>
-        Responder por WhatsApp
-      </label>
-      <textarea
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onPaste={(e) => {
-          const pasted = Array.from(e.clipboardData.files)[0];
-          if (pasted) {
-            e.preventDefault();
-            onFile(pasted);
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            e.currentTarget.form?.requestSubmit();
-          }
-        }}
-        rows={2}
-        maxLength={1000}
-        placeholder={file ? "Agrega un texto (opcional)" : "Responder por WhatsApp"}
-        className="w-full resize-none rounded-xl border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-      />
-      <input
-        ref={picker}
-        type="file"
-        accept={CHAT_FILE_ACCEPT}
-        className="hidden"
-        onChange={(e) => {
-          onFile(e.target.files?.[0] ?? null);
-          e.target.value = "";
-        }}
-      />
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => picker.current?.click()}
-            disabled={sending}
-            aria-label="Adjuntar foto o PDF"
-            title="Adjuntar foto o PDF (hasta 5 MB)"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-surface-border text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-60 lg:h-9 lg:w-9"
-          >
-            <Paperclip className="h-4 w-4" strokeWidth={2} />
-          </button>
-          <p className="text-xs text-ink-muted">Se envía si el cliente escribió en las últimas 24 horas.</p>
-        </div>
+      <div className="flex items-end gap-2">
+        <button
+          type="button"
+          onClick={() => picker.current?.click()}
+          disabled={sending}
+          aria-label="Adjuntar foto o PDF"
+          title="Adjuntar foto o PDF (hasta 5 MB)"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface hover:text-ink disabled:opacity-60"
+        >
+          <Paperclip className="h-5 w-5" strokeWidth={2} />
+        </button>
+        <label className="sr-only" htmlFor={id}>
+          Escribe un mensaje
+        </label>
+        <textarea
+          ref={field}
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onPaste={(e) => {
+            const pasted = Array.from(e.clipboardData.files)[0];
+            if (pasted) {
+              e.preventDefault();
+              onFile(pasted);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
+          rows={1}
+          maxLength={1000}
+          placeholder={file ? "Agrega un texto (opcional)" : "Escribe un mensaje"}
+          className="min-w-0 flex-1 resize-none rounded-[1.375rem] border border-surface-border bg-surface px-4 py-2.5 text-sm leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-brand/50"
+        />
+        <input
+          ref={picker}
+          type="file"
+          accept={CHAT_FILE_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            onFile(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
+        />
         <button
           type="submit"
-          disabled={sending || (value.trim() === "" && !file)}
-          className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+          disabled={!canSend}
+          aria-label="Enviar"
+          title="Enviar"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-white transition-colors hover:bg-brand-hover disabled:bg-surface-border disabled:text-ink-muted"
         >
-          {sending ? "Enviando…" : "Enviar"}
+          {sending ? <ActionSpinner /> : <SendHorizontal className="h-5 w-5" strokeWidth={2} />}
         </button>
       </div>
     </form>
@@ -249,20 +260,20 @@ function MessageAttachment({
   }, [chargeId, messageId, index]);
 
   if (failed) {
-    return <p className="text-xs text-ink-muted">No se pudo cargar el archivo.</p>;
+    return <p className="px-1.5 py-1 text-xs text-ink-muted">No se pudo cargar el archivo.</p>;
   }
   if (!url) {
     return (
       <div
-        className={`animate-pulse rounded-xl bg-surface-border/60 ${kind === "image" || kind === "video" ? "h-40 w-56 max-w-full" : "h-10 w-48"}`}
+        className={`animate-pulse rounded-lg bg-ink/10 ${kind === "image" || kind === "video" ? "h-48 w-64 max-w-full" : "h-14 w-64 max-w-full"}`}
         aria-label="Cargando archivo"
       />
     );
   }
   if (kind === "image") {
     return (
-      <a href={url} target="_blank" rel="noreferrer" className="block w-fit">
-        <img src={url} alt="Imagen enviada por el cliente" className="max-h-64 max-w-full rounded-xl object-contain" />
+      <a href={url} target="_blank" rel="noreferrer" className="block">
+        <img src={url} alt="Imagen del mensaje" className="max-h-80 w-full max-w-[18rem] rounded-lg object-cover" />
       </a>
     );
   }
@@ -270,22 +281,22 @@ function MessageAttachment({
     return <audio controls src={url} className="w-64 max-w-full" />;
   }
   if (kind === "video") {
-    return <video controls src={url} className="max-h-64 max-w-full rounded-xl" />;
+    return <video controls src={url} className="max-h-80 w-full max-w-[18rem] rounded-lg" />;
   }
-  const linkClass =
-    "inline-flex max-w-full items-center gap-2 rounded-lg border border-surface-border bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-card";
-  if (kind === "pdf") {
-    return (
-      <a href={url} target="_blank" rel="noreferrer" className={linkClass}>
-        <FileText className="h-4 w-4 shrink-0 text-brand" strokeWidth={2} />
-        <span className="truncate">{fileName || "Ver PDF"}</span>
-      </a>
-    );
-  }
+  const isPdf = kind === "pdf";
   return (
-    <a href={url} download={fileName || `adjunto-${messageId}-${index + 1}`} className={linkClass}>
-      <Paperclip className="h-4 w-4 shrink-0" strokeWidth={2} />
-      <span className="truncate">{fileName || "Descargar archivo"}</span>
+    <a
+      href={url}
+      {...(isPdf ? { target: "_blank", rel: "noreferrer" } : { download: fileName || `adjunto-${messageId}-${index + 1}` })}
+      className="flex w-64 max-w-full items-center gap-3 rounded-lg bg-ink/5 px-3 py-2.5 transition-colors hover:bg-ink/10"
+    >
+      <span className="grid h-10 w-9 shrink-0 place-items-center rounded-md bg-danger text-[10px] font-bold text-white">
+        {isPdf ? "PDF" : <Paperclip className="h-4 w-4" strokeWidth={2} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-ink">{fileName || (isPdf ? "Documento.pdf" : "Archivo adjunto")}</span>
+        <span className="block text-xs text-ink-muted">{isPdf ? "Abrir documento" : "Descargar"}</span>
+      </span>
     </a>
   );
 }
@@ -338,23 +349,25 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
       }}
       role="log"
       aria-label="Mensajes del cobro"
-      className={
-        expanded
-          ? "h-full min-h-0 w-full min-w-0 overflow-y-auto rounded-2xl border border-surface-border bg-surface/80 [overflow-anchor:none] px-4 py-5 [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
-          : "mt-5 max-h-[min(55vh,28rem)] min-h-[16rem] w-full min-w-0 overflow-y-auto rounded-2xl border border-surface-border bg-surface/80 [overflow-anchor:none] px-3 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
-      }
+      className="h-full min-h-0 w-full min-w-0 overflow-y-auto bg-surface px-3 py-4 [overflow-anchor:none] [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
     >
       {ordered.length === 0 ? (
-        <p className="px-2 py-10 text-center text-sm text-ink-muted">Aún no hay mensajes en este cobro.</p>
+        <p className="mx-auto mt-10 w-fit rounded-lg bg-surface-card px-3 py-1.5 text-center text-xs text-ink-muted shadow-sm">
+          Aún no hay mensajes en este cobro.
+        </p>
       ) : (
-        <ol className="flex flex-col gap-3">
-          {ordered.map((item) => {
+        <ol className="flex flex-col gap-1">
+          {ordered.map((item, position) => {
             const day = chatDayLabel(item.at);
             const showDay = day !== previousDay;
             previousDay = day;
             const outboundReply = item.kind === "reply" && item.reply.direction === "outbound";
             const outgoing = item.kind === "reminder" || outboundReply;
-            const email = item.kind === "reminder" && item.reminder.channel === "email";
+            const previous = ordered[position - 1];
+            const previousOutgoing = previous
+              ? previous.kind === "reminder" || (previous.kind === "reply" && previous.reply.direction === "outbound")
+              : null;
+            const firstInGroup = showDay || previousOutgoing !== outgoing;
             const scheduled = item.kind === "reminder" && item.reminder.status === "scheduled";
             const media = item.kind === "reply" && item.reply.charge_id ? item.reply.media ?? [] : [];
             const text =
@@ -362,41 +375,40 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
                 ? item.reply.content?.trim() || (media.length > 0 ? "" : "Mensaje sin texto.")
                 : reminderBody(item.reminder);
             const clock = chatClock(item.at);
-            const label = item.kind === "reply" && !outboundReply ? "Cliente" : email ? "Correo" : "WhatsApp";
+            const meta = (
+              <span className="ml-3 inline-flex translate-y-1 items-center gap-1 whitespace-nowrap align-bottom text-[11px] leading-none text-ink-muted float-right">
+                {item.kind === "reminder" ? "Recordatorio · " : ""}
+                {clock}
+                {outgoing ? <CheckCheck className="h-3.5 w-3.5 text-brand" strokeWidth={2} /> : null}
+              </span>
+            );
             return (
-              <li key={item.id} className="min-w-0">
+              <li key={item.id} className={`min-w-0${firstInGroup ? " mt-2 first:mt-0" : ""}`}>
                 {showDay && day ? (
-                  <div className="flex items-center gap-3 py-1">
-                    <span className="h-px flex-1 bg-surface-border" />
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">{day}</span>
-                    <span className="h-px flex-1 bg-surface-border" />
+                  <div className="my-2 flex justify-center">
+                    <span className="rounded-lg bg-surface-card px-3 py-1 text-xs font-medium text-ink-muted shadow-sm">{day}</span>
                   </div>
                 ) : null}
                 {scheduled ? (
-                  <p className="py-1 text-center text-xs text-ink-muted">
-                    {item.reminder.channel === "email" ? "Correo programado" : "WhatsApp programado"}
-                    {clock ? ` · ${clock}` : ""}
-                  </p>
+                  <div className="my-1 flex justify-center">
+                    <span className="rounded-lg bg-warn-soft px-3 py-1 text-xs text-warn">
+                      WhatsApp programado
+                      {clock ? ` · ${clock}` : ""}
+                    </span>
+                  </div>
                 ) : (
-                  <div className={outgoing ? (expanded ? "flex justify-end pl-16" : "flex justify-end pl-8") : expanded ? "flex justify-start pr-16" : "flex justify-start pr-8"}>
+                  <div className={`flex ${outgoing ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={
-                        (outgoing
-                          ? email
-                            ? "rounded-2xl rounded-br-md border border-surface-border bg-surface-card px-3.5 py-2.5"
-                            : "rounded-2xl rounded-br-md border border-brand/20 bg-brand-soft px-3.5 py-2.5"
-                          : "rounded-2xl rounded-bl-md border border-surface-border bg-surface-card px-3.5 py-2.5") +
-                        (expanded ? " max-w-xl" : " max-w-full")
-                      }
+                      className={[
+                        "relative min-w-0 rounded-xl shadow-[0_1px_0.5px_rgb(28_25_23/0.13)]",
+                        expanded ? "max-w-[min(32rem,75%)]" : "max-w-[85%]",
+                        outgoing ? "bg-brand-soft" : "bg-surface-card",
+                        firstInGroup ? (outgoing ? "rounded-tr-sm" : "rounded-tl-sm") : "",
+                        media.length > 0 ? "p-1" : "px-2.5 py-1.5",
+                      ].join(" ")}
                     >
-                      <div className="mb-1.5 flex items-baseline justify-between gap-4">
-                        <span className={outgoing && !email ? "text-[11px] font-semibold uppercase tracking-wide text-brand" : "text-[11px] font-semibold uppercase tracking-wide text-ink-muted"}>
-                          {label}
-                        </span>
-                        {clock ? <span className="shrink-0 text-[11px] text-ink-muted">{clock}</span> : null}
-                      </div>
-                      {item.kind === "reply" && item.reply.charge_id && media.length > 0 ? (
-                        <div className="flex flex-col gap-2">
+                      {media.length > 0 && item.kind === "reply" ? (
+                        <div className="flex flex-col gap-1">
                           {media.map((file, index) => (
                             <MessageAttachment
                               key={index}
@@ -409,9 +421,14 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
                           ))}
                         </div>
                       ) : null}
-                      {text ? (
-                        <p className={`whitespace-pre-wrap break-words text-sm leading-relaxed text-ink${media.length > 0 ? " mt-2" : ""}`}>{text}</p>
-                      ) : null}
+                      <p
+                        className={`flow-root whitespace-pre-wrap break-words text-sm leading-5 text-ink${
+                          media.length > 0 ? " px-1.5 pb-1 pt-1" : ""
+                        }`}
+                      >
+                        {text}
+                        {meta}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -420,6 +437,116 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
           })}
         </ol>
       )}
+    </div>
+  );
+}
+
+const EMAIL_KIND_LABEL: Record<string, string> = {
+  manual: "Recordatorio manual",
+  due_soon: "Aviso antes del vencimiento",
+  overdue: "Aviso de cobro vencido",
+};
+
+function emailWhen(iso: string) {
+  const day = chatDayLabel(iso);
+  const clock = chatClock(iso);
+  return day && clock ? `${day} · ${clock}` : day || clock;
+}
+
+function EmailHistory({ to, emails }: { to?: string | null; emails: Reminder[] }) {
+  const ordered = [...emails].sort((a, b) => Date.parse(b.sent_at || b.created_at) - Date.parse(a.sent_at || a.created_at));
+  return (
+    <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+      <div className="flex items-center gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface text-ink-muted">
+          <Mail className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <span className="min-w-0">
+          <h3 className="text-sm font-semibold text-ink">Correos enviados</h3>
+          <span className="block truncate text-xs text-ink-muted">{to?.trim() ? `Para ${to}` : "Sin correo registrado"}</span>
+        </span>
+      </div>
+      {ordered.length === 0 ? (
+        <p className="mt-4 text-sm text-ink-muted">Aún no se envían correos de este cobro.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-surface-border">
+          {ordered.map((r) => {
+            const scheduled = r.status === "scheduled";
+            return (
+              <li key={r.id} className="py-2 first:pt-0 last:pb-0">
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-1 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-ink">{EMAIL_KIND_LABEL[r.kind] ?? "Recordatorio"}</span>
+                      <span className="block text-xs text-ink-muted">{emailWhen(r.sent_at || r.created_at)}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          scheduled ? "bg-warn-soft text-warn" : "bg-brand-soft text-brand"
+                        }`}
+                      >
+                        {scheduled ? "Programado" : "Enviado"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-ink-muted transition-transform group-open:rotate-180" strokeWidth={2} />
+                    </span>
+                  </summary>
+                  <p className="mt-2 whitespace-pre-wrap break-words rounded-xl bg-surface px-3 py-2 text-sm text-ink">{reminderBody(r)}</p>
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
+
+function ChatPanel({
+  name,
+  phone,
+  items,
+  expanded = false,
+  onToggleExpanded,
+  composer,
+}: {
+  name: string;
+  phone?: string | null;
+  items: TimelineItem[];
+  expanded?: boolean;
+  onToggleExpanded: () => void;
+  composer: React.ReactNode;
+}) {
+  return (
+    <div className={`flex min-h-0 flex-col overflow-hidden ${expanded ? "h-full" : "h-[min(70vh,36rem)]"}`}>
+      <div className="flex items-center gap-3 border-b border-surface-border bg-surface-card px-4 py-2.5">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+          {initials(name)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-ink">{name}</span>
+          <span className="block truncate text-xs text-ink-muted">{phone?.trim() ? `WhatsApp ${phone}` : "Sin teléfono registrado"}</span>
+        </span>
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          aria-label={expanded ? "Cerrar conversación ampliada" : "Ampliar conversación"}
+          title={expanded ? "Cerrar" : "Ampliar"}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface hover:text-ink lg:h-9 lg:w-9"
+        >
+          {expanded ? <X className="h-5 w-5" strokeWidth={2} /> : <Maximize2 className="h-4 w-4" strokeWidth={2} />}
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">
+        <MessageThread items={items} expanded={expanded} />
+      </div>
+      {composer}
     </div>
   );
 }
@@ -716,8 +843,9 @@ export default function ChargeDetail() {
 
   const reminderList = Array.isArray(rems) ? rems : [];
   const waList = Array.isArray(inboundWA) ? inboundWA : [];
-  const timelineItems: TimelineItem[] = [
-    ...reminderList.map((r) => ({
+  const emailReminders = reminderList.filter((r) => r.channel === "email");
+  const chatItems: TimelineItem[] = [
+    ...reminderList.filter((r) => r.channel !== "email").map((r) => ({
       kind: "reminder" as const,
       at: r.created_at,
       id: `rem-${r.id}`,
@@ -871,58 +999,36 @@ export default function ChargeDetail() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-5">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Estado del cobro</h3>
-            <div className="mt-3 space-y-2.5 text-sm">
-              <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2">
-                <span className="text-ink-muted">Situación</span>
-                <span className="font-semibold text-ink">{dueLabel}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2">
-                <span className="text-ink-muted">Monto actual</span>
-                <span className="font-semibold text-ink">{formatMoney(ch.amount)}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2">
-                <span className="text-ink-muted">Vencimiento</span>
-                <span className="font-semibold text-ink">{formatDate(ch.due_date)}</span>
-              </div>
-            </div>
-            {isOverdue && (
-              <p className="mt-4 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
-                Vencido: prioriza contacto y seguimiento para evitar mayor atraso.
-              </p>
-            )}
-          </section>
         </div>
 
-        <section className="w-full min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-ink">Línea de tiempo</h2>
-              <p className="mt-1 text-sm text-ink-muted">
-                Lo que enviaste queda a la derecha. La respuesta del cliente, a la izquierda.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setThreadOpen(true)}
-              className="shrink-0 rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface"
-            >
-              Abrir en grande
-            </button>
-          </div>
-          <MessageThread items={timelineItems} />
-          <ReplyComposer
-            id="charge-whatsapp-reply"
-            value={replyText}
-            onChange={setReplyText}
-            file={replyFile}
-            onFile={onReplyFile}
-            onSubmit={(e) => void onReply(e)}
-            sending={replying}
-          />
+        <div className="w-full min-w-0 space-y-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
+          <section className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+            {threadOpen ? (
+              <p className="px-4 py-10 text-center text-sm text-ink-muted">La conversación está abierta en grande.</p>
+            ) : (
+              <ChatPanel
+                name={ch.client_name || "Cliente"}
+                phone={ch.client_phone}
+                items={chatItems}
+                onToggleExpanded={() => setThreadOpen(true)}
+                composer={
+                  <ReplyComposer
+                    id="charge-whatsapp-reply"
+                    value={replyText}
+                    onChange={setReplyText}
+                    file={replyFile}
+                    onFile={onReplyFile}
+                    onSubmit={(e) => void onReply(e)}
+                    sending={replying}
+                  />
+                }
+              />
+            )}
+          </section>
 
-          <div className="mt-6 border-t border-surface-border pt-6">
+          <EmailHistory to={ch.client_email} emails={emailReminders} />
+
+          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Acciones rápidas</h3>
             <p className="mt-2 text-sm text-ink-muted">Gestiona este cobro desde aquí.</p>
             {!isPaid ? (
@@ -951,40 +1057,31 @@ export default function ChargeDetail() {
                 Este cobro ya está marcado como cobrado.
               </p>
             )}
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
 
       {threadOpen && (
         <AppModal onBackdropClick={() => setThreadOpen(false)}>
-          <div className="flex h-[min(92dvh,48rem)] w-full flex-col bg-surface-card shadow-2xl sm:w-[min(92vw,48rem)] sm:rounded-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-surface-border px-5 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-ink">Mensajes</h3>
-                <p className="mt-0.5 text-sm text-ink-muted">Lo enviado a la derecha, la respuesta del cliente a la izquierda.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setThreadOpen(false)}
-                className="rounded-lg px-2 py-1 text-sm font-medium text-ink-muted hover:bg-surface"
-              >
-                Cerrar
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 p-3 sm:p-4">
-              <MessageThread items={timelineItems} expanded />
-            </div>
-            <div className="border-t border-surface-border px-4 py-3 sm:px-5">
-              <ReplyComposer
-                id="charge-whatsapp-reply-large"
-                value={replyText}
-                onChange={setReplyText}
-                file={replyFile}
-                onFile={onReplyFile}
-                onSubmit={(e) => void onReply(e)}
-                sending={replying}
-              />
-            </div>
+          <div className="h-[min(92dvh,48rem)] w-full overflow-hidden bg-surface-card shadow-2xl sm:w-[min(92vw,52rem)] sm:rounded-2xl">
+            <ChatPanel
+              name={ch.client_name || "Cliente"}
+              phone={ch.client_phone}
+              items={chatItems}
+              expanded
+              onToggleExpanded={() => setThreadOpen(false)}
+              composer={
+                <ReplyComposer
+                  id="charge-whatsapp-reply-large"
+                  value={replyText}
+                  onChange={setReplyText}
+                  file={replyFile}
+                  onFile={onReplyFile}
+                  onSubmit={(e) => void onReply(e)}
+                  sending={replying}
+                />
+              }
+            />
           </div>
         </AppModal>
       )}
