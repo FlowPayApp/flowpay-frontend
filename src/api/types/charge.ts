@@ -29,6 +29,9 @@ export interface Reminder {
   message?: string | null;
   created_at: string;
   sent_at?: string | null;
+  /** Solo WhatsApp: entrega informada por Twilio. Vacío en los enviados antes del seguimiento. */
+  delivery_status?: string;
+  delivery_error?: string;
 }
 
 /** Mensaje WhatsApp entrante asociado al cobro (respuesta del cliente). */
@@ -42,7 +45,9 @@ export interface ChargeInboundWhatsApp {
   /** Fotos, audios o documentos del mensaje. */
   media?: { content_type: string; file_name?: string }[] | null;
   direction: string;
+  /** En los enviados: queued, sent, delivered, read, failed o undelivered (avisos de Twilio). */
   status: string;
+  delivery_error?: string;
   /** Solo en respuestas del cliente: cuándo alguien de la empresa la vio. */
   read_at?: string | null;
   created_at: string;

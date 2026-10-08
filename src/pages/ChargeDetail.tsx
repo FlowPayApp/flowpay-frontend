@@ -1,5 +1,5 @@
 import axios from "axios";
-import { CheckCheck, ChevronDown, FileText, Image as ImageIcon, Mail, Maximize2, Paperclip, SendHorizontal, X } from "lucide-react";
+import { BellRing, Check, CheckCheck, ChevronDown, CircleAlert, CircleCheck, Clock3, FileText, Image as ImageIcon, Mail, Maximize2, Paperclip, SendHorizontal, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
@@ -204,7 +204,7 @@ function ReplyComposer({
           disabled={!canSend}
           aria-label="Enviar"
           title="Enviar"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-white transition-colors hover:bg-brand-hover disabled:bg-surface-border disabled:text-ink-muted"
+          className="grid h-11 w-11 shrink-0 place-items-center bg-brand text-white transition-colors hover:bg-brand-hover disabled:bg-surface-border disabled:text-ink-muted !rounded-full !p-0"
         >
           {sending ? <ActionSpinner /> : <SendHorizontal className="h-5 w-5" strokeWidth={2} />}
         </button>
@@ -301,6 +301,62 @@ function MessageAttachment({
   );
 }
 
+const DELIVERY_ERRORS: Record<string, string> = {
+  "63016": "pasaron más de 24 horas desde el último mensaje del cliente",
+  "63003": "el número no puede recibir WhatsApp",
+  "63024": "el número no puede recibir WhatsApp",
+  "63032": "el número no puede recibir WhatsApp",
+};
+
+function deliveryFailed(status: string) {
+  return status === "failed" || status === "undelivered";
+}
+
+function deliveryProblem(code?: string) {
+  const reason = code ? DELIVERY_ERRORS[code] : undefined;
+  if (reason) return `No se entregó: ${reason}.`;
+  return code ? `No se entregó (código ${code}).` : "No se entregó.";
+}
+
+/** Vacío o desconocido: se envió antes del seguimiento de entrega; solo se sabe que salió. */
+function DeliveryTicks({ status }: { status: string }) {
+  const icon = "h-3.5 w-3.5 shrink-0";
+  switch (status) {
+    case "queued":
+    case "accepted":
+      return (
+        <span title="Enviando" aria-label="Enviando">
+          <Clock3 className={`${icon} h-3 w-3`} strokeWidth={2} />
+        </span>
+      );
+    case "delivered":
+      return (
+        <span title="Entregado" aria-label="Entregado">
+          <CheckCheck className={icon} strokeWidth={2} />
+        </span>
+      );
+    case "read":
+      return (
+        <span title="Leído" aria-label="Leído">
+          <CheckCheck className={`${icon} text-sky-500`} strokeWidth={2.25} />
+        </span>
+      );
+    case "failed":
+    case "undelivered":
+      return (
+        <span title="No se entregó" aria-label="No se entregó">
+          <CircleAlert className={`${icon} text-danger`} strokeWidth={2} />
+        </span>
+      );
+    default:
+      return (
+        <span title="Enviado" aria-label="Enviado">
+          <Check className={icon} strokeWidth={2} />
+        </span>
+      );
+  }
+}
+
 function reminderBody(r: Reminder) {
   const text = r.message?.trim();
   if (text) return text;
@@ -375,11 +431,17 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
                 ? item.reply.content?.trim() || (media.length > 0 ? "" : "Mensaje sin texto.")
                 : reminderBody(item.reminder);
             const clock = chatClock(item.at);
+            const delivery = !outgoing
+              ? ""
+              : item.kind === "reminder"
+                ? item.reminder.delivery_status ?? ""
+                : item.reply.status;
+            const deliveryError = item.kind === "reminder" ? item.reminder.delivery_error : item.kind === "reply" ? item.reply.delivery_error : "";
             const meta = (
               <span className="ml-3 inline-flex translate-y-1 items-center gap-1 whitespace-nowrap align-bottom text-[11px] leading-none text-ink-muted float-right">
                 {item.kind === "reminder" ? "Recordatorio · " : ""}
                 {clock}
-                {outgoing ? <CheckCheck className="h-3.5 w-3.5 text-brand" strokeWidth={2} /> : null}
+                {outgoing ? <DeliveryTicks status={delivery} /> : null}
               </span>
             );
             return (
@@ -432,6 +494,9 @@ function MessageThread({ items, expanded = false }: { items: TimelineItem[]; exp
                     </div>
                   </div>
                 )}
+                {deliveryFailed(delivery) ? (
+                  <p className="mt-0.5 text-right text-[11px] text-danger">{deliveryProblem(deliveryError)}</p>
+                ) : null}
               </li>
             );
           })}
@@ -453,23 +518,35 @@ function emailWhen(iso: string) {
   return day && clock ? `${day} · ${clock}` : day || clock;
 }
 
+const EMAILS_PREVIEW = 3;
+
 function EmailHistory({ to, emails }: { to?: string | null; emails: Reminder[] }) {
-  const ordered = [...emails].sort((a, b) => Date.parse(b.sent_at || b.created_at) - Date.parse(a.sent_at || a.created_at));
+  const [showAll, setShowAll] = useState(false);
+  const sorted = [...emails].sort((a, b) => Date.parse(b.sent_at || b.created_at) - Date.parse(a.sent_at || a.created_at));
+  const hidden = Math.max(0, sorted.length - EMAILS_PREVIEW);
+  const ordered = showAll ? sorted : sorted.slice(0, EMAILS_PREVIEW);
   return (
     <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
       <div className="flex items-center gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface text-ink-muted">
           <Mail className="h-4 w-4" strokeWidth={2} />
         </span>
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-ink">Correos enviados</h3>
           <span className="block truncate text-xs text-ink-muted">{to?.trim() ? `Para ${to}` : "Sin correo registrado"}</span>
         </span>
+        {sorted.length > 0 ? (
+          <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">{sorted.length}</span>
+        ) : null}
       </div>
       {ordered.length === 0 ? (
         <p className="mt-4 text-sm text-ink-muted">Aún no se envían correos de este cobro.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-surface-border">
+        <ul
+          className={`mt-4 divide-y divide-surface-border${
+            showAll ? " max-h-80 overflow-y-auto pr-1 [scrollbar-width:thin]" : ""
+          }`}
+        >
           {ordered.map((r) => {
             const scheduled = r.status === "scheduled";
             return (
@@ -498,6 +575,15 @@ function EmailHistory({ to, emails }: { to?: string | null; emails: Reminder[] }
           })}
         </ul>
       )}
+      {hidden > 0 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-3 text-sm font-medium text-brand hover:underline"
+        >
+          {showAll ? "Ver menos" : `Ver ${hidden} ${hidden === 1 ? "correo anterior" : "correos anteriores"}`}
+        </button>
+      ) : null}
     </section>
   );
 }
@@ -872,17 +958,44 @@ export default function ChargeDetail() {
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-12">
         <div className="min-w-0 space-y-6 xl:col-span-7">
-          <section className="min-h-[220px] rounded-2xl border border-surface-border bg-gradient-to-br from-surface-card to-surface p-4 shadow-soft sm:p-6">
+          <section className="rounded-2xl border border-surface-border bg-gradient-to-br from-surface-card to-surface p-4 shadow-soft sm:p-6">
             <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
               <div className="space-y-4 lg:col-span-12">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Cobro #{ch.id}</h1>
-                  <StatusBadge status={ch.status} />
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Cobro #{ch.id}</h1>
+                      <StatusBadge status={ch.status} />
+                    </div>
+                    <p className="mt-1 text-sm sm:text-base">
+                      <span className="block font-medium text-ink">{ch.client_name}</span>
+                      <span className="mt-0.5 block text-ink-muted">Vence el {formatDate(ch.due_date)}</span>
+                    </p>
+                  </div>
+                  {!isPaid ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void onRemind()}
+                        disabled={timelineBusy}
+                        title="Envía ahora el recordatorio por los canales del cliente"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-medium text-ink transition-colors hover:bg-surface disabled:opacity-60"
+                      >
+                        {reminding ? <ActionSpinner /> : <BellRing className="h-4 w-4 text-ink-muted" strokeWidth={2} />}
+                        {reminding ? "Enviando…" : "Enviar recordatorio"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void onPay()}
+                        disabled={timelineBusy}
+                        className="inline-flex h-9 items-center gap-1.5 bg-brand text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-60 !min-h-0 !rounded-lg !px-3"
+                      >
+                        {paying ? <ActionSpinner /> : <CircleCheck className="h-4 w-4" strokeWidth={2} />}
+                        {paying ? "Registrando…" : "Registrar pago"}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-                <p className="text-sm sm:text-base">
-                  <span className="block font-medium text-ink">{ch.client_name}</span>
-                  <span className="mt-0.5 block text-ink-muted">Vence el {formatDate(ch.due_date)}</span>
-                </p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Monto</div>
@@ -905,6 +1018,43 @@ export default function ChargeDetail() {
                 </div>
               </div>
             </div>
+          </section>
+
+          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">Factura</h2>
+                <p className="mt-1 text-sm text-ink-muted">PDF o imagen, hasta 8 MB. El cliente la ve en el portal de pago.</p>
+              </div>
+              <div>
+                <input
+                  ref={invoiceInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void onInvoiceFile(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={uploadingInvoice}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+                  onClick={() => invoiceInputRef.current?.click()}
+                >
+                  {uploadingInvoice && <ActionSpinner />}
+                  {uploadingInvoice ? "Subiendo…" : ch.attachment_token ? "Reemplazar factura" : "Adjuntar factura"}
+                </button>
+              </div>
+            </div>
+            {ch.attachment_token ? (
+              <div className="mt-4">
+                <InvoicePreview token={ch.attachment_token} ext={ch.attachment_ext} />
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-ink-muted">Este cobro todavía no tiene factura.</p>
+            )}
           </section>
 
           <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
@@ -961,44 +1111,6 @@ export default function ChargeDetail() {
               </div>
             </form>
           </section>
-
-          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Factura</h2>
-                <p className="mt-1 text-sm text-ink-muted">PDF o imagen, hasta 8 MB. El cliente la ve en el portal de pago.</p>
-              </div>
-              <div>
-                <input
-                  ref={invoiceInputRef}
-                  type="file"
-                  accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void onInvoiceFile(file);
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={uploadingInvoice}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
-                  onClick={() => invoiceInputRef.current?.click()}
-                >
-                  {uploadingInvoice && <ActionSpinner />}
-                  {uploadingInvoice ? "Subiendo…" : ch.attachment_token ? "Reemplazar factura" : "Adjuntar factura"}
-                </button>
-              </div>
-            </div>
-            {ch.attachment_token ? (
-              <div className="mt-4">
-                <InvoicePreview token={ch.attachment_token} ext={ch.attachment_ext} />
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-ink-muted">Este cobro todavía no tiene factura.</p>
-            )}
-          </section>
-
         </div>
 
         <div className="w-full min-w-0 space-y-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
@@ -1027,37 +1139,6 @@ export default function ChargeDetail() {
           </section>
 
           <EmailHistory to={ch.client_email} emails={emailReminders} />
-
-          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Acciones rápidas</h3>
-            <p className="mt-2 text-sm text-ink-muted">Gestiona este cobro desde aquí.</p>
-            {!isPaid ? (
-              <div className="mt-4 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => void onRemind()}
-                  disabled={timelineBusy}
-                  className="inline-flex w-full items-center justify-center gap-2 bg-brand px-4 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  {reminding ? <ActionSpinner /> : null}
-                  {reminding ? "Enviando…" : "Enviar recordatorio ahora"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void onPay()}
-                  disabled={timelineBusy}
-                  className="inline-flex w-full items-center justify-center gap-2 border border-surface-border bg-surface-card px-4 text-sm font-semibold text-ink hover:bg-surface disabled:opacity-60"
-                >
-                  {paying ? <ActionSpinner /> : null}
-                  {paying ? "Registrando…" : "Registrar pago"}
-                </button>
-              </div>
-            ) : (
-              <p className="mt-4 rounded-xl border border-brand/30 bg-brand-soft px-3 py-2 text-sm text-brand">
-                Este cobro ya está marcado como cobrado.
-              </p>
-            )}
-          </section>
         </div>
       </div>
 
