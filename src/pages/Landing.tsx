@@ -2,10 +2,9 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Check, Mail, Menu, Moon, Sun, X } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
-import { getToken } from "../lib/auth";
 import { useTheme } from "../theme";
+import { CONTACT, FAQ, PLANS, SEO_TITLE } from "./landingContent";
 
-const CONTACT = "contacto@geldflus.com";
 const STEP_MS = 10000;
 
 const NAV = [
@@ -15,53 +14,6 @@ const NAV = [
   { href: "#contacto", label: "Contacto" },
 ] as const;
 
-const PLANS = [
-  {
-    name: "Esencial",
-    detail: "Para quien hoy cobra a mano.",
-    price: "$39.000",
-    features: ["Hasta 25 locales", "Avisos por WhatsApp y correo", "Enlace para pagar", "1 persona a cargo"],
-    highlight: false,
-  },
-  {
-    name: "Crecimiento",
-    detail: "Para una red con cobradores.",
-    price: "$89.000",
-    features: ["Hasta 120 locales", "Todo lo de Esencial", "Cobradores en el equipo", "Carga desde una planilla"],
-    highlight: true,
-  },
-  {
-    name: "Empresa",
-    detail: "Para una red grande.",
-    price: "$169.000",
-    features: ["Locales sin tope", "Todo lo de Crecimiento", "Varias personas a cargo", "Te acompañamos al partir"],
-    highlight: false,
-  },
-] as const;
-
-const FAQ = [
-  {
-    q: "¿Para quién es?",
-    a: "Para quien reparte a almacenes y sucursales y cobra después. Cada local queda con su encargado, su teléfono y su fecha.",
-  },
-  {
-    q: "¿El local tiene que registrarse?",
-    a: "No. Le llega el enlace, ve el monto y paga. Tú sigues en tu panel.",
-  },
-  {
-    q: "¿El local puede responder el mensaje?",
-    a: "Sí. Su respuesta queda en el mismo cobro, y tú la ves en tu panel.",
-  },
-  {
-    q: "¿Y si paga por transferencia o con cheque?",
-    a: "Lo marcas como pagado y deja de recibir avisos. El enlace es para cuando paga con tarjeta.",
-  },
-  {
-    q: "¿Tengo que cargar los locales uno por uno?",
-    a: "No. En los planes Crecimiento y Empresa los subes todos desde una planilla.",
-  },
-] as const;
-
 function mailHref() {
   const subject = "Consulta GeldFlus";
   const body = "Hola,\n\nQuiero conocer GeldFlus para cobrar a mis locales.\n\nEmpresa:\nCantidad aproximada de locales:\n\nGracias.";
@@ -69,7 +21,6 @@ function mailHref() {
 }
 
 export default function Landing() {
-  const loggedIn = !!getToken();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
   const [menu, setMenu] = useState(false);
@@ -94,7 +45,7 @@ export default function Landing() {
 
   useEffect(() => {
     const prev = document.title;
-    document.title = "GeldFlus — cobra a tus locales";
+    document.title = SEO_TITLE;
     return () => {
       document.title = prev;
     };
@@ -127,22 +78,20 @@ export default function Landing() {
         }`}
       >
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link to="/landing" aria-label="GeldFlus">
+          <Link to="/" aria-label="GeldFlus">
             <BrandLogo tone={solidNav ? "auto" : "onDark"} className="h-8" />
           </Link>
           <nav className={`hidden items-center gap-6 text-sm font-medium md:flex ${solidNav ? "text-ink-muted" : "text-[#f5f2ea]/75"}`}>
-            {!loggedIn && (
-              <a
-                href="#empezar"
-                className={`-mx-1 rounded-full px-3 py-1.5 font-semibold transition-colors ${
-                  solidNav
-                    ? "bg-brand-soft text-brand hover:bg-brand hover:text-white dark:text-[#8fd4cf]"
-                    : "bg-[#8fd4cf]/15 text-[#8fd4cf] hover:bg-[#8fd4cf] hover:text-[#141716]"
-                }`}
-              >
-                Empezar
-              </a>
-            )}
+            <a
+              href="#empezar"
+              className={`-mx-1 rounded-full px-3 py-1.5 font-semibold transition-colors ${
+                solidNav
+                  ? "bg-brand-soft text-brand hover:bg-brand hover:text-white dark:text-[#8fd4cf]"
+                  : "bg-[#8fd4cf]/15 text-[#8fd4cf] hover:bg-[#8fd4cf] hover:text-[#141716]"
+              }`}
+            >
+              Empezar
+            </a>
             {NAV.map((item) => (
               <a key={item.href} href={item.href} className={solidNav ? "hover:text-ink" : "hover:text-white"}>
                 {item.label}
@@ -150,6 +99,14 @@ export default function Landing() {
             ))}
           </nav>
           <div className="flex items-center gap-2 md:ml-6">
+            <Link
+              to="/login"
+              className={`hidden px-2 text-sm font-medium transition-colors md:inline ${
+                solidNav ? "text-ink-muted hover:text-ink" : "text-[#f5f2ea]/75 hover:text-white"
+              }`}
+            >
+              Entrar
+            </Link>
             <button
               type="button"
               onClick={toggleTheme}
@@ -163,11 +120,6 @@ export default function Landing() {
             >
               {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
-            {loggedIn && (
-              <Link to="/" className="hidden rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover sm:inline-flex">
-                Ir al panel
-              </Link>
-            )}
             <button
               type="button"
               className={`grid size-10 place-items-center rounded-xl md:hidden ${solidNav ? "text-ink" : "text-white"}`}
@@ -181,25 +133,21 @@ export default function Landing() {
         {menu && (
           <div className="border-t border-surface-border bg-surface px-4 py-4 md:hidden">
             <div className="flex flex-col gap-3 text-sm font-medium">
-              {!loggedIn && (
-                <a
-                  href="#empezar"
-                  onClick={() => setMenu(false)}
-                  className="-ml-3 w-fit rounded-full bg-brand-soft px-3 py-1.5 font-semibold text-brand dark:text-[#8fd4cf]"
-                >
-                  Empezar
-                </a>
-              )}
+              <a
+                href="#empezar"
+                onClick={() => setMenu(false)}
+                className="-ml-3 w-fit rounded-full bg-brand-soft px-3 py-1.5 font-semibold text-brand dark:text-[#8fd4cf]"
+              >
+                Empezar
+              </a>
               {NAV.map((item) => (
                 <a key={item.href} href={item.href} onClick={() => setMenu(false)} className="py-1 text-ink-muted">
                   {item.label}
                 </a>
               ))}
-              {loggedIn && (
-                <Link to="/" className="mt-2 rounded-xl bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-hover">
-                  Ir al panel
-                </Link>
-              )}
+              <Link to="/login" className="mt-1 border-t border-surface-border pt-4 text-ink">
+                Entrar
+              </Link>
             </div>
           </div>
         )}
@@ -209,7 +157,7 @@ export default function Landing() {
         <section className="land-hero relative overflow-hidden px-4 pb-16 pt-28 text-[rgb(245_242_234)] sm:px-6 sm:pb-20 sm:pt-32">
           <div className="relative mx-auto max-w-6xl">
             <div className="mx-auto max-w-3xl text-center">
-              <p className="text-sm font-semibold tracking-wide text-[#8fd4cf]">Para distribuidores</p>
+              <p className="text-sm font-semibold tracking-wide text-[#8fd4cf]">Cobranza automática para distribuidores</p>
               <h1 className="mt-4 font-display text-5xl font-medium leading-[1.05] tracking-tight text-balance sm:text-7xl">
                 Cobra a tus locales <span className="text-[#8fd4cf]">sin perseguirlos</span>
               </h1>
@@ -217,23 +165,13 @@ export default function Landing() {
                 GeldFlus le avisa a cada local antes de que venza, por WhatsApp y correo, con un enlace para pagar. Tú dejas de llamar uno por uno.
               </p>
               <div className="mt-8 flex justify-center">
-                {loggedIn ? (
-                  <Link
-                    to="/"
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover sm:w-auto"
-                  >
-                    Ir al panel
-                    <ArrowRight className="size-4" />
-                  </Link>
-                ) : (
-                  <a
-                    href="#recorrido"
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover sm:w-auto"
-                  >
-                    Cómo funciona
-                    <ArrowRight className="size-4" />
-                  </a>
-                )}
+                <a
+                  href="#recorrido"
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-white hover:bg-brand-hover sm:w-auto"
+                >
+                  Cómo funciona
+                  <ArrowRight className="size-4" />
+                </a>
               </div>
             </div>
 
@@ -349,10 +287,10 @@ export default function Landing() {
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
-                to={loggedIn ? "/" : "/register"}
+                to="/register"
                 className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#8fd4cf] px-8 text-base font-semibold text-[#141716] transition-colors hover:bg-white sm:w-auto"
               >
-                {loggedIn ? "Ir al panel" : "Quiero mi cuenta"}
+                Quiero mi cuenta
                 <ArrowRight className="size-4" />
               </Link>
               <a
@@ -461,7 +399,7 @@ export default function Landing() {
       <footer className="border-t border-surface-border px-4 py-8 sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 sm:flex-row">
           <BrandLogo className="h-7" />
-          <p className="text-xs text-ink-muted">© {new Date().getFullYear()} GeldFlus · geldflus.com/landing</p>
+          <p className="text-xs text-ink-muted">© {new Date().getFullYear()} GeldFlus · geldflus.com</p>
         </div>
       </footer>
       <style>{`

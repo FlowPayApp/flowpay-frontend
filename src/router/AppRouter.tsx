@@ -22,7 +22,6 @@ import PlatformAdmins from '../pages/PlatformAdmins';
 import PlatformPlans from '../pages/PlatformPlans';
 import PayPage from '../pages/PayPage';
 import PayReturnPage from '../pages/PayReturnPage';
-import Landing from '../pages/Landing';
 
 const AppRouter = () => {
 
@@ -51,7 +50,7 @@ const AppRouter = () => {
       <Routes>
         <Route path="/pay/:token" element={<PayPage />} />
         <Route path="/pay/:token/return" element={<PayReturnPage />} />
-        <Route path="/landing" element={<Landing />} />
+        <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/*" element={<PublicRoute />}>
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />

@@ -41,6 +41,12 @@ export default function middleware(request: Request) {
   const incoming = new URL(request.url);
   const target = upstream(incoming.pathname);
   if (!target) {
+    if (incoming.pathname === "/landing" || incoming.pathname === "/landing/") {
+      return Response.redirect(new URL("/" + incoming.search, request.url), 308);
+    }
+    if (incoming.pathname === "/") {
+      return rewrite(new URL("/landing.html", request.url));
+    }
     if (incoming.pathname.includes(".")) {
       return next();
     }
