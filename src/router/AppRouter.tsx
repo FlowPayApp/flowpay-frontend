@@ -19,6 +19,7 @@ import Profile from '../pages/Profile';
 import PlatformOverview from '../pages/PlatformOverview';
 import PlatformCompanies from '../pages/PlatformCompanies';
 import PlatformAdmins from '../pages/PlatformAdmins';
+import PlatformPlans from '../pages/PlatformPlans';
 import PayPage from '../pages/PayPage';
 import PayReturnPage from '../pages/PayReturnPage';
 
@@ -49,6 +50,7 @@ const AppRouter = () => {
       <Routes>
         <Route path="/pay/:token" element={<PayPage />} />
         <Route path="/pay/:token/return" element={<PayReturnPage />} />
+        <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/*" element={<PublicRoute />}>
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
@@ -69,6 +71,7 @@ const AppRouter = () => {
           <Route path="platform" element={<PlatformOverview />} />
           <Route path="platform/companies" element={<PlatformCompanies />} />
           <Route path="platform/admins" element={<PlatformAdmins />} />
+          <Route path="platform/plans" element={<PlatformPlans />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

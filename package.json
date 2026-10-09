@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --ssr src/entry-landing.tsx --outDir dist-ssr && node scripts/prerender-landing.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vercel/functions": "^3.9.11",
     "axios": "^1.7.9",
     "lucide-react": "^1.8.0",
     "react": "^18.3.1",

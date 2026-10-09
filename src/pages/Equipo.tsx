@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
-import { Filter, Loader2, Plus, Trash2 } from "lucide-react";
+import { Eye, Filter, Loader2, Plus, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import OpenLink from "../components/OpenLink";
+import RowMenu, { type RowMenuItem } from "../components/RowMenu";
 import { createCompanyUser, deleteCompanyUser, listCompanyUsers, type CompanyUserDTO } from "../api";
 import AppModal from "../components/AppModal";
 import AppSelect from "../components/AppSelect";
@@ -12,6 +14,7 @@ import PasswordInput from "../components/PasswordInput";
 import { useToast } from "../components/Toast";
 import { getSessionClaims } from "../lib/auth";
 import { getPasswordPolicyError, PASSWORD_POLICY_HINT } from "../lib/passwordPolicy";
+import { initials } from "../lib/initials";
 import { roleLabel } from "../lib/roles";
 
 type Role = "admin" | "member";
@@ -51,6 +54,7 @@ function RowActions({
 }
 
 export default function Equipo() {
+  const nav = useNavigate();
   const selfId = getSessionClaims()?.uid ?? 0;
   const [rows, setRows] = useState<CompanyUserDTO[]>([]);
   const [loadingRaw, setLoading] = useState(true);
@@ -237,31 +241,60 @@ export default function Equipo() {
               </label>
             </div>
           </FilterTray>
-        <div className="divide-y divide-surface-border lg:hidden">
+        <ul className="divide-y divide-surface-border lg:hidden">
           {loading ? null : pageRows.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-ink-muted">{emptyLabel}</p>
+            <li className="px-5 py-8 text-center text-sm text-ink-muted">{emptyLabel}</li>
           ) : (
-            pageRows.map((u) => (
-              <div key={u.user_id} className="flex items-start justify-between gap-3 px-4 py-4">
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-ink">{u.name}</p>
-                  <p className="truncate text-sm text-ink-muted">{u.email}</p>
-                  <p className="mt-1 text-xs text-ink-muted">
-                    {roleLabel(u.role)} · {u.is_active ? "Activo" : "Inactivo"}
-                  </p>
-                </div>
-                <RowActions
-                  user={u}
-                  selfId={selfId}
-                  onDelete={(row) => {
+            pageRows.map((u) => {
+              const actions: RowMenuItem[] = [
+                { label: "Ver detalle", icon: Eye, onSelect: () => nav(`/equipo/${u.user_id}`) },
+              ];
+              if (u.user_id !== selfId) {
+                actions.push({
+                  label: "Eliminar",
+                  icon: Trash2,
+                  danger: true,
+                  onSelect: () => {
                     setDeleteError(null);
-                    setDeleteTarget(row);
-                  }}
-                />
-              </div>
-            ))
+                    setDeleteTarget(u);
+                  },
+                });
+              }
+              return (
+                <li key={u.user_id} className={`flex items-center ${u.is_active ? "" : "opacity-75"}`}>
+                  <Link
+                    to={`/equipo/${u.user_id}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 py-3.5 pl-4 pr-2 transition-colors active:bg-surface"
+                  >
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+                      {initials(u.name)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{u.name}</p>
+                        <span className="shrink-0 rounded-full bg-surface px-2.5 py-0.5 text-[11px] font-medium text-ink-muted">
+                          {roleLabel(u.role)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-ink-muted">{u.email}</p>
+                      <p
+                        className={`mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium ${
+                          u.is_active ? "text-brand" : "text-ink-muted"
+                        }`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${u.is_active ? "bg-brand" : "bg-ink-muted"}`} />
+                        {u.is_active ? "Activo" : "Inactivo"}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="pr-2">
+                    <RowMenu label={`Acciones de ${u.name}`} items={actions} />
+                  </div>
+                </li>
+              );
+            })
           )}
-        </div>
+        </ul>
         <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">

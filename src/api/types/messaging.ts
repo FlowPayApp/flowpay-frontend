@@ -1,3 +1,5 @@
+import type { ReminderPolicy } from "./charge";
+
 export interface ReminderTemplateRowDTO {
   id?: number;
   company_id?: number;
@@ -14,4 +16,7 @@ export interface MessagingSettingsDTO {
   transfer_instructions: string;
   payment_url_template: string;
   templates: ReminderTemplateRowDTO[];
+  reminder_policy: ReminderPolicy;
+  /** Hora diaria (HH:MM) del envío automático. */
+  send_time: string;
 }

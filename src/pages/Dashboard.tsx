@@ -1,9 +1,8 @@
-import { ArrowDownRight, ArrowUpRight, CalendarClock, Clock3, TrendingUp } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CalendarClock, ChevronRight, Clock3, Eye, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { ChargeDTO, ClientDTO, DashboardResponse } from "../api";
 import { RiskBadge } from "../components/Badge";
-import OpenLink from "../components/OpenLink";
 import PageLoading from "../components/PageLoading";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
@@ -545,9 +544,10 @@ function FocusCharges({ rows, className = "" }: { rows: ChargeDTO[]; className?:
                 </div>
                 <ul className="divide-y divide-surface-border">
                   {group.items.map(({ row, days }) => (
-                    <li
-                      key={row.id}
-                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-5 py-4 transition hover:bg-surface/60 sm:px-6 md:grid-cols-[auto_minmax(0,1fr)_9.5rem_7.5rem_auto]"
+                    <li key={row.id}>
+                    <Link
+                      to={`/cobros/${row.id}`}
+                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-5 py-4 transition hover:bg-surface/60 active:bg-surface sm:px-6 md:grid-cols-[auto_minmax(0,1fr)_9.5rem_7.5rem_auto]"
                     >
                       <span className={`row-span-2 h-full min-h-10 w-1 rounded-full md:row-span-1 md:h-10 ${tone.bar}`} aria-hidden />
                       <div className="min-w-0">
@@ -568,8 +568,13 @@ function FocusCharges({ rows, className = "" }: { rows: ChargeDTO[]; className?:
                         {formatMoney(row.amount)}
                       </p>
                       <div className="col-start-3 row-start-2 flex justify-end md:col-start-auto md:row-start-auto">
-                        <OpenLink to={`/cobros/${row.id}`} />
+                        <ChevronRight className="h-4 w-4 text-ink-muted md:hidden" strokeWidth={2} />
+                        <span className="hidden h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-2.5 text-xs font-medium text-ink-muted md:inline-flex">
+                          <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+                          Ver Detalles
+                        </span>
                       </div>
+                    </Link>
                     </li>
                   ))}
                 </ul>

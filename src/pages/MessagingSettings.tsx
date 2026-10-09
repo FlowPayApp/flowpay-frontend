@@ -1,27 +1,43 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  BellRing,
+  CalendarClock,
+  ChevronDown,
+  Landmark,
+  Mail,
+  MessageCircle,
+  MessageSquareText,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { fetchCompanyMessaging, saveCompanyMessaging } from "../api";
-import type { MessagingSettingsDTO, ReminderTemplateRowDTO } from "../api";
+import type { MessagingSettingsDTO, ReminderPolicy, ReminderTemplateRowDTO } from "../api";
 import PageLoading from "../components/PageLoading";
-import AppSelect from "../components/AppSelect";
+import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import { useToast } from "../components/Toast";
+import { DEFAULT_REMINDER_POLICY, describeReminderPolicy } from "../lib/reminderPolicy";
 
 type EditableTemplate = {
   key: string;
   phase: string;
   day_min: number;
   day_max: number;
-  sort_order: number;
   email_subject: string;
   body: string;
   whatsapp_body: string;
 };
 
+type Channel = "whatsapp" | "email";
+
 const PHASE_OPTIONS: { value: string; label: string }[] = [
-  { value: "approaching", label: "Antes del vencimiento" },
-  { value: "due_today", label: "Día del vencimiento" },
-  { value: "overdue_first", label: "Primera mora" },
-  { value: "overdue_followup", label: "Seguimiento" },
+  { value: "approaching", label: "Antes de vencer" },
+  { value: "due_today", label: "Día que vence" },
+  { value: "overdue_first", label: "Recién vencido" },
+  { value: "overdue_followup", label: "Seguimiento vencido" },
 ];
 
 const MESSAGE_FIELDS: { token: string; label: string }[] = [
@@ -39,9 +55,17 @@ const URL_FIELDS: { token: string; label: string }[] = [
   { token: "{{client_id}}", label: "cliente" },
 ];
 
+const URL_SAMPLE: Record<string, string> = {
+  "{{charge_id}}": "28",
+  "{{monto_entero}}": "150000",
+  "{{client_id}}": "12",
+};
+
 const FIELD_MARK = "\u2060";
 const CHIP_CLASS =
   "mx-0.5 inline-flex items-center rounded-md bg-brand-soft px-1.5 py-0.5 align-baseline text-xs font-semibold text-brand";
+const INPUT_CLASS =
+  "w-full rounded-xl border border-surface-border bg-[rgb(var(--color-field))] px-3 py-2.5 text-sm text-ink outline-none focus:border-brand/50";
 
 function fieldLabel(token: string, fields: { token: string; label: string }[]) {
   return fields.find((field) => field.token === token)?.label ?? "Dato";
@@ -165,27 +189,10 @@ function MessageEditor({
   }
 
   return (
-    <div className="mt-1">
-      {withInserts && (
-        <div className="mb-2 flex flex-wrap gap-2">
-          {MESSAGE_FIELDS.map((field) => (
-            <button
-              key={field.token}
-              type="button"
-              className="h-9 rounded-full border border-surface-border bg-surface-card px-3 text-xs font-semibold text-ink hover:bg-surface"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                insert(field.token);
-              }}
-            >
-              {field.label}
-            </button>
-          ))}
-        </div>
-      )}
+    <div>
       <div className="relative">
         {value.trim() === "" && (
-          <span className="pointer-events-none absolute left-3 top-2 text-sm text-ink-muted">{placeholder}</span>
+          <span className="pointer-events-none absolute left-3 top-2.5 text-sm text-ink-muted">{placeholder}</span>
         )}
         <div
           ref={ref}
@@ -194,8 +201,8 @@ function MessageEditor({
           contentEditable
           suppressContentEditableWarning
           className={[
-            "w-full whitespace-pre-wrap rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
-            multiline ? "min-h-[6rem]" : "min-h-11",
+            "w-full whitespace-pre-wrap rounded-xl border border-surface-border bg-[rgb(var(--color-field))] px-3 py-2.5 text-sm leading-6 text-ink outline-none focus:border-brand/50",
+            multiline ? "min-h-[7rem]" : "min-h-11",
           ].join(" ")}
           onInput={emit}
           onKeyDown={(event) => {
@@ -218,6 +225,24 @@ function MessageEditor({
           }}
         />
       </div>
+      {withInserts && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {MESSAGE_FIELDS.map((field) => (
+            <button
+              key={field.token}
+              type="button"
+              className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-surface-border px-2.5 text-xs font-medium text-ink-muted transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                insert(field.token);
+              }}
+            >
+              <Plus className="h-3 w-3" strokeWidth={2.5} />
+              {field.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -245,20 +270,21 @@ function PaymentLinkField({ value, onChange }: { value: string; onChange: (next:
   }
 
   return (
-    <div className="mt-1">
+    <div>
       <input
         ref={ref}
         type="text"
-        className="w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
+        className={INPUT_CLASS}
         value={visible}
         onChange={(event) => onChange(visibleToTokens(event.target.value, URL_FIELDS))}
-        placeholder="https://pago.ejemplo/cobro/123"
+        placeholder="https://pago.tuempresa.cl/cobro/"
       />
       <button
         type="button"
-        className="mt-2 h-9 rounded-full border border-surface-border bg-surface-card px-3 text-xs font-semibold text-ink hover:bg-surface"
+        className="mt-2 inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-surface-border px-2.5 text-xs font-medium text-ink-muted transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand"
         onClick={insertChargeNumber}
       >
+        <Plus className="h-3 w-3" strokeWidth={2.5} />
         Número del cobro
       </button>
     </div>
@@ -270,8 +296,7 @@ function newRow(): EditableTemplate {
     key: `n-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     phase: "approaching",
     day_min: 1,
-    day_max: 30,
-    sort_order: 0,
+    day_max: 3,
     email_subject: "",
     body: "",
     whatsapp_body: "",
@@ -280,15 +305,328 @@ function newRow(): EditableTemplate {
 
 function dtoToEditable(t: ReminderTemplateRowDTO): EditableTemplate {
   return {
-    key: `e-${t.id}`,
+    key: `e-${t.id ?? Math.random().toString(36).slice(2, 9)}`,
     phase: t.phase,
     day_min: t.day_min,
     day_max: t.day_max,
-    sort_order: t.sort_order,
     email_subject: t.email_subject ?? "",
     body: t.body ?? "",
     whatsapp_body: t.whatsapp_body ?? "",
   };
+}
+
+function whenLabel(row: EditableTemplate) {
+  if (row.phase === "approaching") {
+    const lo = Math.min(row.day_min, row.day_max);
+    const hi = Math.max(row.day_min, row.day_max);
+    if (lo === hi) return lo === 1 ? "1 día antes de vencer" : `${lo} días antes de vencer`;
+    return `Entre ${lo} y ${hi} días antes de vencer`;
+  }
+  if (row.phase === "due_today") return "El día que vence";
+  if (row.phase === "overdue_first") return "Primer aviso después de vencer";
+  return "Seguimiento de cobro vencido";
+}
+
+function snapshot(transfer: string, paymentUrl: string, policy: ReminderPolicy, rows: EditableTemplate[]) {
+  return JSON.stringify({
+    transfer,
+    paymentUrl,
+    policy: { ...policy, days_before: [...policy.days_before].sort((a, b) => a - b) },
+    rows: rows.map(({ key: _key, ...row }) => row),
+  });
+}
+
+function preview(text: string, transfer: string, paymentUrl: string) {
+  const link = URL_FIELDS.reduce((url, field) => url.replaceAll(field.token, URL_SAMPLE[field.token]), paymentUrl.trim());
+  const sample: Record<string, string> = {
+    "{{monto}}": "$150.000",
+    "{{fecha_vencimiento}}": "9 oct 2026",
+    "{{nombre_sucursal}}": "Sucursal Centro",
+    "{{empresa}}": "Tu empresa",
+    "{{datos_transferencia}}": transfer.trim() || "[datos de transferencia]",
+    "{{url_pago}}": link || "[enlace de pago]",
+  };
+  return MESSAGE_FIELDS.reduce((out, field) => out.replaceAll(field.token, sample[field.token]), text);
+}
+
+function Section({
+  icon: Icon,
+  title,
+  hint,
+  aside,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  hint?: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+      <header className="flex items-center gap-3 border-b border-surface-border px-4 py-4 sm:px-6">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
+          <Icon className="h-5 w-5" strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold text-ink">{title}</h2>
+          {hint ? <p className="text-sm leading-snug text-ink-muted">{hint}</p> : null}
+        </div>
+        {aside}
+      </header>
+      <div className="px-4 py-5 sm:px-6">{children}</div>
+    </section>
+  );
+}
+
+function ChannelTag({ icon: Icon, label, filled }: { icon: LucideIcon; label: string; filled: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+        filled ? "border border-transparent bg-brand-soft text-brand" : "border border-dashed border-surface-border text-ink-muted"
+      }`}
+    >
+      <Icon className="h-3 w-3" strokeWidth={2} />
+      {label}
+    </span>
+  );
+}
+
+function ChannelHeading({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted sm:hidden">
+      <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+      {label}
+    </p>
+  );
+}
+
+function PreviewBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-4 rounded-xl bg-surface p-3">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Así lo verá tu cliente</p>
+      {children}
+    </div>
+  );
+}
+
+function TemplateCard({
+  row,
+  index,
+  total,
+  open,
+  transfer,
+  paymentUrl,
+  onToggle,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  row: EditableTemplate;
+  index: number;
+  total: number;
+  open: boolean;
+  transfer: string;
+  paymentUrl: string;
+  onToggle: () => void;
+  onChange: (patch: Partial<EditableTemplate>) => void;
+  onMove: (delta: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const [channel, setChannel] = useState<Channel>("whatsapp");
+  const hasWa = row.whatsapp_body.trim() !== "";
+  const hasMail = row.body.trim() !== "";
+
+  return (
+    <li className={`rounded-xl border transition-colors ${open ? "border-brand/30 bg-surface-card" : "border-surface-border bg-surface/40"}`}>
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface text-xs font-semibold tabular-nums text-ink-muted">
+          {index + 1}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-ink">{whenLabel(row)}</p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            <ChannelTag icon={MessageCircle} label="WhatsApp" filled={hasWa} />
+            <ChannelTag icon={Mail} label="Correo" filled={hasMail} />
+          </div>
+        </div>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-ink-muted transition-transform ${open ? "rotate-180" : ""}`} strokeWidth={2} />
+      </button>
+
+      {open && (
+        <div className="space-y-5 border-t border-surface-border px-4 py-4">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Cuándo</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Cuándo">
+              {PHASE_OPTIONS.map((option) => {
+                const on = row.phase === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() =>
+                      onChange({
+                        phase: option.value,
+                        day_min: option.value === "approaching" ? (row.phase === "approaching" ? row.day_min : 1) : 0,
+                        day_max: option.value === "approaching" ? (row.phase === "approaching" ? row.day_max : 3) : 999,
+                      })
+                    }
+                    className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-left text-sm font-medium transition-colors ${
+                      on ? "border-brand bg-brand-soft text-brand" : "border-surface-border bg-surface-card text-ink hover:bg-surface"
+                    }`}
+                  >
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                        on ? "border-brand" : "border-ink-muted/40"
+                      }`}
+                      aria-hidden
+                    >
+                      {on && <span className="h-2 w-2 rounded-full bg-brand" />}
+                    </span>
+                    <span className="leading-tight">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {row.phase === "approaching" && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink">
+                Entre
+                <input
+                  type="number"
+                  min={0}
+                  aria-label="Desde"
+                  className="h-9 w-16 rounded-lg border border-surface-border bg-[rgb(var(--color-field))] px-2 text-center text-sm tabular-nums"
+                  value={row.day_min}
+                  onChange={(e) => onChange({ day_min: Math.max(0, Number(e.target.value) || 0) })}
+                />
+                y
+                <input
+                  type="number"
+                  min={0}
+                  aria-label="Hasta"
+                  className="h-9 w-16 rounded-lg border border-surface-border bg-[rgb(var(--color-field))] px-2 text-center text-sm tabular-nums"
+                  value={row.day_max}
+                  onChange={(e) => onChange({ day_max: Math.max(0, Number(e.target.value) || 0) })}
+                />
+                días antes
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="mb-2 hidden rounded-lg border border-surface-border bg-surface p-0.5 sm:inline-flex">
+              {(
+                [
+                  { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, filled: hasWa },
+                  { id: "email", label: "Correo", icon: Mail, filled: hasMail },
+                ] as const
+              ).map((tab) => {
+                const on = channel === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setChannel(tab.id)}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors ${
+                      on ? "bg-surface-card text-ink shadow-sm" : "text-ink-muted hover:text-ink"
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                    {tab.label}
+                    {tab.filled && <span className="h-1.5 w-1.5 rounded-full bg-brand" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="space-y-6 sm:space-y-0">
+              <div className={channel === "whatsapp" ? "" : "sm:hidden"}>
+                <ChannelHeading icon={MessageCircle} label="WhatsApp" />
+                <MessageEditor
+                  value={row.whatsapp_body}
+                  placeholder="Hola, te recordamos tu pago de…"
+                  onChange={(whatsapp_body) => onChange({ whatsapp_body })}
+                />
+                {hasWa && (
+                  <PreviewBox>
+                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm bg-surface-card px-3 py-2 text-sm text-ink shadow-sm">
+                      {preview(row.whatsapp_body, transfer, paymentUrl)}
+                    </div>
+                  </PreviewBox>
+                )}
+              </div>
+
+              <div className={`border-t border-surface-border pt-5 sm:border-0 sm:pt-0 ${channel === "email" ? "" : "sm:hidden"}`}>
+                <ChannelHeading icon={Mail} label="Correo" />
+                <div className="space-y-2">
+                  <MessageEditor
+                    value={row.email_subject}
+                    multiline={false}
+                    withInserts={false}
+                    placeholder="Asunto del correo"
+                    onChange={(email_subject) => onChange({ email_subject })}
+                  />
+                  <MessageEditor
+                    value={row.body}
+                    placeholder="Hola, te recordamos tu pago de…"
+                    onChange={(body) => onChange({ body })}
+                  />
+                </div>
+                {hasMail && (
+                  <PreviewBox>
+                    <div className="rounded-lg bg-surface-card px-3 py-2.5 text-sm text-ink shadow-sm">
+                      {row.email_subject.trim() ? (
+                        <p className="mb-1.5 border-b border-surface-border pb-1.5 font-semibold">
+                          {preview(row.email_subject, transfer, paymentUrl)}
+                        </p>
+                      ) : null}
+                      <p className="whitespace-pre-wrap break-words">{preview(row.body, transfer, paymentUrl)}</p>
+                    </div>
+                  </PreviewBox>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 border-t border-surface-border pt-3">
+            <div className="flex gap-1">
+              <button
+                type="button"
+                aria-label="Subir"
+                title="Subir (tiene prioridad si coincide con otro)"
+                disabled={index === 0}
+                onClick={() => onMove(-1)}
+                className="grid h-9 w-9 place-items-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-30"
+              >
+                <ArrowUp className="h-4 w-4" strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                aria-label="Bajar"
+                title="Bajar"
+                disabled={index === total - 1}
+                onClick={() => onMove(1)}
+                className="grid h-9 w-9 place-items-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-30"
+              >
+                <ArrowDown className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-danger hover:bg-danger-soft"
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={2} />
+              Eliminar
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
+  );
 }
 
 export default function MessagingSettings() {
@@ -300,29 +638,68 @@ export default function MessagingSettings() {
   const [transfer, setTransfer] = useState("");
   const [paymentUrl, setPaymentUrl] = useState("");
   const [rows, setRows] = useState<EditableTemplate[]>([]);
+  const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
+  const [sendTime, setSendTime] = useState("");
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [baseline, setBaseline] = useState<string | null>(null);
+
+  const loaded = useRef<MessagingSettingsDTO | null>(null);
+
+  const apply = useCallback((data: MessagingSettingsDTO) => {
+    const nextTransfer = data.transfer_instructions ?? "";
+    const nextUrl = data.payment_url_template ?? "";
+    const nextPolicy = data.reminder_policy ?? DEFAULT_REMINDER_POLICY;
+    const nextRows = [...(data.templates ?? [])].sort((a, b) => a.sort_order - b.sort_order).map(dtoToEditable);
+    setTransfer(nextTransfer);
+    setPaymentUrl(nextUrl);
+    setPolicy(nextPolicy);
+    setSendTime(data.send_time ?? "");
+    setRows(nextRows);
+    setOpenKey(null);
+    setBaseline(snapshot(nextTransfer, nextUrl, nextPolicy, nextRows));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data: MessagingSettingsDTO = await fetchCompanyMessaging();
-      setTransfer(data.transfer_instructions ?? "");
-      setPaymentUrl(data.payment_url_template ?? "");
-      setRows((data.templates ?? []).map(dtoToEditable));
+      const data = await fetchCompanyMessaging();
+      loaded.current = data;
+      apply(data);
     } catch {
       setError("No se pudo cargar la configuración.");
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apply]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function onSave(e: React.FormEvent) {
-    e.preventDefault();
+  const current = useMemo(() => snapshot(transfer, paymentUrl, policy, rows), [transfer, paymentUrl, policy, rows]);
+  const dirty = baseline !== null && current !== baseline;
+
+  const patchRow = (key: string, patch: Partial<EditableTemplate>) =>
+    setRows((list) => list.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+
+  const moveRow = (index: number, delta: -1 | 1) =>
+    setRows((list) => {
+      const target = index + delta;
+      if (target < 0 || target >= list.length) return list;
+      const next = [...list];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+
+  const addRow = () => {
+    const row = newRow();
+    setRows((list) => [...list, row]);
+    setOpenKey(row.key);
+  };
+
+  async function onSave() {
     setSaving(true);
     setError(null);
     try {
@@ -330,21 +707,23 @@ export default function MessagingSettings() {
         transfer_instructions: transfer,
         payment_url_template: paymentUrl,
         templates: rows
-          .filter((r) => r.body.trim() !== "" || r.whatsapp_body.trim() !== "")
-          .map((r) => ({
+          .map((r, index) => ({ r, index }))
+          .filter(({ r }) => r.body.trim() !== "" || r.whatsapp_body.trim() !== "")
+          .map(({ r, index }) => ({
             phase: r.phase,
-            day_min: r.phase === "approaching" ? r.day_min : 0,
-            day_max: r.phase === "approaching" ? r.day_max : 999,
-            sort_order: r.sort_order,
+            day_min: r.phase === "approaching" ? Math.min(r.day_min, r.day_max) : 0,
+            day_max: r.phase === "approaching" ? Math.max(r.day_min, r.day_max) : 999,
+            sort_order: index,
             email_subject: r.email_subject,
             body: r.body,
             whatsapp_body: r.whatsapp_body,
           })),
+        reminder_policy: policy,
       });
-      toast.success("Mensajes guardados.");
+      toast.success("Cambios guardados.");
       await load();
     } catch {
-      toast.error("No se pudieron guardar los mensajes. Revisa los datos e inténtalo de nuevo.");
+      toast.error("No se pudieron guardar los cambios. Inténtalo de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -355,201 +734,120 @@ export default function MessagingSettings() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Configuración</h1>
-        <p className="mt-1 text-sm text-ink-muted">Mensajes de recordatorio de cobro.</p>
-      </div>
+    <div className={`mx-auto max-w-3xl space-y-6 ${dirty ? "pb-16 lg:pb-0" : ""}`}>
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">Configuración</h1>
 
       {error && (
         <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>
       )}
-      <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
-        <h2 className="text-lg font-semibold text-ink">Pago</h2>
-        <div className="mt-4 space-y-4">
-          <label className="block text-sm font-medium text-ink">
-            Transferencia
+
+      <Section
+        icon={BellRing}
+        title="Cuándo avisar"
+        hint={sendTime ? `Los recordatorios salen a las ${sendTime}` : undefined}
+      >
+        <ReminderPolicyFields value={policy} onChange={setPolicy} />
+        <p className="mt-5 flex items-start gap-2 rounded-xl bg-surface px-3 py-2.5 text-sm text-ink">
+          <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-brand" strokeWidth={2} />
+          {describeReminderPolicy(policy)}
+        </p>
+      </Section>
+
+      <Section
+        icon={MessageSquareText}
+        title="Qué decir"
+        hint="Lo que recibe tu cliente en cada aviso"
+        aside={
+          rows.length > 0 ? (
+            <button
+              type="button"
+              onClick={addRow}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-semibold text-ink hover:bg-surface"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+              <span className="hidden sm:inline">Nuevo mensaje</span>
+              <span className="sm:hidden">Nuevo</span>
+            </button>
+          ) : null
+        }
+      >
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-surface-border px-4 py-8 text-center">
+            <MessageSquareText className="h-8 w-8 text-ink-muted" strokeWidth={1.5} />
+            <p className="mt-3 text-sm font-medium text-ink">Usando los mensajes predeterminados</p>
+            <button
+              type="button"
+              onClick={addRow}
+              className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+              Escribir mi mensaje
+            </button>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {rows.map((row, index) => (
+              <TemplateCard
+                key={row.key}
+                row={row}
+                index={index}
+                total={rows.length}
+                open={openKey === row.key}
+                transfer={transfer}
+                paymentUrl={paymentUrl}
+                onToggle={() => setOpenKey((k) => (k === row.key ? null : row.key))}
+                onChange={(patch) => patchRow(row.key, patch)}
+                onMove={(delta) => moveRow(index, delta)}
+                onRemove={() => setRows((list) => list.filter((x) => x.key !== row.key))}
+              />
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section icon={Landmark} title="Cómo te pagan" hint="Se insertan en tus mensajes">
+        <div className="space-y-5">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-ink">Datos de transferencia</span>
             <textarea
-              className="mt-1 min-h-[5rem] w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
+              className={`${INPUT_CLASS} min-h-[6rem]`}
               value={transfer}
               onChange={(e) => setTransfer(e.target.value)}
-              placeholder="Banco, cuenta, RUT"
+              placeholder={"Banco Estado · Cuenta corriente\nN° 123456789 · RUT 76.123.456-7\npagos@tuempresa.cl"}
             />
           </label>
-          <div className="block text-sm font-medium text-ink">
-            Enlace de pago
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-ink">Enlace de pago</span>
             <PaymentLinkField value={paymentUrl} onChange={setPaymentUrl} />
           </div>
         </div>
-      </section>
+      </Section>
 
-      <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-ink">Mensajes</h2>
-          <button
-            type="button"
-            onClick={() => setRows((r) => [...r, newRow()])}
-            className="rounded-xl border border-surface-border bg-surface-card px-4 py-2 text-sm font-semibold text-ink hover:bg-surface"
-          >
-            Agregar
-          </button>
+      {dirty && (
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 lg:sticky lg:inset-x-auto lg:bottom-6">
+          <div className="flex items-center justify-between gap-3 border-t border-surface-border bg-surface-card px-4 py-2.5 shadow-[0_-8px_24px_rgba(28,25,23,0.08)] lg:rounded-2xl lg:border lg:py-3 lg:shadow-[0_16px_40px_rgba(28,25,23,0.16)]">
+            <p className="text-sm font-medium text-ink">Cambios sin guardar</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => loaded.current && apply(loaded.current)}
+                className="h-10 rounded-lg px-3 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-60"
+              >
+                Descartar
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void onSave()}
+                className="h-10 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+              >
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
+            </div>
+          </div>
         </div>
-        <p className="mt-1 text-sm text-ink-muted">
-          El correo y WhatsApp se escriben por separado. El momento del envío es el mismo.
-        </p>
-        <p className="mt-2 text-sm text-ink-muted">
-          Orden: si dos mensajes aplican a la vez, se envía el de número más bajo.
-        </p>
-
-        <div className="mt-6 space-y-6">
-          {rows.length === 0 ? (
-            <p className="text-sm text-ink-muted">Sin mensajes propios. Se usan los del sistema.</p>
-          ) : (
-            rows.map((row, idx) => (
-              <div key={row.key} className="rounded-xl border border-surface-border bg-surface/40 p-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-ink">Mensaje {idx + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => setRows((r) => r.filter((x) => x.key !== row.key))}
-                    className="text-xs font-semibold text-danger hover:underline"
-                  >
-                    Quitar
-                  </button>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-12">
-                  <label className="block text-sm font-medium text-ink sm:col-span-6">
-                    Cuándo se envía
-                    <AppSelect
-                      value={row.phase}
-                      onChange={(v) => {
-                        setRows((r) =>
-                          r.map((x) =>
-                            x.key === row.key
-                              ? {
-                                  ...x,
-                                  phase: v,
-                                  day_min: v === "approaching" ? x.day_min : 0,
-                                  day_max: v === "approaching" ? x.day_max : 999,
-                                }
-                              : x,
-                          ),
-                        );
-                      }}
-                      options={PHASE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                    />
-                  </label>
-                  <label className="block text-sm font-medium text-ink sm:col-span-2">
-                    Orden
-                    <input
-                      type="number"
-                      className="mt-1 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm"
-                      value={row.sort_order}
-                      onChange={(e) =>
-                        setRows((r) =>
-                          r.map((x) => (x.key === row.key ? { ...x, sort_order: Number(e.target.value) || 0 } : x)),
-                        )
-                      }
-                    />
-                  </label>
-                  {row.phase === "approaching" ? (
-                    <>
-                      <label className="block text-sm font-medium text-ink sm:col-span-2">
-                        Desde (días)
-                        <input
-                          type="number"
-                          min={0}
-                          className="mt-1 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm"
-                          value={row.day_min}
-                          onChange={(e) =>
-                            setRows((r) =>
-                              r.map((x) => (x.key === row.key ? { ...x, day_min: Number(e.target.value) || 0 } : x)),
-                            )
-                          }
-                        />
-                      </label>
-                      <label className="block text-sm font-medium text-ink sm:col-span-2">
-                        Hasta (días)
-                        <input
-                          type="number"
-                          min={0}
-                          className="mt-1 w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm"
-                          value={row.day_max}
-                          onChange={(e) =>
-                            setRows((r) =>
-                              r.map((x) => (x.key === row.key ? { ...x, day_max: Number(e.target.value) || 0 } : x)),
-                            )
-                          }
-                        />
-                      </label>
-                      <p className="text-xs text-ink-muted sm:col-span-12">
-                        Se envía cuando faltan entre estos días para el vencimiento.
-                      </p>
-                    </>
-                  ) : null}
-                  <div className="space-y-3 rounded-xl border border-surface-border bg-surface-card p-4 sm:col-span-12">
-                    <p className="text-sm font-semibold text-ink">Correo</p>
-                    <div className="block text-sm font-medium text-ink">
-                      Asunto
-                      <MessageEditor
-                        value={row.email_subject}
-                        multiline={false}
-                        withInserts={false}
-                        placeholder="Opcional"
-                        onChange={(email_subject) =>
-                          setRows((current) => current.map((item) => (item.key === row.key ? { ...item, email_subject } : item)))
-                        }
-                      />
-                    </div>
-                    <div className="block text-sm font-medium text-ink">
-                      Texto
-                      <MessageEditor
-                        value={row.body}
-                        placeholder="Escribe el correo"
-                        onChange={(body) =>
-                          setRows((current) => current.map((item) => (item.key === row.key ? { ...item, body } : item)))
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-surface-border bg-surface-card p-4 sm:col-span-12">
-                    <p className="text-sm font-semibold text-ink">WhatsApp</p>
-                    <div className="block text-sm font-medium text-ink">
-                      Texto
-                      <MessageEditor
-                        value={row.whatsapp_body}
-                        placeholder="Escribe el WhatsApp"
-                        onChange={(whatsapp_body) =>
-                          setRows((current) =>
-                            current.map((item) => (item.key === row.key ? { ...item, whatsapp_body } : item)),
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <form onSubmit={onSave} className="flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-xl bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
-        >
-          {saving ? "Guardando…" : "Guardar"}
-        </button>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-xl border border-surface-border bg-surface-card px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface"
-        >
-          Recargar
-        </button>
-      </form>
+      )}
     </div>
   );
 }

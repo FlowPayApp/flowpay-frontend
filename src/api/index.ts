@@ -3,6 +3,8 @@ export * from "./backend/dashboard";
 export * from "./backend/charges";
 export * from "./backend/clients";
 export * from "./backend/messaging";
+export * from "./backend/platformWhatsapp";
+export * from "./backend/platformMailbox";
 export * from "./sso/auth";
 export * from "./sso/platform";
 export * from "./payments/config";
