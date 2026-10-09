@@ -370,7 +370,7 @@ function Section({
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold text-ink">{title}</h2>
-          {hint ? <p className="truncate text-sm text-ink-muted">{hint}</p> : null}
+          {hint ? <p className="text-sm leading-snug text-ink-muted">{hint}</p> : null}
         </div>
         {aside}
       </header>
@@ -383,12 +383,30 @@ function ChannelTag({ icon: Icon, label, filled }: { icon: LucideIcon; label: st
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-        filled ? "bg-brand-soft text-brand" : "bg-surface text-ink-muted line-through decoration-ink-muted/50"
+        filled ? "border border-transparent bg-brand-soft text-brand" : "border border-dashed border-surface-border text-ink-muted"
       }`}
     >
       <Icon className="h-3 w-3" strokeWidth={2} />
       {label}
     </span>
+  );
+}
+
+function ChannelHeading({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted sm:hidden">
+      <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+      {label}
+    </p>
+  );
+}
+
+function PreviewBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-4 rounded-xl bg-surface p-3">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Así lo verá tu cliente</p>
+      {children}
+    </div>
   );
 }
 
@@ -418,7 +436,6 @@ function TemplateCard({
   const [channel, setChannel] = useState<Channel>("whatsapp");
   const hasWa = row.whatsapp_body.trim() !== "";
   const hasMail = row.body.trim() !== "";
-  const text = channel === "whatsapp" ? row.whatsapp_body : row.body;
 
   return (
     <li className={`rounded-xl border transition-colors ${open ? "border-brand/30 bg-surface-card" : "border-surface-border bg-surface/40"}`}>
@@ -440,14 +457,15 @@ function TemplateCard({
         <div className="space-y-5 border-t border-surface-border px-4 py-4">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Cuándo</p>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Cuándo">
               {PHASE_OPTIONS.map((option) => {
                 const on = row.phase === option.value;
                 return (
                   <button
                     key={option.value}
                     type="button"
-                    aria-pressed={on}
+                    role="radio"
+                    aria-checked={on}
                     onClick={() =>
                       onChange({
                         phase: option.value,
@@ -455,11 +473,19 @@ function TemplateCard({
                         day_max: option.value === "approaching" ? (row.phase === "approaching" ? row.day_max : 3) : 999,
                       })
                     }
-                    className={`h-10 rounded-lg border px-2 text-xs font-semibold transition-colors ${
-                      on ? "border-brand bg-brand text-white" : "border-surface-border bg-surface-card text-ink hover:bg-surface"
+                    className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-left text-sm font-medium transition-colors ${
+                      on ? "border-brand bg-brand-soft text-brand" : "border-surface-border bg-surface-card text-ink hover:bg-surface"
                     }`}
                   >
-                    {option.label}
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                        on ? "border-brand" : "border-ink-muted/40"
+                      }`}
+                      aria-hidden
+                    >
+                      {on && <span className="h-2 w-2 rounded-full bg-brand" />}
+                    </span>
+                    <span className="leading-tight">{option.label}</span>
                   </button>
                 );
               })}
@@ -490,7 +516,7 @@ function TemplateCard({
           </div>
 
           <div>
-            <div className="mb-2 inline-flex rounded-lg border border-surface-border bg-surface p-0.5">
+            <div className="mb-2 hidden rounded-lg border border-surface-border bg-surface p-0.5 sm:inline-flex">
               {(
                 [
                   { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, filled: hasWa },
@@ -516,51 +542,53 @@ function TemplateCard({
               })}
             </div>
 
-            {channel === "whatsapp" ? (
-              <MessageEditor
-                key="wa"
-                value={row.whatsapp_body}
-                placeholder="Hola, te recordamos tu pago de…"
-                onChange={(whatsapp_body) => onChange({ whatsapp_body })}
-              />
-            ) : (
-              <div className="space-y-2">
+            <div className="space-y-6 sm:space-y-0">
+              <div className={channel === "whatsapp" ? "" : "sm:hidden"}>
+                <ChannelHeading icon={MessageCircle} label="WhatsApp" />
                 <MessageEditor
-                  key="subject"
-                  value={row.email_subject}
-                  multiline={false}
-                  withInserts={false}
-                  placeholder="Asunto del correo"
-                  onChange={(email_subject) => onChange({ email_subject })}
-                />
-                <MessageEditor
-                  key="mail"
-                  value={row.body}
+                  value={row.whatsapp_body}
                   placeholder="Hola, te recordamos tu pago de…"
-                  onChange={(body) => onChange({ body })}
+                  onChange={(whatsapp_body) => onChange({ whatsapp_body })}
                 />
-              </div>
-            )}
-
-            {text.trim() !== "" && (
-              <div className="mt-4 rounded-xl bg-surface p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Así lo verá tu cliente</p>
-                {channel === "whatsapp" ? (
-                  <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm bg-surface-card px-3 py-2 text-sm text-ink shadow-sm">
-                    {preview(row.whatsapp_body, transfer, paymentUrl)}
-                  </div>
-                ) : (
-                  <div className="rounded-lg bg-surface-card px-3 py-2.5 text-sm text-ink shadow-sm">
-                    {row.email_subject.trim() ? (
-                      <p className="mb-1.5 border-b border-surface-border pb-1.5 font-semibold">
-                        {preview(row.email_subject, transfer, paymentUrl)}
-                      </p>
-                    ) : null}
-                    <p className="whitespace-pre-wrap break-words">{preview(row.body, transfer, paymentUrl)}</p>
-                  </div>
+                {hasWa && (
+                  <PreviewBox>
+                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm bg-surface-card px-3 py-2 text-sm text-ink shadow-sm">
+                      {preview(row.whatsapp_body, transfer, paymentUrl)}
+                    </div>
+                  </PreviewBox>
                 )}
               </div>
-            )}
+
+              <div className={`border-t border-surface-border pt-5 sm:border-0 sm:pt-0 ${channel === "email" ? "" : "sm:hidden"}`}>
+                <ChannelHeading icon={Mail} label="Correo" />
+                <div className="space-y-2">
+                  <MessageEditor
+                    value={row.email_subject}
+                    multiline={false}
+                    withInserts={false}
+                    placeholder="Asunto del correo"
+                    onChange={(email_subject) => onChange({ email_subject })}
+                  />
+                  <MessageEditor
+                    value={row.body}
+                    placeholder="Hola, te recordamos tu pago de…"
+                    onChange={(body) => onChange({ body })}
+                  />
+                </div>
+                {hasMail && (
+                  <PreviewBox>
+                    <div className="rounded-lg bg-surface-card px-3 py-2.5 text-sm text-ink shadow-sm">
+                      {row.email_subject.trim() ? (
+                        <p className="mb-1.5 border-b border-surface-border pb-1.5 font-semibold">
+                          {preview(row.email_subject, transfer, paymentUrl)}
+                        </p>
+                      ) : null}
+                      <p className="whitespace-pre-wrap break-words">{preview(row.body, transfer, paymentUrl)}</p>
+                    </div>
+                  </PreviewBox>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-2 border-t border-surface-border pt-3">
@@ -706,7 +734,7 @@ export default function MessagingSettings() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className={`mx-auto max-w-3xl space-y-6 ${dirty ? "pb-16 lg:pb-0" : ""}`}>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Configuración</h1>
 
       {error && (
@@ -796,8 +824,8 @@ export default function MessagingSettings() {
       </Section>
 
       {dirty && (
-        <div className="sticky bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-20 lg:bottom-6">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 shadow-[0_16px_40px_rgba(28,25,23,0.16)]">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 lg:sticky lg:inset-x-auto lg:bottom-6">
+          <div className="flex items-center justify-between gap-3 border-t border-surface-border bg-surface-card px-4 py-2.5 shadow-[0_-8px_24px_rgba(28,25,23,0.08)] lg:rounded-2xl lg:border lg:py-3 lg:shadow-[0_16px_40px_rgba(28,25,23,0.16)]">
             <p className="text-sm font-medium text-ink">Cambios sin guardar</p>
             <div className="flex gap-2">
               <button

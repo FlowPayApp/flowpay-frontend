@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import type { ReminderPolicy } from "../api";
 import { OVERDUE_UNLIMITED } from "../lib/reminderPolicy";
 import AppSelect from "./AppSelect";
@@ -43,7 +44,7 @@ export default function ReminderPolicyFields({
     <div className="space-y-4">
       <fieldset>
         <legend className="text-sm font-medium text-ink">Antes del vencimiento</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {days.map((d) => {
             const on = value.days_before.includes(d);
             return (
@@ -53,11 +54,19 @@ export default function ReminderPolicyFields({
                 aria-pressed={on}
                 disabled={disabled}
                 onClick={() => toggleDay(d)}
-                className={`h-9 rounded-full border px-3 text-xs font-semibold transition-colors disabled:opacity-60 ${
-                  on ? "border-brand bg-brand text-white" : "border-surface-border bg-surface-card text-ink hover:bg-surface"
+                className={`flex h-11 items-center gap-2.5 rounded-xl border px-3 text-left text-sm font-medium transition-colors disabled:opacity-60 ${
+                  on ? "border-brand bg-brand-soft text-brand" : "border-surface-border bg-surface-card text-ink hover:bg-surface"
                 }`}
               >
-                {chipLabel(d)}
+                <span
+                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors ${
+                    on ? "border-brand bg-brand text-white" : "border-ink-muted/40 bg-surface-card"
+                  }`}
+                  aria-hidden
+                >
+                  {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                </span>
+                <span className="truncate">{chipLabel(d)}</span>
               </button>
             );
           })}
