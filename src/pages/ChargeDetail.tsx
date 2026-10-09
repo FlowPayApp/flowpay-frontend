@@ -1320,9 +1320,10 @@ export default function ChargeDetail() {
         ← Volver a cobros
       </Link>
 
+      {/* Bajo xl las columnas se disuelven (contents) para que el chat quede segundo, justo después del resumen. */}
       <div className="grid min-w-0 gap-6 xl:grid-cols-12">
-        <div className="min-w-0 space-y-6 xl:col-span-7">
-          <section className="rounded-2xl border border-surface-border bg-gradient-to-br from-surface-card to-surface p-4 shadow-soft sm:p-6">
+        <div className="contents xl:block xl:min-w-0 xl:col-span-7 xl:space-y-6">
+          <section className="order-1 min-w-0 rounded-2xl border border-surface-border bg-gradient-to-br from-surface-card to-surface p-4 shadow-soft sm:p-6">
             <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
               <div className="space-y-4 lg:col-span-12">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1399,7 +1400,7 @@ export default function ChargeDetail() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+          <section className="order-3 min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-ink">Factura</h2>
@@ -1436,9 +1437,11 @@ export default function ChargeDetail() {
             )}
           </section>
 
-          <ChargeRemindersCard charge={ch} onSave={onSaveReminders} />
+          <div className="order-4 min-w-0">
+            <ChargeRemindersCard charge={ch} onSave={onSaveReminders} />
+          </div>
 
-          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+          <section className="order-5 min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
             <h2 className="text-lg font-semibold text-ink">Editar datos del cobro</h2>
             <p className="mt-1 text-sm text-ink-muted">
               Actualiza sucursal o punto de venta, fecha y monto. Para cambiar el estado usa{" "}
@@ -1483,8 +1486,8 @@ export default function ChargeDetail() {
           </section>
         </div>
 
-        <div className="w-full min-w-0 space-y-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
-          <section className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+        <div className="contents xl:block xl:w-full xl:min-w-[min(100%,20rem)] xl:col-span-5 xl:space-y-6">
+          <section className="order-2 min-w-0 overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
             {threadOpen ? (
               <p className="px-4 py-10 text-center text-sm text-ink-muted">La conversación está abierta en grande.</p>
             ) : (
@@ -1508,7 +1511,9 @@ export default function ChargeDetail() {
             )}
           </section>
 
-          <EmailHistory to={ch.client_email} emails={emailReminders} />
+          <div className="order-6 min-w-0">
+            <EmailHistory to={ch.client_email} emails={emailReminders} />
+          </div>
         </div>
       </div>
 

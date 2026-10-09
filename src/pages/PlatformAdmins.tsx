@@ -16,8 +16,10 @@ import FilterTray from "../components/FilterTray";
 import IconActionButton from "../components/IconActionButton";
 import ResetPasswordModal, { type ResetPasswordModalState } from "../components/ResetPasswordModal";
 import PageLoading from "../components/PageLoading";
+import RowMenu from "../components/RowMenu";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { useToast } from "../components/Toast";
+import { initials } from "../lib/initials";
 import { useMinLoading } from "../lib/useMinLoading";
 
 function isAdminActive(a: CompanyAdminDTO): boolean {
@@ -211,7 +213,7 @@ export default function PlatformAdmins() {
               <button
                 type="button"
                 aria-expanded={openFilters}
-                className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium ${
+                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium sm:flex-none ${
                   openFilters
                     ? "border-brand/40 bg-brand-soft text-brand"
                     : "border-surface-border bg-surface-card text-ink-muted hover:bg-surface hover:text-ink"
@@ -223,7 +225,7 @@ export default function PlatformAdmins() {
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover"
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover sm:flex-none"
                 onClick={() => {
                   setError(null);
                   setOpenCreateModal(true);
@@ -283,7 +285,56 @@ export default function PlatformAdmins() {
               </label>
             </div>
           </FilterTray>
-        <div className="min-w-0 overflow-x-auto">
+        <ul className="divide-y divide-surface-border lg:hidden">
+          {filteredAdmins.length === 0 ? (
+            <li className="px-4 py-10 text-center text-sm text-ink-muted">No hay admins para los filtros aplicados.</li>
+          ) : (
+            filteredAdmins.map((a) => (
+              <li key={a.user_id} className={`flex items-center gap-3 py-3.5 pl-4 pr-2 ${!isAdminActive(a) ? "opacity-75" : ""}`}>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+                  {initials(a.name)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold text-ink">{a.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-ink-muted">{a.email}</p>
+                  <p className="mt-0.5 truncate text-xs font-medium text-ink">{a.company_name}</p>
+                </div>
+                <ToggleSwitch
+                  checked={isAdminActive(a)}
+                  onCheckedChange={(next) => {
+                    if (next !== isAdminActive(a)) void onToggleActive(a.user_id, next);
+                  }}
+                  disabled={tableBusy}
+                  aria-label={isAdminActive(a) ? "Usuario activo" : "Usuario inactivo"}
+                />
+                <RowMenu
+                  label={`Acciones de ${a.name}`}
+                  items={[
+                    {
+                      label: "Nueva contraseña",
+                      icon: KeyRound,
+                      onSelect: () => setResetPwdModal({ phase: "confirm", userId: a.user_id, email: a.email }),
+                    },
+                    {
+                      label: "Editar",
+                      icon: Pencil,
+                      onSelect: () =>
+                        setEditModal({
+                          user_id: a.user_id,
+                          company_id: a.company_id,
+                          company_name: a.company_name,
+                          email: a.email,
+                          name: a.name,
+                        }),
+                    },
+                    { label: "Borrar", icon: Trash2, danger: true, onSelect: () => setDeleteTarget(a) },
+                  ]}
+                />
+              </li>
+            ))
+          )}
+        </ul>
+        <div className="hidden min-w-0 overflow-x-auto lg:block">
           <table className="w-full min-w-[640px] table-fixed border-collapse text-xs sm:text-sm">
             <colgroup>
               <col className="w-[22%]" />

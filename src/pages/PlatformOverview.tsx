@@ -134,7 +134,40 @@ export default function PlatformOverview() {
             </span>
           </div>
         </div>
-        <div className="min-w-0 overflow-x-auto">
+        <ul className="divide-y divide-surface-border lg:hidden">
+          {companies.map((c) => {
+            const base = c.owed_amount > 0 ? c.owed_amount : 0;
+            const pct = (v: number) => (base > 0 ? Math.max(0, Math.min(100, (v / base) * 100)) : 0);
+            const parts = [
+              { label: "Cobrado", value: c.paid_amount, text: "text-brand", bar: "bg-brand" },
+              { label: "Pendiente", value: c.pending_amount, text: "text-warn", bar: "bg-warn" },
+              { label: "Vencido", value: c.overdue_amount, text: "text-danger", bar: "bg-danger" },
+            ];
+            return (
+              <li key={c.company_id} className="px-4 py-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{c.company_name}</p>
+                  <p className="shrink-0 text-[15px] font-semibold tabular-nums text-ink">{formatMoney(c.owed_amount)}</p>
+                </div>
+                <div className="mt-2.5 flex h-1.5 overflow-hidden rounded-full bg-surface">
+                  {parts.map((p) => (
+                    <span key={p.label} className={p.bar} style={{ width: `${pct(p.value)}%` }} />
+                  ))}
+                </div>
+                <dl className="mt-2.5 grid grid-cols-3 gap-2 text-xs">
+                  {parts.map((p) => (
+                    <div key={p.label} className="min-w-0">
+                      <dt className="text-ink-muted">{p.label}</dt>
+                      <dd className={`mt-0.5 truncate font-semibold tabular-nums ${p.text}`}>{formatMoney(p.value)}</dd>
+                      <dd className={`text-[11px] ${p.text}`}>{pct(p.value).toFixed(1)}%</dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden min-w-0 overflow-x-auto lg:block">
           <table className="w-full min-w-[760px] table-fixed border-collapse text-xs sm:text-sm">
             <colgroup>
               <col className="w-[30%]" />

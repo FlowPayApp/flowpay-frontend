@@ -15,6 +15,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { getSessionClaims, getToken, logout } from "../lib/auth";
+import { useScrollLock } from "../lib/useScrollLock";
 import BrandLogo from "./BrandLogo";
 import InboxBell from "./InboxBell";
 import { InboxProvider } from "./InboxProvider";
@@ -107,6 +108,7 @@ export default function Layout() {
   const isPlatformAdmin = role === "platform_admin";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
   const [moreOpen, setMoreOpen] = useState(false);
+  useScrollLock(moreOpen);
   const items = isPlatformAdmin ? platformNav : companyNavItems(role);
   const tabs = mobileTabs(isPlatformAdmin);
   const overflow = moreLinks(role, isPlatformAdmin);
@@ -183,8 +185,8 @@ export default function Layout() {
 
   const content = (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
-      <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b border-surface-border bg-surface-card px-4 pb-1 lg:hidden">
-        <BrandLogo className="mb-1 h-7" />
+      <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-between border-b border-surface-border bg-surface-card px-4 pt-[env(safe-area-inset-top)] lg:hidden">
+        <BrandLogo className="h-7" />
         {showInbox && <InboxBell />}
       </header>
 
@@ -249,7 +251,7 @@ export default function Layout() {
       {moreOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-ink/40 lg:hidden"
+          className="fixed inset-0 z-40 touch-none bg-ink/40 lg:hidden"
           aria-label="Cerrar menú"
           onClick={() => setMoreOpen(false)}
         />

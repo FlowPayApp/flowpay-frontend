@@ -1,5 +1,6 @@
-import { Filter, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Eye, Filter, Loader2, Plus, ReceiptText, Trash2, Upload } from "lucide-react";
 import OpenLink from "../components/OpenLink";
+import RowMenu, { type RowMenuItem } from "../components/RowMenu";
 import { useMinLoading } from "../lib/useMinLoading";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -13,6 +14,7 @@ import FilterTray from "../components/FilterTray";
 import PageLoading from "../components/PageLoading";
 import TablePagination from "../components/TablePagination";
 import { useToast } from "../components/Toast";
+import { initials } from "../lib/initials";
 import { isCompanyAdmin } from "../lib/roles";
 import { PAYMENT_METHODS } from "../lib/paymentMethods";
 
@@ -20,7 +22,6 @@ function dash(v: string | null | undefined) {
   const s = (v ?? "").trim();
   return s.length > 0 ? s : "—";
 }
-
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
@@ -214,6 +215,21 @@ export default function Clients() {
     return "border border-transparent bg-[rgb(15_110_107)] text-white";
   };
 
+  const clientStatusText = (c: ClientDTO) => {
+    if (hasNoCharges(c)) return { text: "text-ink-muted", dot: "bg-ink-muted" };
+    if (c.overdue_count > 0) return { text: "text-danger", dot: "bg-danger" };
+    if (c.total_owed > 0) return { text: "text-warn", dot: "bg-warn" };
+    return { text: "text-brand", dot: "bg-brand" };
+  };
+
+  const openClientCharges = (c: ClientDTO) => {
+    const params = new URLSearchParams();
+    params.set("client_id", String(c.id));
+    params.set("client", chargeCounterpartyLabel(c));
+    params.set("status", clientStatusFilter(c));
+    nav(`/cobros?${params.toString()}`);
+  };
+
   return (
     <div className="mx-auto w-full max-w-[100rem] space-y-6">
       {error && !open && (
@@ -309,44 +325,54 @@ export default function Clients() {
               No hay clientes para los filtros seleccionados.
             </li>
           ) : (
-            paginatedRows.map((c) => (
-              <li key={c.id} className={`px-4 py-4 ${!isClientActive(c) ? "opacity-75" : ""}`}>
-                <Link to={`/clients/${c.id}`} className="block min-w-0 active:opacity-80">
-                  <p className="truncate text-base font-semibold text-ink">{dash(c.branch_name)}</p>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {dash(c.client_code)}
-                    {admin ? ` · ${dash(c.seller_name)}` : ""}
-                  </p>
-                  <p className="mt-0.5 line-clamp-2 text-sm text-ink">{dash(c.address)}</p>
-                </Link>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className={`inline-flex h-7 items-center rounded-full px-2.5 text-xs font-semibold ${clientStatusTone(c)}`}
-                    onClick={() => {
-                      const params = new URLSearchParams();
-                      params.set("client_id", String(c.id));
-                      params.set("client", chargeCounterpartyLabel(c));
-                      params.set("status", clientStatusFilter(c));
-                      nav(`/cobros?${params.toString()}`);
-                    }}
+            paginatedRows.map((c) => {
+              const tone = clientStatusText(c);
+              const actions: RowMenuItem[] = [
+                { label: "Ver detalle", icon: Eye, onSelect: () => nav(`/clients/${c.id}`) },
+                { label: "Ver cobros", icon: ReceiptText, onSelect: () => openClientCharges(c) },
+              ];
+              if (admin) {
+                actions.push({
+                  label: "Eliminar",
+                  icon: Trash2,
+                  danger: true,
+                  onSelect: () => {
+                    setDeleteError(null);
+                    setDeleteTarget(c);
+                  },
+                });
+              }
+              return (
+                <li key={c.id} className={`flex items-center ${!isClientActive(c) ? "opacity-75" : ""}`}>
+                  <Link
+                    to={`/clients/${c.id}`}
+                    className="flex min-w-0 flex-1 items-start gap-3 py-3.5 pl-4 pr-2 transition-colors active:bg-surface"
                   >
-                    {clientStatusLabel(c)}
-                  </button>
-                  <RiskBadge level={c.risk_level} compact />
-                </div>
-                <div className="mt-3 flex justify-end">
-                  <ClientRowActions
-                    client={c}
-                    canDelete={admin}
-                    onDelete={(row) => {
-                      setDeleteError(null);
-                      setDeleteTarget(row);
-                    }}
-                  />
-                </div>
-              </li>
-            ))
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+                      {initials(c.branch_name)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{dash(c.branch_name)}</p>
+                        <RiskBadge level={c.risk_level} />
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-ink-muted">
+                        {dash(c.client_code)}
+                        {admin ? ` · ${dash(c.seller_name)}` : ""}
+                        {c.address?.trim() ? ` · ${c.address.trim()}` : ""}
+                      </p>
+                      <p className={`mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium ${tone.text}`}>
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
+                        {clientStatusLabel(c)}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="self-center pr-2">
+                    <RowMenu label={`Acciones de ${dash(c.branch_name)}`} items={actions} />
+                  </div>
+                </li>
+              );
+            })
           )}
         </ul>
         <div className="hidden overflow-x-auto lg:block">
@@ -393,13 +419,7 @@ export default function Clients() {
                       <button
                         type="button"
                         className={`inline-flex h-7 items-center rounded-full px-2.5 text-xs font-semibold transition hover:brightness-95 ${clientStatusTone(c)}`}
-                        onClick={() => {
-                          const params = new URLSearchParams();
-                          params.set("client_id", String(c.id));
-                          params.set("client", chargeCounterpartyLabel(c));
-                          params.set("status", clientStatusFilter(c));
-                          nav(`/cobros?${params.toString()}`);
-                        }}
+                        onClick={() => openClientCharges(c)}
                       >
                         {clientStatusLabel(c)}
                       </button>

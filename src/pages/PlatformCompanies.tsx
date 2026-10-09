@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Building2, Check, Filter, Mail, Pencil, Plus, Trash2, UserCog, Users, X } from "lucide-react";
+import { Building2, Check, Filter, Mail, MessageCircle, Pencil, Plus, Trash2, UserCog, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   assignCompanyMailbox,
@@ -20,9 +20,11 @@ import AppSelect from "../components/AppSelect";
 import FilterTray from "../components/FilterTray";
 import IconActionButton from "../components/IconActionButton";
 import PageLoading from "../components/PageLoading";
+import RowMenu from "../components/RowMenu";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { useToast } from "../components/Toast";
 import { formatMoney } from "../lib/format";
+import { initials } from "../lib/initials";
 import { useMinLoading } from "../lib/useMinLoading";
 
 function isCompanyActive(c: CompanyDTO): boolean {
@@ -315,6 +317,24 @@ export default function PlatformCompanies() {
     });
   }, [rows, filters]);
 
+  const openWaEdit = (c: CompanyDTO) =>
+    setWaEdit({ id: c.id, name: c.name, phone: displayWhatsApp(waByCompany[c.id] ?? "") });
+
+  const openMailEdit = (c: CompanyDTO) => {
+    const current = mailByCompany[c.id];
+    setMailEdit({
+      id: c.id,
+      name: c.name,
+      from_name: current?.from_name ?? "",
+      from_email: current?.from_email ?? "",
+      smtp_host: current?.smtp_host ?? "",
+      smtp_port: current?.smtp_port || "587",
+      smtp_username: current?.smtp_username ?? "",
+      smtp_password: "",
+      password_set: Boolean(current?.password_set),
+    });
+  };
+
   const stats = useMemo(() => {
     const total = rows.length;
     const active = rows.filter((c) => isCompanyActive(c)).length;
@@ -343,7 +363,7 @@ export default function PlatformCompanies() {
               <button
                 type="button"
                 aria-expanded={openFilters}
-                className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium ${
+                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium sm:flex-none ${
                   openFilters
                     ? "border-brand/40 bg-brand-soft text-brand"
                     : "border-surface-border bg-surface-card text-ink-muted hover:bg-surface hover:text-ink"
@@ -355,7 +375,7 @@ export default function PlatformCompanies() {
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover"
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover sm:flex-none"
                 onClick={() => {
                   setError(null);
                   setOpenCreateModal(true);
@@ -397,7 +417,90 @@ export default function PlatformCompanies() {
               </label>
             </div>
           </FilterTray>
-        <div className="min-w-0 overflow-x-auto">
+        <ul className="divide-y divide-surface-border lg:hidden">
+          {filteredRows.length === 0 ? (
+            <li className="px-4 py-10 text-center text-sm text-ink-muted">No hay empresas para los filtros aplicados.</li>
+          ) : (
+            filteredRows.map((c) => {
+              const active = isCompanyActive(c);
+              const status = c.is_active === false ? (c.requested_plan && !c.approved ? "Pendiente" : "Inactiva") : "Activa";
+              const plan = [labelFor(c.requested_plan), c.price_clp_override != null || c.commission_percent_override != null ? "a medida" : ""]
+                .filter(Boolean)
+                .join(" · ");
+              const wa = waByCompany[c.id];
+              const mail = mailByCompany[c.id]?.from_email;
+              return (
+                <li key={c.id} className={`py-3.5 pl-4 pr-2 ${active ? "" : "opacity-80"}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+                      {initials(c.name)}
+                    </span>
+                    {editing?.id === c.id ? (
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <input
+                          className="h-9 w-full min-w-0 rounded-lg border border-surface-border px-2.5 text-sm"
+                          value={editing.name}
+                          onChange={(e) => setEditing({ id: c.id, name: e.target.value })}
+                          autoFocus
+                        />
+                        <IconActionButton icon={Check} label="Guardar nombre" variant="accent" disabled={busy} onClick={() => void onSaveEdit()} />
+                        <IconActionButton icon={X} label="Cancelar edición" disabled={busy} onClick={() => setEditing(null)} />
+                      </div>
+                    ) : (
+                      <>
+                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openCommercial(c)}>
+                          <p className="truncate text-[15px] font-semibold text-ink">{c.name}</p>
+                          <p className="mt-0.5 truncate text-xs text-ink-muted">
+                            {c.contact_email || c.contact_name || "Sin correo de contacto"}
+                          </p>
+                          <p className={`mt-0.5 truncate text-xs font-medium ${active ? "text-brand" : "text-ink-muted"}`}>
+                            {status}
+                            {plan ? <span className="font-normal text-ink-muted"> · {plan}</span> : null}
+                          </p>
+                        </button>
+                        <ToggleSwitch
+                          checked={active}
+                          onCheckedChange={(next) => {
+                            if (next !== active) void onSetActive(c.id, next);
+                          }}
+                          disabled={busy}
+                          aria-label={active ? "Empresa activa" : "Empresa inactiva"}
+                        />
+                        <RowMenu
+                          label={`Acciones de ${c.name}`}
+                          items={[
+                            { label: "Condiciones", icon: Building2, onSelect: () => openCommercial(c) },
+                            { label: "WhatsApp", icon: MessageCircle, onSelect: () => openWaEdit(c) },
+                            { label: "Correo de envío", icon: Mail, onSelect: () => openMailEdit(c) },
+                            { label: "Editar nombre", icon: Pencil, onSelect: () => setEditing({ id: c.id, name: c.name }) },
+                            { label: "Borrar", icon: Trash2, danger: true, onSelect: () => setDeleteTarget(c) },
+                          ]}
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div className="ml-[3.25rem] mt-2 flex flex-wrap gap-x-3 gap-y-1 pr-2 text-xs text-ink-muted">
+                    <span>
+                      <span className="font-medium tabular-nums text-ink">{c.client_count ?? 0}</span> clientes
+                    </span>
+                    <span>
+                      <span className="font-medium tabular-nums text-ink">{c.admin_count ?? 0}</span> admins
+                    </span>
+                    <button type="button" className="inline-flex items-center gap-1 text-brand" onClick={() => openWaEdit(c)}>
+                      <MessageCircle className="h-3.5 w-3.5" strokeWidth={2} />
+                      {wa ? displayWhatsApp(wa) : "Asignar WhatsApp"}
+                    </button>
+                    <button type="button" className="inline-flex min-w-0 max-w-full items-center gap-1 text-brand" onClick={() => openMailEdit(c)}>
+                      <Mail className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                      <span className="truncate">{mail || "Asignar correo"}</span>
+                    </button>
+                  </div>
+                </li>
+              );
+            })
+          )}
+        </ul>
+        <div className="hidden min-w-0 overflow-x-auto lg:block">
           <table className="w-full min-w-[980px] table-fixed border-collapse text-xs sm:text-sm">
             <colgroup>
               <col className="w-[6%]" />
@@ -460,13 +563,7 @@ export default function PlatformCompanies() {
                       <button
                         type="button"
                         className="max-w-full truncate rounded-lg px-2 py-1 font-mono text-xs text-brand hover:bg-brand-soft"
-                        onClick={() =>
-                          setWaEdit({
-                            id: c.id,
-                            name: c.name,
-                            phone: displayWhatsApp(waByCompany[c.id] ?? ""),
-                          })
-                        }
+                        onClick={() => openWaEdit(c)}
                       >
                         {waByCompany[c.id] ? displayWhatsApp(waByCompany[c.id]) : "Asignar"}
                       </button>
@@ -475,20 +572,7 @@ export default function PlatformCompanies() {
                       <button
                         type="button"
                         className="inline-flex max-w-full items-center gap-1 truncate rounded-lg px-2 py-1 text-xs text-brand hover:bg-brand-soft"
-                        onClick={() => {
-                          const current = mailByCompany[c.id];
-                          setMailEdit({
-                            id: c.id,
-                            name: c.name,
-                            from_name: current?.from_name ?? "",
-                            from_email: current?.from_email ?? "",
-                            smtp_host: current?.smtp_host ?? "",
-                            smtp_port: current?.smtp_port || "587",
-                            smtp_username: current?.smtp_username ?? "",
-                            smtp_password: "",
-                            password_set: Boolean(current?.password_set),
-                          });
-                        }}
+                        onClick={() => openMailEdit(c)}
                       >
                         <Mail className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">{mailByCompany[c.id]?.from_email || "Asignar"}</span>
