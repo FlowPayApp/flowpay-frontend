@@ -2,14 +2,20 @@ const chip = "inline-flex h-6 shrink-0 items-center justify-center rounded-full 
 const statusChip =
   "inline-flex h-7 shrink-0 items-center justify-center rounded-full px-3 text-xs font-semibold leading-none text-white";
 
-export function StatusBadge({ status }: { status: "pending" | "paid" | "overdue" | string | undefined }) {
+export function StatusBadge({
+  status,
+  compact = false,
+}: {
+  status: "pending" | "paid" | "overdue" | string | undefined;
+  compact?: boolean;
+}) {
   const map: Record<string, { label: string; className: string }> = {
     pending: { label: "Pendiente", className: "bg-[rgb(122_84_32)]" },
     paid: { label: "Cobrado", className: "bg-[rgb(15_110_107)]" },
     overdue: { label: "Vencido", className: "bg-[rgb(142_58_46)]" },
   };
   const m = status && map[status] ? map[status] : map.pending;
-  return <span className={`${statusChip} ${m.className}`}>{m.label}</span>;
+  return <span className={`${statusChip} ${compact ? "!h-6 !px-2.5 !text-[11px]" : ""} ${m.className}`}>{m.label}</span>;
 }
 
 export function RiskBadge({ level, compact = false }: { level: "low" | "medium" | "high"; compact?: boolean }) {

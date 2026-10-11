@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
-import { Filter, Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Eye, Filter, Loader2, Plus, Trash2 } from "lucide-react";
 import OpenLink from "../components/OpenLink";
-import { Link, useSearchParams } from "react-router-dom";
-import { createCharge, deleteCharge, fetchCharges, fetchClients } from "../api";
-import type { ChargeDTO, ClientDTO } from "../api";
+import RowMenu from "../components/RowMenu";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { createCharge, deleteCharge, fetchCharges, fetchClients, fetchCompanyMessaging } from "../api";
+import type { ChargeDTO, ClientDTO, ReminderMode, ReminderPolicy } from "../api";
 import AppModal from "../components/AppModal";
 import AppDatePicker from "../components/AppDatePicker";
 import AppSelect from "../components/AppSelect";
 import { StatusBadge } from "../components/Badge";
 import FilterTray from "../components/FilterTray";
 import PageLoading from "../components/PageLoading";
+import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import TablePagination from "../components/TablePagination";
 import { useToast } from "../components/Toast";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
+import { DEFAULT_REMINDER_POLICY, describeReminderPolicy, reminderChannelOptions } from "../lib/reminderPolicy";
 import { isCompanyAdmin } from "../lib/roles";
+
+const EMPTY_REMINDERS = { mode: "company" as ReminderMode, channel: "" };
 
 function normalizeClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -59,6 +64,7 @@ function ChargeRowActions({
 }
 
 export default function Cobros() {
+  const nav = useNavigate();
   const admin = isCompanyAdmin();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClientID = Number(searchParams.get("client_id") || 0);
@@ -71,6 +77,9 @@ export default function Cobros() {
   const [open, setOpen] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
   const [form, setForm] = useState({ client_id: "", amount: "", due_date: "" });
+  const [reminders, setReminders] = useState(EMPTY_REMINDERS);
+  const [companyPolicy, setCompanyPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
+  const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
   const [filters, setFilters] = useState<{ client: string; status: "all" | "pending" | "paid" | "overdue" }>({
     client: queryClientName,
     status: queryStatus,
@@ -91,6 +100,13 @@ export default function Cobros() {
   useEffect(() => {
     load();
     fetchClients().then(setClients);
+    fetchCompanyMessaging()
+      .then((data) => {
+        if (data.reminder_policy) setCompanyPolicy(data.reminder_policy);
+      })
+      .catch(() => {
+        /* se muestra la frecuencia por defecto */
+      });
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -101,9 +117,13 @@ export default function Cobros() {
         client_id: Number(form.client_id),
         amount: parseClpInput(form.amount),
         due_date: form.due_date,
+        reminder_mode: reminders.mode,
+        reminder_channel: reminders.channel,
+        ...(reminders.mode === "custom" ? { reminder_policy: policy } : {}),
       });
       setOpen(false);
       setForm({ client_id: "", amount: "", due_date: "" });
+      setReminders(EMPTY_REMINDERS);
       toast.success("Cobro creado.");
       setLoading(true);
       await load();
@@ -160,7 +180,7 @@ export default function Cobros() {
               <button
                 type="button"
                 aria-expanded={openFilters}
-                className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium ${
+                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium sm:flex-none ${
                   openFilters
                     ? "border-brand/40 bg-brand-soft text-brand"
                     : "border-surface-border bg-surface-card text-ink-muted hover:bg-surface hover:text-ink"
@@ -173,7 +193,7 @@ export default function Cobros() {
               <button
                 type="button"
                 onClick={() => setOpen(true)}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-hover"
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-hover sm:flex-none"
               >
                 <Plus className="h-4 w-4" strokeWidth={2.5} />
                 Crear
@@ -236,27 +256,44 @@ export default function Cobros() {
             </li>
           ) : (
             paginatedRows.map((row) => (
-              <li key={row.id} className="px-4 py-4">
-                <Link to={`/cobros/${row.id}`} className="block active:opacity-80">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="min-w-0 truncate font-semibold text-ink">{row.client_name}</p>
-                    <StatusBadge status={row.status} />
+              <li key={row.id} className="flex items-center">
+                <Link
+                  to={`/cobros/${row.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 py-3.5 pl-4 pr-3 transition-colors active:bg-surface"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{row.client_name}</p>
+                      <p className="shrink-0 text-[15px] font-semibold tabular-nums text-ink">{formatMoney(row.amount)}</p>
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate text-xs text-ink-muted">
+                        #{row.id} · Vence {formatDate(row.due_date)}
+                      </p>
+                      <StatusBadge status={row.status} compact />
+                    </div>
                   </div>
-                  <p className="mt-2 text-lg font-semibold tabular-nums text-ink">{formatMoney(row.amount)}</p>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    Vence {formatDate(row.due_date)} · #{row.id}
-                  </p>
+                  {!admin && <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" strokeWidth={2} />}
                 </Link>
-                <div className="mt-3 flex justify-end">
-                  <ChargeRowActions
-                    charge={row}
-                    canDelete={admin}
-                    onDelete={(charge) => {
-                      setDeleteError(null);
-                      setDeleteTarget(charge);
-                    }}
-                  />
-                </div>
+                {admin && (
+                  <div className="pr-2">
+                    <RowMenu
+                      label={`Acciones del cobro #${row.id}`}
+                      items={[
+                        { label: "Ver detalle", icon: Eye, onSelect: () => nav(`/cobros/${row.id}`) },
+                        {
+                          label: "Eliminar",
+                          icon: Trash2,
+                          danger: true,
+                          onSelect: () => {
+                            setDeleteError(null);
+                            setDeleteTarget(row);
+                          },
+                        },
+                      ]}
+                    />
+                  </div>
+                )}
               </li>
             ))
           )}
@@ -419,6 +456,40 @@ export default function Cobros() {
                   onChange={(due_date) => setForm((f) => ({ ...f, due_date }))}
                 />
               </div>
+              <fieldset className="space-y-3 rounded-xl border border-surface-border p-3">
+                <legend className="px-1 text-sm font-medium text-ink">Recordatorios automáticos</legend>
+                <AppSelect
+                  className="w-full"
+                  value={reminders.mode}
+                  onChange={(mode) => {
+                    if (mode === "custom" && reminders.mode !== "custom") setPolicy(companyPolicy);
+                    setReminders((r) => ({ ...r, mode: mode as ReminderMode }));
+                  }}
+                  options={[
+                    { value: "company", label: "Como la empresa" },
+                    { value: "custom", label: "Personalizados para este cobro" },
+                    { value: "off", label: "Desactivados" },
+                  ]}
+                />
+                {reminders.mode !== "off" ? (
+                  <label className="block text-xs text-ink-muted">
+                    Canal
+                    <AppSelect
+                      value={reminders.channel}
+                      onChange={(channel) => setReminders((r) => ({ ...r, channel }))}
+                      options={reminderChannelOptions(
+                        activeClients.find((c) => String(c.id) === form.client_id)?.followup_channel,
+                      )}
+                    />
+                  </label>
+                ) : null}
+                {reminders.mode === "custom" ? <ReminderPolicyFields value={policy} onChange={setPolicy} /> : null}
+                <p className="text-xs text-ink-muted">
+                  {reminders.mode === "off"
+                    ? "Solo se enviarán los recordatorios que mandes a mano."
+                    : describeReminderPolicy(reminders.mode === "custom" ? policy : companyPolicy)}
+                </p>
+              </fieldset>
               {error && <p className="text-sm text-danger">{error}</p>}
               <div className="flex justify-end gap-2 pt-2">
                 <button

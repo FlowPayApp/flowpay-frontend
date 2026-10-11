@@ -9,6 +9,7 @@ import {
   type PaymentPortalResponse,
   type PortalCharge,
 } from "../api";
+import BrandLogo from "../components/BrandLogo";
 import PageLoading from "../components/PageLoading";
 import ThemeToggle from "../components/ThemeToggle";
 import { formatDate, formatMoney } from "../lib/format";
@@ -216,7 +217,7 @@ export default function PayPage() {
       </div>
       <div className="mx-auto w-full max-w-6xl">
         <header className="mb-8 pr-12">
-          <p className="font-display text-xl font-medium tracking-tight text-ink">FlowPay</p>
+          <BrandLogo className="h-8" />
         </header>
 
         {isPaymentMock() && (

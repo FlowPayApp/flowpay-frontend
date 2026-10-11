@@ -17,13 +17,13 @@ export default function ToggleSwitch({ checked, onCheckedChange, disabled, "aria
       onClick={() => onCheckedChange(!checked)}
       className={[
         "relative h-7 w-12 min-h-0 shrink-0 rounded-full p-0 transition-colors duration-300 ease-in-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
-        checked ? "bg-brand" : "bg-surface-border",
+        checked ? "bg-brand" : "bg-[rgb(120_113_108)]",
         disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
       ].join(" ")}
     >
       <span
         className={[
-          "pointer-events-none absolute left-1 top-1 block h-5 w-5 rounded-full bg-surface-card ring-1 ring-surface-border transition-transform duration-300 ease-in-out",
+          "pointer-events-none absolute left-1 top-1 block h-5 w-5 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-transform duration-300 ease-in-out",
           checked ? "translate-x-5 shadow-md" : "translate-x-0 shadow-sm",
         ].join(" ")}
       />

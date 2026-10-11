@@ -1,4 +1,4 @@
-import { AlertCircle, Download, RefreshCw, Upload } from "lucide-react";
+import { AlertCircle, Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -178,7 +178,49 @@ export default function ClientLoads() {
         <PageLoading />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-sm">
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-surface-border lg:hidden">
+            {rows.length === 0 ? (
+              <li className="px-4 py-10 text-center text-sm text-ink-muted">
+                Aún no hay cargas registradas. Usa «Importar archivo» arriba para cargar tu primera planilla Excel.
+              </li>
+            ) : (
+              rows.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 px-4 py-3.5">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
+                    <FileSpreadsheet className="h-[18px] w-[18px]" strokeWidth={2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate text-[15px] font-semibold text-ink" title={r.filename ?? undefined}>
+                        {r.filename?.trim() ? r.filename : sourceLabel(r.source)}
+                      </p>
+                      <span className="shrink-0 text-xs text-ink-muted">{formatWhen(r.created_at)}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      <span className="font-medium tabular-nums text-ink">{r.created_count}</span> nuevos ·{" "}
+                      <span className="font-medium tabular-nums text-ink">{r.updated_count}</span> actualizados
+                    </p>
+                    {r.error_count > 0 ? (
+                      <button
+                        type="button"
+                        className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-warn"
+                        onClick={() => openErrors(r.id)}
+                      >
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                        {r.error_count} {r.error_count === 1 ? "error" : "errores"} · Ver detalle
+                      </button>
+                    ) : (
+                      <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-brand">
+                        <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+                        Sin errores
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-surface-border bg-surface/80 text-xs uppercase tracking-wide text-ink-muted">

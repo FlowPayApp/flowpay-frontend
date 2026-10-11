@@ -1,5 +1,5 @@
 import { api } from "../client";
-import type { MessagingSettingsDTO } from "../types";
+import type { MessagingSettingsDTO, ReminderPolicy } from "../types";
 
 export async function fetchCompanyMessaging() {
   const { data } = await api.get<MessagingSettingsDTO>("/api/company/messaging");
@@ -18,6 +18,7 @@ export async function saveCompanyMessaging(payload: {
     body: string;
     whatsapp_body: string;
   }[];
+  reminder_policy?: ReminderPolicy;
 }) {
   await api.put("/api/company/messaging", payload);
 }

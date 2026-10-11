@@ -1,4 +1,15 @@
-export type { ChargeStatus, ChargeDTO, Reminder, ChargeInboundWhatsApp } from "./charge";
+export type {
+  ChargeStatus,
+  ChargeDTO,
+  Reminder,
+  ReminderChannel,
+  ReminderMode,
+  ReminderPolicy,
+  ChargeRemindersPayload,
+  ChargeInboundWhatsApp,
+  Inbox,
+  UnreadThread,
+} from "./charge";
 export type {
   ClientDTO,
   UpdateClientPayload,
@@ -12,6 +23,7 @@ export type {
   PlatformOverviewResponse,
   CompanyDTO,
   CompanyAdminDTO,
+  SignupPlan,
 } from "./platform";
 export type { ReminderTemplateRowDTO, MessagingSettingsDTO } from "./messaging";
 export type { MyProfileDTO } from "./profile";

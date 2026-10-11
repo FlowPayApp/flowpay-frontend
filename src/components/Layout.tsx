@@ -1,7 +1,7 @@
 import {
+  BadgePercent,
   Building2,
   ChevronLeft,
-  ChevronRight,
   CircleUserRound,
   LayoutDashboard,
   LogOut,
@@ -15,8 +15,21 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { getSessionClaims, getToken, logout } from "../lib/auth";
+import { useScrollLock } from "../lib/useScrollLock";
+import BrandLogo from "./BrandLogo";
+import InboxBell from "./InboxBell";
+import { InboxProvider } from "./InboxProvider";
 
 const SIDEBAR_COLLAPSED_KEY = "flowpay-sidebar-collapsed";
+
+/** Curva de desaceleración: arranca rápido y se asienta suave. */
+const SIDEBAR_MOTION = "duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
+const SIDEBAR_FADE = "transition-opacity duration-200 motion-reduce:transition-none";
+
+/** Al abrir, el texto aparece cuando ya hay espacio; al cerrar, se va antes de que el ancho lo corte. */
+function fadeIn(visible: boolean) {
+  return visible ? "opacity-100 delay-100" : "opacity-0";
+}
 
 type NavItem = {
   to: string;
@@ -54,7 +67,7 @@ function mobileTabs(isPlatformAdmin: boolean): NavItem[] {
 }
 
 function moreLinks(role: string, isPlatformAdmin: boolean): NavItem[] {
-  if (isPlatformAdmin) return [];
+  if (isPlatformAdmin) return [{ to: "/platform/plans", label: "Planes", icon: BadgePercent }];
   if (role !== "admin") return [];
   return [{ to: "/equipo", label: "Equipo", icon: UserCog }];
 }
@@ -63,6 +76,7 @@ const platformNav: NavItem[] = [
   { to: "/platform", end: true, label: "Inicio", icon: LayoutDashboard },
   { to: "/platform/companies", label: "Empresas", icon: Building2 },
   { to: "/platform/admins", label: "Admins", icon: UserCog },
+  { to: "/platform/plans", label: "Planes", icon: BadgePercent },
 ];
 
 function readCollapsed(): boolean {
@@ -94,10 +108,12 @@ export default function Layout() {
   const isPlatformAdmin = role === "platform_admin";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
   const [moreOpen, setMoreOpen] = useState(false);
+  useScrollLock(moreOpen);
   const items = isPlatformAdmin ? platformNav : companyNavItems(role);
   const tabs = mobileTabs(isPlatformAdmin);
   const overflow = moreLinks(role, isPlatformAdmin);
   const isCompanyAdmin = role === "admin" && !isPlatformAdmin;
+  const showInbox = hasToken && !isPlatformAdmin;
   const settingsActive = isCompanyAdmin && tabActive(location.pathname, { to: "/mensajes", label: "Configuración", icon: Settings });
   const profileActive = tabActive(location.pathname, { to: "/perfil", end: true, label: "Perfil", icon: CircleUserRound });
   const moreActive = overflow.some((item) => tabActive(location.pathname, item)) || settingsActive || profileActive;
@@ -119,19 +135,20 @@ export default function Layout() {
     return () => window.removeEventListener("keydown", onKey);
   }, [moreOpen]);
 
-  const linkClass = ({ isActive }: { isActive: boolean }, collapsed: boolean) =>
+  const collapsed = sidebarCollapsed;
+  const rowClass = (isActive: boolean) =>
     [
-      "group relative flex items-center gap-3 rounded-lg text-sm font-semibold transition-colors",
-      collapsed ? "min-h-11 justify-center px-2" : "min-h-11 px-3",
+      "relative flex min-h-11 w-full items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg px-3.5 text-sm font-semibold transition-colors",
       isActive ? "bg-brand-soft text-brand" : "text-ink-muted hover:bg-surface hover:text-ink",
     ].join(" ");
+  const label = (text: string) => <span className={`${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}>{text}</span>;
 
   const signOut = () => {
     logout();
     nav("/login", { replace: true });
   };
 
-  const accountSection = (collapsed: boolean) => {
+  const accountSection = () => {
     if (!hasToken) {
       return (
         <div className="mt-auto rounded-xl border border-dashed border-surface-border p-3 text-center text-xs text-ink-muted">
@@ -141,152 +158,89 @@ export default function Layout() {
         </div>
       );
     }
-    if (collapsed) {
-      return (
-        <div className="mt-auto space-y-2">
-          <NavLink
-            to="/perfil"
-            end
-            title="Perfil"
-            aria-label="Perfil"
-            className={({ isActive }) =>
-              [
-                "flex min-h-11 w-full items-center justify-center rounded-lg",
-                isActive ? "bg-brand-soft text-brand" : "text-ink-muted hover:bg-surface hover:text-ink",
-              ].join(" ")
-            }
-          >
-            <CircleUserRound className="h-5 w-5" strokeWidth={2} />
-          </NavLink>
-          {isCompanyAdmin && (
-            <NavLink
-              to="/mensajes"
-              title="Configuración"
-              aria-label="Configuración"
-              className={({ isActive }) =>
-                [
-                  "flex min-h-11 w-full items-center justify-center rounded-lg",
-                  isActive ? "bg-brand-soft text-brand" : "text-ink-muted hover:bg-surface hover:text-ink",
-                ].join(" ")
-              }
-            >
-              <Settings className="h-5 w-5" strokeWidth={2} />
-            </NavLink>
-          )}
-          <button
-            type="button"
-            title="Cerrar sesión"
-            aria-label="Cerrar sesión"
-            className="flex min-h-11 w-full items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink"
-            onClick={signOut}
-          >
-            <LogOut className="h-5 w-5" strokeWidth={2} />
-          </button>
-        </div>
-      );
-    }
     return (
       <div className="mt-auto space-y-1 border-t border-surface-border pt-4">
-        <NavLink
-          to="/perfil"
-          end
-          className={({ isActive }) =>
-            [
-              "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold",
-              isActive ? "bg-brand-soft text-brand" : "text-ink-muted hover:bg-surface hover:text-ink",
-            ].join(" ")
-          }
-        >
-          <CircleUserRound className="h-5 w-5" strokeWidth={2} />
-          Perfil
+        <NavLink to="/perfil" end title={collapsed ? "Perfil" : undefined} className={({ isActive }) => rowClass(isActive)}>
+          <CircleUserRound className="h-5 w-5 shrink-0" strokeWidth={2} />
+          {label("Perfil")}
         </NavLink>
+        {showInbox && <InboxBell variant="sidebar" collapsed={collapsed} />}
         {isCompanyAdmin && (
           <NavLink
             to="/mensajes"
-            className={({ isActive }) =>
-              [
-                "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold",
-                isActive ? "bg-brand-soft text-brand" : "text-ink-muted hover:bg-surface hover:text-ink",
-              ].join(" ")
-            }
+            title={collapsed ? "Configuración" : undefined}
+            className={({ isActive }) => rowClass(isActive)}
           >
-            <Settings className="h-5 w-5" strokeWidth={2} />
-            Configuración
+            <Settings className="h-5 w-5 shrink-0" strokeWidth={2} />
+            {label("Configuración")}
           </NavLink>
         )}
-        <button
-          type="button"
-          className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-ink-muted hover:bg-surface hover:text-ink"
-          onClick={signOut}
-        >
-          <LogOut className="h-5 w-5" strokeWidth={2} />
-          Cerrar sesión
+        <button type="button" title={collapsed ? "Cerrar sesión" : undefined} className={rowClass(false)} onClick={signOut}>
+          <LogOut className="h-5 w-5 shrink-0" strokeWidth={2} />
+          {label("Cerrar sesión")}
         </button>
       </div>
     );
   };
 
-  return (
+  const content = (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
-      <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b border-surface-border bg-surface-card px-4 pb-2 lg:hidden">
-        <p className="font-display text-xl font-medium tracking-tight text-ink">FlowPay</p>
+      <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-between border-b border-surface-border bg-surface-card px-4 pt-[env(safe-area-inset-top)] lg:hidden">
+        <BrandLogo className="h-7" />
+        {showInbox && <InboxBell />}
       </header>
 
       <aside
         className={[
-          "hidden shrink-0 flex-col border-r border-surface-border bg-surface-card lg:sticky lg:top-0 lg:flex lg:h-dvh",
-          sidebarCollapsed ? "w-[4.5rem] px-2 py-5" : "w-60 px-3 py-6",
+          "hidden shrink-0 flex-col border-r border-surface-border bg-surface-card px-3 py-6 lg:sticky lg:top-0 lg:z-20 lg:flex lg:h-dvh",
+          `transition-[width] ${SIDEBAR_MOTION}`,
+          collapsed ? "w-[4.5rem]" : "w-60",
         ].join(" ")}
       >
-        {sidebarCollapsed ? (
-          <div className="flex flex-col items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand font-display text-lg text-white"
-              title="FlowPay"
-            >
-              F
-            </div>
-            <button
-              type="button"
-              title="Expandir menú"
-              aria-label="Expandir menú"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink"
-              onClick={() => setSidebarCollapsed(false)}
-            >
-              <ChevronRight className="h-5 w-5" strokeWidth={2} />
-            </button>
+        <div className="relative h-10 overflow-hidden" title={collapsed ? "GeldFlus" : undefined}>
+          <div
+            className={`absolute inset-y-0 left-0 flex w-[13.5rem] items-center justify-center ${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}
+            aria-hidden={collapsed}
+          >
+            <BrandLogo className="h-8" />
           </div>
-        ) : (
-          <div className="flex items-center justify-between gap-2 px-2">
-            <p className="font-display text-2xl font-medium tracking-tight text-ink">FlowPay</p>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                title="Ocultar menú"
-                aria-label="Ocultar menú lateral"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink"
-                onClick={() => setSidebarCollapsed(true)}
-              >
-                <ChevronLeft className="h-5 w-5" strokeWidth={2} />
-              </button>
+          <div
+            className={`absolute inset-y-0 left-0 grid w-12 place-items-center ${SIDEBAR_FADE} ${fadeIn(collapsed)}`}
+            aria-hidden={!collapsed}
+          >
+            <div className="grid h-9 w-9 place-items-center dark:rounded-lg dark:bg-white">
+              <BrandLogo variant="mark" tone="color" className="h-7" />
             </div>
           </div>
-        )}
+        </div>
+        <button
+          type="button"
+          title={collapsed ? "Mostrar menú" : "Ocultar menú"}
+          aria-label={collapsed ? "Mostrar menú lateral" : "Ocultar menú lateral"}
+          aria-expanded={!collapsed}
+          className="absolute -right-3.5 top-[1.875rem] z-10 grid h-7 w-7 place-items-center rounded-full border border-surface-border bg-surface-card text-ink-muted shadow-sm transition-colors hover:border-brand hover:text-brand"
+          onClick={() => setSidebarCollapsed((value) => !value)}
+        >
+          <ChevronLeft
+            className={`h-4 w-4 transition-transform ${SIDEBAR_MOTION} ${collapsed ? "rotate-180" : ""}`}
+            strokeWidth={2}
+          />
+        </button>
 
-        <nav className={`mt-8 flex flex-1 flex-col gap-1 ${sidebarCollapsed ? "" : ""}`}>
+        <nav className="mt-8 flex flex-1 flex-col gap-1">
           {items.map((item) => (
             <NavLink
               key={item.to + (item.end ? "-e" : "")}
               to={item.to}
               end={item.end}
-              title={sidebarCollapsed ? item.label : undefined}
-              className={(p) => linkClass(p, sidebarCollapsed)}
+              title={collapsed ? item.label : undefined}
+              className={({ isActive }) => rowClass(isActive)}
             >
               <item.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
-              {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+              {label(item.label)}
             </NavLink>
           ))}
-          {accountSection(sidebarCollapsed)}
+          {accountSection()}
         </nav>
       </aside>
 
@@ -297,7 +251,7 @@ export default function Layout() {
       {moreOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-ink/40 lg:hidden"
+          className="fixed inset-0 z-40 touch-none bg-ink/40 lg:hidden"
           aria-label="Cerrar menú"
           onClick={() => setMoreOpen(false)}
         />
@@ -396,4 +350,6 @@ export default function Layout() {
       </div>
     </div>
   );
+
+  return showInbox ? <InboxProvider>{content}</InboxProvider> : content;
 }

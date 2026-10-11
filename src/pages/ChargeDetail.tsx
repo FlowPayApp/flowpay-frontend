@@ -1,26 +1,62 @@
-import { useEffect, useRef, useState } from "react";
+import axios from "axios";
+import {
+  BellRing,
+  Check,
+  CheckCheck,
+  ChevronDown,
+  CircleAlert,
+  CircleCheck,
+  Clock3,
+  FileText,
+  Image as ImageIcon,
+  Mail,
+  Maximize2,
+  MessageCircle,
+  Paperclip,
+  RotateCcw,
+  SendHorizontal,
+  X,
+} from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { Link, useParams } from "react-router-dom";
 import {
   fetchCharge,
+  fetchChargeInboundMedia,
   fetchChargeInboundWhatsApp,
   fetchClients,
   fetchReminders,
+  markChargeRead,
   patchCharge,
   recordPayment,
+  sendChargeWhatsAppFile,
+  sendChargeWhatsAppReply,
   sendReminderNow,
   uploadChargeAttachment,
 } from "../api";
-import type { ChargeDTO, ChargeInboundWhatsApp, ClientDTO, Reminder } from "../api";
+import type {
+  ChargeDTO,
+  ChargeInboundWhatsApp,
+  ChargeRemindersPayload,
+  ClientDTO,
+  Reminder,
+  ReminderChannel,
+  ReminderMode,
+  ReminderPolicy,
+} from "../api";
 import AppModal from "../components/AppModal";
+import { notifyInboxChanged } from "../components/InboxProvider";
 import { useToast, type ToastNotice } from "../components/Toast";
 import InvoicePreview from "../components/InvoicePreview";
 import AppDatePicker from "../components/AppDatePicker";
 import AppSelect from "../components/AppSelect";
 import PageLoading from "../components/PageLoading";
 import { StatusBadge } from "../components/Badge";
+import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
-import { formatDate, formatDateTime, formatMoney } from "../lib/format";
+import { formatDate, formatMoney } from "../lib/format";
+import { DEFAULT_REMINDER_POLICY, describeReminderPolicy, reminderChannelOptions } from "../lib/reminderPolicy";
+import { isCompanyAdmin } from "../lib/roles";
 
 function normalizeClpInput(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -38,21 +74,877 @@ function ActionSpinner() {
   return <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />;
 }
 
-function timelineLabel(r: Reminder) {
-  if (r.status === "scheduled") {
-    return "Recordatorio automático programado";
-  }
-  if (r.status === "sent") {
-    return r.channel === "email" ? "Email enviado (simulado)" : "WhatsApp enviado (simulado)";
-  }
-  return r.kind;
-}
-
 type TimelineItem =
   | { kind: "reminder"; at: string; id: string; reminder: Reminder }
   | { kind: "reply"; at: string; id: string; reply: ChargeInboundWhatsApp };
 
-type TimelineModal = { mode: "reminder"; reminder: Reminder } | { mode: "reply"; reply: ChargeInboundWhatsApp };
+function chatClock(iso: string) {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  return new Date(t).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+}
+
+function chatDayLabel(iso: string) {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const d = new Date(t);
+  const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((start(new Date()) - start(d)) / 86_400_000);
+  if (diff === 0) return "Hoy";
+  if (diff === 1) return "Ayer";
+  return d.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" });
+}
+
+const LIVE_MS = 5000;
+const CHAT_FILE_MAX = 5 * 1024 * 1024;
+const CHAT_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const CHAT_FILE_ACCEPT = "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf";
+
+function fileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+}
+
+/** Devuelve el motivo si el archivo no se puede enviar por WhatsApp. */
+function chatFileProblem(file: File) {
+  if (!CHAT_FILE_TYPES.includes(file.type)) return "Solo puedes enviar fotos JPG o PNG, o un PDF.";
+  if (file.size > CHAT_FILE_MAX) return "El archivo puede pesar hasta 5 MB.";
+  return null;
+}
+
+function AttachedFile({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const isImage = file.type.startsWith("image/");
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isImage) return;
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file, isImage]);
+
+  return (
+    <div className="mb-2 flex items-center gap-3 rounded-xl bg-surface-card px-2.5 py-2 shadow-sm">
+      {preview ? (
+        <img src={preview} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+      ) : (
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand">
+          {isImage ? <ImageIcon className="h-5 w-5" strokeWidth={2} /> : <FileText className="h-5 w-5" strokeWidth={2} />}
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-ink">{file.name}</span>
+        <span className="block text-xs text-ink-muted">{fileSize(file.size)}</span>
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Quitar archivo"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-muted hover:bg-surface hover:text-ink lg:h-9 lg:w-9"
+      >
+        <X className="h-4 w-4" strokeWidth={2} />
+      </button>
+    </div>
+  );
+}
+
+const COMPOSER_MAX_HEIGHT = 128;
+
+function ReplyComposer({
+  id,
+  value,
+  onChange,
+  file,
+  onFile,
+  onSubmit,
+  sending,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  file: File | null;
+  onFile: (file: File | null) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  sending: boolean;
+}) {
+  const picker = useRef<HTMLInputElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const canSend = !sending && (value.trim() !== "" || !!file);
+
+  useLayoutEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
+  }, [value]);
+
+  return (
+    <form onSubmit={onSubmit} className="border-t border-surface-border bg-surface-card px-3 py-2.5">
+      {file && <AttachedFile file={file} onRemove={() => onFile(null)} />}
+      <div className="flex items-end gap-2">
+        <button
+          type="button"
+          onClick={() => picker.current?.click()}
+          disabled={sending}
+          aria-label="Adjuntar foto o PDF"
+          title="Adjuntar foto o PDF (hasta 5 MB)"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface hover:text-ink disabled:opacity-60"
+        >
+          <Paperclip className="h-5 w-5" strokeWidth={2} />
+        </button>
+        <label className="sr-only" htmlFor={id}>
+          Escribe un mensaje
+        </label>
+        <textarea
+          ref={field}
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onPaste={(e) => {
+            const pasted = Array.from(e.clipboardData.files)[0];
+            if (pasted) {
+              e.preventDefault();
+              onFile(pasted);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
+          rows={1}
+          maxLength={1000}
+          placeholder={file ? "Agrega un texto (opcional)" : "Escribe un mensaje"}
+          className="min-w-0 flex-1 resize-none rounded-[1.375rem] border border-surface-border bg-surface px-4 py-2.5 text-sm leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-brand/50"
+        />
+        <input
+          ref={picker}
+          type="file"
+          accept={CHAT_FILE_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            onFile(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!canSend}
+          aria-label="Enviar"
+          title="Enviar"
+          className="grid h-11 w-11 shrink-0 place-items-center bg-brand text-white transition-colors hover:bg-brand-hover disabled:bg-surface-border disabled:text-ink-muted !rounded-full !p-0"
+        >
+          {sending ? <ActionSpinner /> : <SendHorizontal className="h-5 w-5" strokeWidth={2} />}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+type AttachmentKind = "image" | "audio" | "video" | "pdf" | "file";
+
+function attachmentKind(contentType: string): AttachmentKind {
+  const type = contentType.split(";")[0].trim().toLowerCase();
+  if (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(type)) return "image";
+  if (type.startsWith("audio/")) return "audio";
+  if (type.startsWith("video/")) return "video";
+  if (type === "application/pdf") return "pdf";
+  return "file";
+}
+
+function MessageAttachment({
+  chargeId,
+  messageId,
+  index,
+  contentType,
+  fileName,
+}: {
+  chargeId: number;
+  messageId: number;
+  index: number;
+  contentType: string;
+  fileName?: string;
+}) {
+  const kind = attachmentKind(contentType);
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    let objectUrl = "";
+    fetchChargeInboundMedia(chargeId, messageId, index)
+      .then((blob) => {
+        if (!alive) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [chargeId, messageId, index]);
+
+  if (failed) {
+    return <p className="px-1.5 py-1 text-xs text-ink-muted">No se pudo cargar el archivo.</p>;
+  }
+  if (!url) {
+    return (
+      <div
+        className={`animate-pulse rounded-lg bg-ink/10 ${kind === "image" || kind === "video" ? "h-48 w-64 max-w-full" : "h-14 w-64 max-w-full"}`}
+        aria-label="Cargando archivo"
+      />
+    );
+  }
+  if (kind === "image") {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="block">
+        <img src={url} alt="Imagen del mensaje" className="max-h-80 w-full max-w-[18rem] rounded-lg object-cover" />
+      </a>
+    );
+  }
+  if (kind === "audio") {
+    return <audio controls src={url} className="w-64 max-w-full" />;
+  }
+  if (kind === "video") {
+    return <video controls src={url} className="max-h-80 w-full max-w-[18rem] rounded-lg" />;
+  }
+  const isPdf = kind === "pdf";
+  return (
+    <a
+      href={url}
+      {...(isPdf ? { target: "_blank", rel: "noreferrer" } : { download: fileName || `adjunto-${messageId}-${index + 1}` })}
+      className="flex w-64 max-w-full items-center gap-3 rounded-lg bg-ink/5 px-3 py-2.5 transition-colors hover:bg-ink/10"
+    >
+      <span className="grid h-10 w-9 shrink-0 place-items-center rounded-md bg-danger text-[10px] font-bold text-white">
+        {isPdf ? "PDF" : <Paperclip className="h-4 w-4" strokeWidth={2} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-ink">{fileName || (isPdf ? "Documento.pdf" : "Archivo adjunto")}</span>
+        <span className="block text-xs text-ink-muted">{isPdf ? "Abrir documento" : "Descargar"}</span>
+      </span>
+    </a>
+  );
+}
+
+const DELIVERY_ERRORS: Record<string, string> = {
+  "63016": "pasaron más de 24 horas desde el último mensaje del cliente",
+  "63003": "el número no puede recibir WhatsApp",
+  "63024": "el número no puede recibir WhatsApp",
+  "63032": "el número no puede recibir WhatsApp",
+};
+
+function deliveryFailed(status: string) {
+  return status === "failed" || status === "undelivered";
+}
+
+function deliveryProblem(code?: string) {
+  const reason = code ? DELIVERY_ERRORS[code] : undefined;
+  if (reason) return `No se entregó: ${reason}.`;
+  return code ? `No se entregó (código ${code}).` : "No se entregó.";
+}
+
+/** Vacío o desconocido: se envió antes del seguimiento de entrega; solo se sabe que salió. */
+function DeliveryTicks({ status }: { status: string }) {
+  const icon = "h-3.5 w-3.5 shrink-0";
+  switch (status) {
+    case "queued":
+    case "accepted":
+      return (
+        <span title="Enviando" aria-label="Enviando">
+          <Clock3 className={`${icon} h-3 w-3`} strokeWidth={2} />
+        </span>
+      );
+    case "delivered":
+      return (
+        <span title="Entregado" aria-label="Entregado">
+          <CheckCheck className={icon} strokeWidth={2} />
+        </span>
+      );
+    case "read":
+      return (
+        <span title="Leído" aria-label="Leído">
+          <CheckCheck className={`${icon} text-sky-500`} strokeWidth={2.25} />
+        </span>
+      );
+    case "failed":
+    case "undelivered":
+      return (
+        <span title="No se entregó" aria-label="No se entregó">
+          <CircleAlert className={`${icon} text-danger`} strokeWidth={2} />
+        </span>
+      );
+    default:
+      return (
+        <span title="Enviado" aria-label="Enviado">
+          <Check className={icon} strokeWidth={2} />
+        </span>
+      );
+  }
+}
+
+function reminderBody(r: Reminder) {
+  const text = r.message?.trim();
+  if (text) return text;
+  if (r.status === "scheduled") return "Recordatorio programado. Aún no se envía.";
+  return "Mensaje sin texto.";
+}
+
+function MessageThread({ items, expanded = false }: { items: TimelineItem[]; expanded?: boolean }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const ordered = [...items].sort((a, b) => {
+    const ta = new Date(a.at).getTime();
+    const tb = new Date(b.at).getTime();
+    if (ta !== tb) return ta - tb;
+    return a.id.localeCompare(b.id);
+  });
+  const lastId = ordered[ordered.length - 1]?.id ?? "";
+  const pinned = useRef(true);
+  const knownHeight = useRef(0);
+
+  const toBottom = () => {
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    knownHeight.current = el.scrollHeight;
+  };
+
+  useLayoutEffect(() => {
+    pinned.current = true;
+    toBottom();
+  }, [ordered.length, lastId]);
+
+  const empty = ordered.length === 0;
+  useEffect(() => {
+    const el = scroller.current;
+    const list = el?.firstElementChild;
+    if (!el || !list || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (pinned.current) toBottom();
+    });
+    observer.observe(list);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [empty]);
+
+  let previousDay = "";
+
+  return (
+    <div
+      ref={scroller}
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        // Cuando una foto o archivo termina de cargar, el alto cambia y llega un scroll que no hizo la persona.
+        if (el.scrollHeight !== knownHeight.current) {
+          knownHeight.current = el.scrollHeight;
+          return;
+        }
+        pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+      }}
+      role="log"
+      aria-label="Mensajes del cobro"
+      className="h-full min-h-0 w-full min-w-0 overflow-y-auto bg-surface px-3 py-4 [overflow-anchor:none] [scrollbar-width:thin] [scrollbar-color:rgba(107,100,92,0.45)_transparent] sm:px-5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border"
+    >
+      {ordered.length === 0 ? (
+        <p className="mx-auto mt-10 w-fit rounded-lg bg-surface-card px-3 py-1.5 text-center text-xs text-ink-muted shadow-sm">
+          Aún no hay mensajes en este cobro.
+        </p>
+      ) : (
+        <ol className="flex flex-col gap-1">
+          {ordered.map((item, position) => {
+            const day = chatDayLabel(item.at);
+            const showDay = day !== previousDay;
+            previousDay = day;
+            const outboundReply = item.kind === "reply" && item.reply.direction === "outbound";
+            const outgoing = item.kind === "reminder" || outboundReply;
+            const previous = ordered[position - 1];
+            const previousOutgoing = previous
+              ? previous.kind === "reminder" || (previous.kind === "reply" && previous.reply.direction === "outbound")
+              : null;
+            const firstInGroup = showDay || previousOutgoing !== outgoing;
+            const scheduled = item.kind === "reminder" && item.reminder.status === "scheduled";
+            const media = item.kind === "reply" && item.reply.charge_id ? item.reply.media ?? [] : [];
+            const text =
+              item.kind === "reply"
+                ? item.reply.content?.trim() || (media.length > 0 ? "" : "Mensaje sin texto.")
+                : reminderBody(item.reminder);
+            const clock = chatClock(item.at);
+            const delivery = !outgoing
+              ? ""
+              : item.kind === "reminder"
+                ? item.reminder.delivery_status ?? ""
+                : item.reply.status;
+            const deliveryError = item.kind === "reminder" ? item.reminder.delivery_error : item.kind === "reply" ? item.reply.delivery_error : "";
+            const meta = (
+              <span className="ml-3 inline-flex translate-y-1 items-center gap-1 whitespace-nowrap align-bottom text-[11px] leading-none text-ink-muted float-right">
+                {item.kind === "reminder" ? "Recordatorio · " : ""}
+                {clock}
+                {outgoing ? <DeliveryTicks status={delivery} /> : null}
+              </span>
+            );
+            return (
+              <li key={item.id} className={`min-w-0${firstInGroup ? " mt-2 first:mt-0" : ""}`}>
+                {showDay && day ? (
+                  <div className="my-2 flex justify-center">
+                    <span className="rounded-lg bg-surface-card px-3 py-1 text-xs font-medium text-ink-muted shadow-sm">{day}</span>
+                  </div>
+                ) : null}
+                {scheduled ? (
+                  <div className="my-1 flex justify-center">
+                    <span className="rounded-lg bg-warn-soft px-3 py-1 text-xs text-warn">
+                      WhatsApp programado
+                      {clock ? ` · ${clock}` : ""}
+                    </span>
+                  </div>
+                ) : (
+                  <div className={`flex ${outgoing ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={[
+                        "relative min-w-0 rounded-xl shadow-[0_1px_0.5px_rgb(28_25_23/0.13)]",
+                        expanded ? "max-w-[min(32rem,75%)]" : "max-w-[85%]",
+                        outgoing ? "bg-brand-soft" : "bg-surface-card",
+                        firstInGroup ? (outgoing ? "rounded-tr-sm" : "rounded-tl-sm") : "",
+                        media.length > 0 ? "p-1" : "px-2.5 py-1.5",
+                      ].join(" ")}
+                    >
+                      {media.length > 0 && item.kind === "reply" ? (
+                        <div className="flex flex-col gap-1">
+                          {media.map((file, index) => (
+                            <MessageAttachment
+                              key={index}
+                              chargeId={item.reply.charge_id!}
+                              messageId={item.reply.id}
+                              index={index}
+                              contentType={file.content_type}
+                              fileName={file.file_name}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                      <p
+                        className={`flow-root whitespace-pre-wrap break-words text-sm leading-5 text-ink${
+                          media.length > 0 ? " px-1.5 pb-1 pt-1" : ""
+                        }`}
+                      >
+                        {text}
+                        {meta}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {deliveryFailed(delivery) ? (
+                  <p className="mt-0.5 text-right text-[11px] text-danger">{deliveryProblem(deliveryError)}</p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+const EMAIL_KIND_LABEL: Record<string, string> = {
+  manual: "Recordatorio manual",
+  due_soon: "Aviso antes del vencimiento",
+  overdue: "Aviso de cobro vencido",
+};
+
+function emailWhen(iso: string) {
+  const day = chatDayLabel(iso);
+  const clock = chatClock(iso);
+  return day && clock ? `${day} · ${clock}` : day || clock;
+}
+
+const EMAILS_PREVIEW = 3;
+
+function EmailHistory({ to, emails }: { to?: string | null; emails: Reminder[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const sorted = [...emails].sort((a, b) => Date.parse(b.sent_at || b.created_at) - Date.parse(a.sent_at || a.created_at));
+  const hidden = Math.max(0, sorted.length - EMAILS_PREVIEW);
+  const ordered = showAll ? sorted : sorted.slice(0, EMAILS_PREVIEW);
+  return (
+    <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+      <div className="flex items-center gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface text-ink-muted">
+          <Mail className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-ink">Correos enviados</h3>
+          <span className="block truncate text-xs text-ink-muted">{to?.trim() ? `Para ${to}` : "Sin correo registrado"}</span>
+        </span>
+        {sorted.length > 0 ? (
+          <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">{sorted.length}</span>
+        ) : null}
+      </div>
+      {ordered.length === 0 ? (
+        <p className="mt-4 text-sm text-ink-muted">Aún no se envían correos de este cobro.</p>
+      ) : (
+        <ul
+          className={`mt-4 divide-y divide-surface-border${
+            showAll ? " max-h-80 overflow-y-auto pr-1 [scrollbar-width:thin]" : ""
+          }`}
+        >
+          {ordered.map((r) => {
+            const scheduled = r.status === "scheduled";
+            return (
+              <li key={r.id} className="py-2 first:pt-0 last:pb-0">
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-1 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-ink">{EMAIL_KIND_LABEL[r.kind] ?? "Recordatorio"}</span>
+                      <span className="block text-xs text-ink-muted">{emailWhen(r.sent_at || r.created_at)}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          scheduled ? "bg-warn-soft text-warn" : "bg-brand-soft text-brand"
+                        }`}
+                      >
+                        {scheduled ? "Programado" : "Enviado"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-ink-muted transition-transform group-open:rotate-180" strokeWidth={2} />
+                    </span>
+                  </summary>
+                  <p className="mt-2 whitespace-pre-wrap break-words rounded-xl bg-surface px-3 py-2 text-sm text-ink">{reminderBody(r)}</p>
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {hidden > 0 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-3 text-sm font-medium text-brand hover:underline"
+        >
+          {showAll ? "Ver menos" : `Ver ${hidden} ${hidden === 1 ? "correo anterior" : "correos anteriores"}`}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
+
+function ChatPanel({
+  name,
+  phone,
+  items,
+  expanded = false,
+  onToggleExpanded,
+  composer,
+}: {
+  name: string;
+  phone?: string | null;
+  items: TimelineItem[];
+  expanded?: boolean;
+  onToggleExpanded: () => void;
+  composer: React.ReactNode;
+}) {
+  return (
+    <div className={`flex min-h-0 flex-col overflow-hidden ${expanded ? "h-full" : "h-[min(70vh,36rem)]"}`}>
+      <div className="flex items-center gap-3 border-b border-surface-border bg-surface-card px-4 py-2.5">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+          {initials(name)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-ink">{name}</span>
+          <span className="block truncate text-xs text-ink-muted">{phone?.trim() ? `WhatsApp ${phone}` : "Sin teléfono registrado"}</span>
+        </span>
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          aria-label={expanded ? "Cerrar conversación ampliada" : "Ampliar conversación"}
+          title={expanded ? "Cerrar" : "Ampliar"}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface hover:text-ink lg:h-9 lg:w-9"
+        >
+          {expanded ? <X className="h-5 w-5" strokeWidth={2} /> : <Maximize2 className="h-4 w-4" strokeWidth={2} />}
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">
+        <MessageThread items={items} expanded={expanded} />
+      </div>
+      {composer}
+    </div>
+  );
+}
+
+function ConfirmDialog({
+  title,
+  children,
+  confirmLabel,
+  busy,
+  confirmDisabled = false,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  children: React.ReactNode;
+  confirmLabel: string;
+  busy: boolean;
+  confirmDisabled?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <AppModal onBackdropClick={() => !busy && onCancel()}>
+      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
+        <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        <div className="mt-2 text-sm text-ink-muted">{children}</div>
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={busy || confirmDisabled}
+            onClick={onConfirm}
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+          >
+            {busy && <ActionSpinner />}
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </AppModal>
+  );
+}
+
+type ReminderOption = {
+  channel: ReminderChannel;
+  contact: string;
+  /** Hasta cuándo el canal está en espera, o null si se puede usar. */
+  waitUntil: string | null;
+};
+
+const CHANNEL_LABEL: Record<ReminderChannel, string> = { whatsapp: "WhatsApp", email: "Correo" };
+
+function channelsText(channels: ReminderChannel[]) {
+  return channels.map((c) => (c === "whatsapp" ? "WhatsApp" : "correo")).join(" y ");
+}
+
+function reminderUsable(option: ReminderOption) {
+  return option.contact !== "" && !option.waitUntil;
+}
+
+function ReminderDialog({
+  clientName,
+  options,
+  initial,
+  sending,
+  onCancel,
+  onConfirm,
+}: {
+  clientName: string;
+  options: ReminderOption[];
+  initial: ReminderChannel[];
+  sending: boolean;
+  onCancel: () => void;
+  onConfirm: (channels: ReminderChannel[]) => void;
+}) {
+  const [picked, setPicked] = useState<ReminderChannel[]>(initial);
+  const chosen = options.filter((o) => reminderUsable(o) && picked.includes(o.channel)).map((o) => o.channel);
+  const toggle = (channel: ReminderChannel) =>
+    setPicked((list) => (list.includes(channel) ? list.filter((c) => c !== channel) : [...list, channel]));
+
+  return (
+    <ConfirmDialog
+      title="¿Enviar recordatorio ahora?"
+      confirmLabel={sending ? "Enviando…" : "Enviar recordatorio"}
+      busy={sending}
+      confirmDisabled={chosen.length === 0}
+      onCancel={onCancel}
+      onConfirm={() => onConfirm(chosen)}
+    >
+      <p>
+        Se enviará a <span className="font-semibold text-ink">{clientName}</span> por los canales que marques.
+      </p>
+      <fieldset className="mt-4 space-y-2">
+        <legend className="sr-only">Canales del recordatorio</legend>
+        {options.map((o) => {
+          const usable = reminderUsable(o);
+          const checked = chosen.includes(o.channel);
+          const Icon = o.channel === "whatsapp" ? MessageCircle : Mail;
+          const note = !o.contact
+            ? o.channel === "whatsapp"
+              ? "Sin teléfono registrado"
+              : "Sin correo registrado"
+            : o.waitUntil
+              ? `Ya se envió uno hace poco. Disponible a las ${chatClock(o.waitUntil)}`
+              : o.contact;
+          return (
+            <label
+              key={o.channel}
+              className={[
+                "flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors",
+                checked ? "border-brand/50 bg-brand-soft" : "border-surface-border",
+                usable && !sending ? "cursor-pointer hover:bg-surface" : "cursor-not-allowed",
+              ].join(" ")}
+            >
+              <input
+                type="checkbox"
+                className="h-5 w-5 shrink-0"
+                checked={checked}
+                disabled={!usable || sending}
+                onChange={() => toggle(o.channel)}
+              />
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface text-ink-muted">
+                <Icon className="h-4 w-4" strokeWidth={2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={`block text-sm font-medium ${usable ? "text-ink" : "text-ink-muted"}`}>{CHANNEL_LABEL[o.channel]}</span>
+                <span className={`block truncate text-xs ${o.waitUntil ? "text-warn" : "text-ink-muted"}`}>{note}</span>
+              </span>
+            </label>
+          );
+        })}
+      </fieldset>
+      <p className="mt-3 text-xs">Para no saturar a la sucursal, cada canal admite un recordatorio manual por hora.</p>
+    </ConfirmDialog>
+  );
+}
+
+const MODE_OPTIONS: { value: ReminderMode; label: string }[] = [
+  { value: "company", label: "Como la empresa" },
+  { value: "custom", label: "Personalizada para este cobro" },
+  { value: "off", label: "Desactivados" },
+];
+
+function samePolicy(a: ReminderPolicy, b: ReminderPolicy) {
+  const days = (p: ReminderPolicy) => [...new Set(p.days_before)].sort((x, y) => y - x).join(",");
+  return days(a) === days(b) && a.overdue_every === b.overdue_every && a.overdue_max === b.overdue_max;
+}
+
+function ChargeRemindersCard({
+  charge,
+  onSave,
+}: {
+  charge: ChargeDTO;
+  onSave: (payload: ChargeRemindersPayload) => Promise<void>;
+}) {
+  const savedMode = charge.reminder_mode ?? "company";
+  const savedChannel = charge.reminder_channel ?? "";
+  const companyPolicy = charge.company_reminder_policy ?? DEFAULT_REMINDER_POLICY;
+  const savedPolicy = charge.reminder_policy ?? companyPolicy;
+  const [mode, setMode] = useState<ReminderMode>(savedMode);
+  const [channel, setChannel] = useState(savedChannel);
+  const [policy, setPolicy] = useState<ReminderPolicy>(savedPolicy);
+  const [saving, setSaving] = useState(false);
+  const policyKey = JSON.stringify(savedPolicy);
+
+  useEffect(() => {
+    setMode(savedMode);
+    setChannel(savedChannel);
+    setPolicy(savedPolicy);
+  }, [savedMode, savedChannel, policyKey]);
+
+  const dirty =
+    mode !== savedMode || channel !== savedChannel || (mode === "custom" && !samePolicy(policy, savedPolicy));
+  const isPaid = charge.status === "paid";
+
+  async function save() {
+    setSaving(true);
+    try {
+      await onSave({
+        reminder_mode: mode,
+        reminder_channel: channel,
+        ...(mode === "custom" ? { reminder_policy: policy } : {}),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+      <h2 className="text-lg font-semibold text-ink">Recordatorios automáticos</h2>
+      <p className="mt-1 text-sm text-ink-muted">
+        {isPaid
+          ? "Este cobro está cobrado, así que no se envían recordatorios."
+          : "Cuándo y por dónde se le recuerda este cobro a la sucursal, sin que tengas que hacer nada."}
+      </p>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-medium text-ink">
+          Frecuencia
+          <AppSelect
+            value={mode}
+            onChange={(next) => {
+              setMode(next as ReminderMode);
+              if (next === "custom" && mode !== "custom") setPolicy(companyPolicy);
+            }}
+            options={MODE_OPTIONS}
+          />
+        </label>
+        {mode !== "off" ? (
+          <label className="block text-sm font-medium text-ink">
+            Canal
+            <AppSelect value={channel} onChange={setChannel} options={reminderChannelOptions(charge.client_followup_channel)} />
+          </label>
+        ) : null}
+      </div>
+      {mode === "custom" ? (
+        <div className="mt-5">
+          <ReminderPolicyFields value={policy} onChange={setPolicy} />
+        </div>
+      ) : null}
+      <p className="mt-4 rounded-xl bg-surface px-3 py-2 text-sm text-ink">
+        {mode === "off"
+          ? "No se enviarán recordatorios automáticos. Puedes enviar uno manual cuando quieras."
+          : describeReminderPolicy(mode === "custom" ? policy : companyPolicy)}
+      </p>
+      {mode === "company" && isCompanyAdmin() ? (
+        <p className="mt-2 text-xs text-ink-muted">
+          La frecuencia de la empresa se cambia en{" "}
+          <Link to="/mensajes" className="font-medium text-brand hover:underline">
+            Configuración
+          </Link>
+          .
+        </p>
+      ) : null}
+      <div className="mt-5 flex justify-end">
+        <button
+          type="button"
+          disabled={!dirty || saving}
+          onClick={() => void save()}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60 sm:w-auto"
+        >
+          {saving && <ActionSpinner />}
+          {saving ? "Guardando…" : "Guardar recordatorios"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function daysUntil(iso: string) {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Math.round((new Date(y, m - 1, d).getTime() - start) / 86_400_000);
+}
+
+function statusDetail(ch: ChargeDTO) {
+  if (ch.status === "paid") return ch.paid_at ? `Pagado el ${formatDate(ch.paid_at)}` : "Pago registrado";
+  const days = daysUntil(ch.due_date);
+  if (days < 0) return `Venció hace ${-days} ${days === -1 ? "día" : "días"}`;
+  if (days === 0) return "Vence hoy";
+  if (days === 1) return "Vence mañana";
+  return `Vence en ${days} días`;
+}
 
 export default function ChargeDetail() {
   const { id } = useParams();
@@ -68,16 +960,21 @@ export default function ChargeDetail() {
     if (notice) showToast(notice);
   };
   const [clients, setClients] = useState<ClientDTO[]>([]);
-  const [timelineModal, setTimelineModal] = useState<TimelineModal | null>(null);
   const [formClientId, setFormClientId] = useState("");
   const [formDue, setFormDue] = useState("");
   const [formAmount, setFormAmount] = useState("");
-  /** keep = no tocar pagos; paid = marcar cobrado; unpaid = reabrir */
-  const [payAction, setPayAction] = useState<"keep" | "paid" | "unpaid">("keep");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [remindOpen, setRemindOpen] = useState(false);
   const [reminding, setReminding] = useState(false);
+  const [statusConfirm, setStatusConfirm] = useState<"pay" | "reopen" | null>(null);
   const [paying, setPaying] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [threadOpen, setThreadOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replyFile, setReplyFile] = useState<File | null>(null);
+  const [replying, setReplying] = useState(false);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
   const load = async (silent = false) => {
     if (!silent) {
@@ -115,30 +1012,127 @@ export default function ChargeDetail() {
   }, [chargeId]);
 
   useEffect(() => {
+    if (!Number.isFinite(chargeId) || chargeId <= 0) return;
+    let busy = false;
+    const refreshThread = async () => {
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        const [r, wa] = await Promise.all([fetchReminders(chargeId), fetchChargeInboundWhatsApp(chargeId)]);
+        setRems(Array.isArray(r) ? r : []);
+        setInboundWA(Array.isArray(wa) ? wa : []);
+      } catch {
+        /* se reintenta en el próximo ciclo */
+      } finally {
+        busy = false;
+      }
+    };
+    const timer = window.setInterval(() => void refreshThread(), LIVE_MS);
+    const onVisible = () => void refreshThread();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [chargeId]);
+
+  const marking = useRef(false);
+  const hasUnread = inboundWA.some((m) => m.direction === "inbound" && !m.read_at);
+  useEffect(() => {
+    if (!hasUnread || marking.current || document.visibilityState !== "visible") return;
+    marking.current = true;
+    markChargeRead(chargeId)
+      .then(() => {
+        const now = new Date().toISOString();
+        setInboundWA((list) => list.map((m) => (m.direction === "inbound" && !m.read_at ? { ...m, read_at: now } : m)));
+        notifyInboxChanged();
+      })
+      .catch(() => {
+        /* queda sin leer; se reintenta con la próxima actualización */
+      })
+      .finally(() => {
+        marking.current = false;
+      });
+  }, [hasUnread, chargeId, inboundWA]);
+
+  useEffect(() => {
     fetchClients()
       .then(setClients)
       .catch(() => setClients([]));
   }, []);
 
   useEffect(() => {
+    if (!threadOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setThreadOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [threadOpen]);
+
+  useEffect(() => {
     if (!ch) return;
     setFormClientId(String(ch.client_id));
     setFormDue(ch.due_date.slice(0, 10));
     setFormAmount(normalizeClpInput(String(Math.round(ch.amount))));
-    setPayAction("keep");
-  }, [ch?.id, ch?.client_id, ch?.due_date, ch?.amount, ch?.status]);
+  }, [ch?.id, ch?.client_id, ch?.due_date, ch?.amount]);
 
-  async function onRemind() {
+  const waiting = Object.values(ch?.next_reminder_at ?? {}).some((iso) => iso && Date.parse(iso) > now);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [waiting]);
+
+  async function onRemind(channels: ReminderChannel[]) {
     setReminding(true);
     setToast(null);
     try {
-      await sendReminderNow(chargeId);
-      setToast({ text: "Listo: enviamos recordatorios por email y WhatsApp.", tone: "success" });
+      await sendReminderNow(chargeId, channels);
+      setRemindOpen(false);
+      setToast({ text: `Recordatorio enviado por ${channelsText(channels)}.`, tone: "success" });
+    } catch (e: unknown) {
+      let text = "No se pudo enviar el recordatorio.";
+      if (axios.isAxiosError(e)) {
+        const data = e.response?.data as { error?: string } | undefined;
+        if (data?.error) text = data.error.charAt(0).toUpperCase() + data.error.slice(1);
+      }
+      setToast({ text, tone: "error" });
+    } finally {
+      setNow(Date.now());
+      await load(true);
+      setReminding(false);
+    }
+  }
+
+  async function onSaveReminders(payload: ChargeRemindersPayload) {
+    setToast(null);
+    try {
+      await patchCharge(chargeId, payload);
+      setToast({ text: "Recordatorios automáticos guardados.", tone: "success" });
+      await load(true);
+    } catch (e: unknown) {
+      let text = "No se pudieron guardar los recordatorios.";
+      if (axios.isAxiosError(e)) {
+        const data = e.response?.data as { error?: string } | undefined;
+        if (data?.error) text = data.error.charAt(0).toUpperCase() + data.error.slice(1);
+      }
+      setToast({ text, tone: "error" });
+    }
+  }
+
+  async function onReopen() {
+    setReopening(true);
+    setToast(null);
+    try {
+      await patchCharge(chargeId, { set_paid: false });
+      setStatusConfirm(null);
+      setToast({ text: "Cobro reabierto. Vuelve a quedar por cobrar.", tone: "success" });
       await load(true);
     } catch {
-      setToast({ text: "No se pudo enviar (¿ya está cobrado?).", tone: "error" });
+      setToast({ text: "No se pudo reabrir el cobro.", tone: "error" });
     } finally {
-      setReminding(false);
+      setReopening(false);
     }
   }
 
@@ -176,26 +1170,54 @@ export default function ChargeDetail() {
         setToast({ text: "El monto debe ser mayor a 0.", tone: "error" });
         return;
       }
-      const body: {
-        client_id: number;
-        due_date: string;
-        amount: number;
-        set_paid?: boolean;
-      } = {
-        client_id: cid,
-        due_date: formDue,
-        amount: amt,
-      };
-      if (payAction === "paid") body.set_paid = true;
-      if (payAction === "unpaid") body.set_paid = false;
-      await patchCharge(chargeId, body);
+      await patchCharge(chargeId, { client_id: cid, due_date: formDue, amount: amt });
       setToast({ text: "Cobro guardado.", tone: "success" });
-      setPayAction("keep");
       await load(true);
     } catch {
       setToast({ text: "No se pudo guardar el cobro. Revisa los datos e inténtalo de nuevo.", tone: "error" });
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  function onReplyFile(file: File | null) {
+    if (file) {
+      const problem = chatFileProblem(file);
+      if (problem) {
+        setToast({ text: problem, tone: "error" });
+        return;
+      }
+    }
+    setReplyFile(file);
+  }
+
+  async function onReply(e: React.FormEvent) {
+    e.preventDefault();
+    const text = replyText.trim();
+    if (!text && !replyFile) return;
+    setReplying(true);
+    setToast(null);
+    try {
+      if (replyFile) {
+        await sendChargeWhatsAppFile(chargeId, replyFile, text);
+      } else {
+        await sendChargeWhatsAppReply(chargeId, text);
+      }
+      setReplyText("");
+      setReplyFile(null);
+      setToast({ text: replyFile ? "Archivo enviado por WhatsApp." : "Mensaje enviado por WhatsApp.", tone: "success" });
+      await load(true);
+    } catch (err: unknown) {
+      let textErr = replyFile ? "No se pudo enviar el archivo." : "No se pudo enviar el mensaje.";
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { error?: string } | undefined;
+        if (data?.error) textErr = data.error;
+      } else if (err instanceof Error && err.message) {
+        textErr = err.message;
+      }
+      setToast({ text: textErr, tone: "error" });
+    } finally {
+      setReplying(false);
     }
   }
 
@@ -205,6 +1227,7 @@ export default function ChargeDetail() {
     setToast(null);
     try {
       await recordPayment(ch.id, ch.amount);
+      setStatusConfirm(null);
       setToast({ text: "Pago registrado. Este cobro quedó como cobrado.", tone: "success" });
       await load(true);
     } catch {
@@ -244,8 +1267,9 @@ export default function ChargeDetail() {
 
   const reminderList = Array.isArray(rems) ? rems : [];
   const waList = Array.isArray(inboundWA) ? inboundWA : [];
-  const timelineItems: TimelineItem[] = [
-    ...reminderList.map((r) => ({
+  const emailReminders = reminderList.filter((r) => r.channel === "email");
+  const chatItems: TimelineItem[] = [
+    ...reminderList.filter((r) => r.channel !== "email").map((r) => ({
       kind: "reminder" as const,
       at: r.created_at,
       id: `rem-${r.id}`,
@@ -258,18 +1282,37 @@ export default function ChargeDetail() {
       reply: m,
     })),
   ];
-  /** Más reciente arriba, más antiguo abajo */
-  const timelineOrdered = [...timelineItems].sort((a, b) => {
-    const ta = new Date(a.at).getTime();
-    const tb = new Date(b.at).getTime();
-    if (tb !== ta) return tb - ta;
-    return b.id.localeCompare(a.id);
-  });
   const scheduled = reminderList.filter((r) => r.status === "scheduled");
   const isOverdue = ch.status === "overdue";
   const isPaid = ch.status === "paid";
   const dueLabel = isPaid ? "Cobrado" : isOverdue ? "Vencido" : "Al día";
-  const timelineBusy = reminding || paying;
+  const timelineBusy = reminding || paying || reopening;
+
+  const waitUntil = (channel: ReminderChannel) => {
+    const iso = ch.next_reminder_at?.[channel];
+    return iso && Date.parse(iso) > now ? iso : null;
+  };
+  const reminderOptions: ReminderOption[] = [
+    { channel: "whatsapp", contact: ch.client_phone?.trim() ?? "", waitUntil: waitUntil("whatsapp") },
+    { channel: "email", contact: ch.client_email?.trim() ?? "", waitUntil: waitUntil("email") },
+  ];
+  const reachable = reminderOptions.filter((o) => o.contact !== "");
+  const sendable = reachable.filter(reminderUsable).map((o) => o.channel);
+  const preference = (ch.reminder_channel || ch.client_followup_channel)?.trim().toLowerCase() || "all";
+  const preferred: ReminderChannel[] =
+    preference === "none" ? [] : preference === "all" ? ["whatsapp", "email"] : [preference as ReminderChannel];
+  const initialChannels = sendable.filter((c) => preferred.includes(c));
+  const nextFree = reachable
+    .map((o) => o.waitUntil)
+    .filter((iso): iso is string => !!iso)
+    .sort((a, b) => Date.parse(a) - Date.parse(b))[0];
+  const remindBlocked = sendable.length === 0;
+  const remindTitle =
+    reachable.length === 0
+      ? "La sucursal no tiene teléfono ni correo registrado"
+      : remindBlocked
+        ? "Cada canal admite un recordatorio manual por hora"
+        : "Elige por dónde enviar el recordatorio";
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -277,19 +1320,61 @@ export default function ChargeDetail() {
         ← Volver a cobros
       </Link>
 
+      {/* Bajo xl las columnas se disuelven (contents) para que el chat quede segundo, justo después del resumen. */}
       <div className="grid min-w-0 gap-6 xl:grid-cols-12">
-        <div className="min-w-0 space-y-6 xl:col-span-7">
-          <section className="min-h-[220px] rounded-2xl border border-surface-border bg-gradient-to-br from-surface-card to-surface p-4 shadow-soft sm:p-6">
+        <div className="contents xl:block xl:min-w-0 xl:col-span-7 xl:space-y-6">
+          <section className="order-1 min-w-0 rounded-2xl border border-surface-border bg-gradient-to-br from-surface-card to-surface p-4 shadow-soft sm:p-6">
             <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
               <div className="space-y-4 lg:col-span-12">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Cobro #{ch.id}</h1>
-                  <StatusBadge status={ch.status} />
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Cobro #{ch.id}</h1>
+                      <StatusBadge status={ch.status} />
+                    </div>
+                    <p className="mt-1 text-sm sm:text-base">
+                      <span className="block font-medium text-ink">{ch.client_name}</span>
+                      <span className="mt-0.5 block text-ink-muted">Vence el {formatDate(ch.due_date)}</span>
+                    </p>
+                  </div>
+                  {!isPaid ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRemindOpen(true)}
+                        disabled={timelineBusy || remindBlocked}
+                        title={remindTitle}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-medium text-ink transition-colors hover:bg-surface disabled:opacity-60"
+                      >
+                        {remindBlocked && nextFree ? (
+                          <Clock3 className="h-4 w-4 text-ink-muted" strokeWidth={2} />
+                        ) : (
+                          <BellRing className="h-4 w-4 text-ink-muted" strokeWidth={2} />
+                        )}
+                        {remindBlocked && nextFree ? `Recordatorio disponible a las ${chatClock(nextFree)}` : "Enviar recordatorio"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatusConfirm("pay")}
+                        disabled={timelineBusy}
+                        className="inline-flex h-9 items-center gap-1.5 bg-brand text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-60 !min-h-0 !rounded-lg !px-3"
+                      >
+                        <CircleCheck className="h-4 w-4" strokeWidth={2} />
+                        Marcar como cobrado
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setStatusConfirm("reopen")}
+                      disabled={timelineBusy}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-medium text-ink transition-colors hover:bg-surface disabled:opacity-60"
+                    >
+                      <RotateCcw className="h-4 w-4 text-ink-muted" strokeWidth={2} />
+                      Reabrir cobro
+                    </button>
+                  )}
                 </div>
-                <p className="text-sm sm:text-base">
-                  <span className="block font-medium text-ink">{ch.client_name}</span>
-                  <span className="mt-0.5 block text-ink-muted">Vence el {formatDate(ch.due_date)}</span>
-                </p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Monto</div>
@@ -298,6 +1383,7 @@ export default function ChargeDetail() {
                   <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Estado</div>
                     <div className="mt-1 text-sm font-semibold text-ink">{dueLabel}</div>
+                    <div className={`mt-0.5 text-xs ${isOverdue ? "text-danger" : "text-ink-muted"}`}>{statusDetail(ch)}</div>
                   </div>
                   <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-ink-muted">Recordatorios</div>
@@ -314,62 +1400,7 @@ export default function ChargeDetail() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
-            <h2 className="text-lg font-semibold text-ink">Editar cobro</h2>
-            <p className="mt-1 text-sm text-ink-muted">
-              Actualiza sucursal o punto de venta, fecha, monto y estado operativo.
-            </p>
-            <form className="mt-5 grid gap-4 lg:grid-cols-12" onSubmit={onSaveEdit}>
-              <label className="block text-sm font-medium text-ink lg:col-span-6">
-                Sucursal
-                <AppSelect
-                  required
-                  value={formClientId}
-                  onChange={setFormClientId}
-                  options={clients.map((c) => ({ value: String(c.id), label: chargeCounterpartyLabel(c) }))}
-                />
-              </label>
-              <div className="block text-sm font-medium text-ink lg:col-span-3">
-                Vencimiento
-                <AppDatePicker required value={formDue} onChange={setFormDue} />
-              </div>
-              <label className="block text-sm font-medium text-ink lg:col-span-3">
-                Monto (CLP)
-                <input
-                  required
-                  type="text"
-                  inputMode="numeric"
-                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
-                  value={formAmount}
-                  placeholder="$ 0"
-                  onChange={(e) => setFormAmount(normalizeClpInput(e.target.value))}
-                />
-              </label>
-              <label className="block text-sm font-medium text-ink lg:col-span-8">
-                Estado de cobro
-                <AppSelect
-                  value={payAction}
-                  onChange={(next) => setPayAction(next as "keep" | "paid" | "unpaid")}
-                  options={[
-                    { value: "keep", label: "Automático (sin cambios manuales)" },
-                    { value: "paid", label: "Marcar como cobrado" },
-                    { value: "unpaid", label: "Marcar como pendiente (reabrir)" },
-                  ]}
-                />
-              </label>
-              <div className="lg:col-span-4 lg:self-end">
-                <button
-                  type="submit"
-                  disabled={savingEdit}
-                  className="w-full rounded-xl border border-transparent bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60 dark:shadow-none"
-                >
-                  {savingEdit ? "Guardando…" : "Guardar cambios"}
-                </button>
-              </div>
-            </form>
-          </section>
-
-          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+          <section className="order-3 min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-ink">Factura</h2>
@@ -406,156 +1437,146 @@ export default function ChargeDetail() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-5">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Estado del cobro</h3>
-            <div className="mt-3 space-y-2.5 text-sm">
-              <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2">
-                <span className="text-ink-muted">Situación</span>
-                <span className="font-semibold text-ink">{dueLabel}</span>
+          <div className="order-4 min-w-0">
+            <ChargeRemindersCard charge={ch} onSave={onSaveReminders} />
+          </div>
+
+          <section className="order-5 min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6">
+            <h2 className="text-lg font-semibold text-ink">Editar datos del cobro</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Actualiza sucursal o punto de venta, fecha y monto. Para cambiar el estado usa{" "}
+              {isPaid ? "Reabrir cobro" : "Marcar como cobrado"}, arriba.
+            </p>
+            <form className="mt-5 grid gap-4 lg:grid-cols-12" onSubmit={onSaveEdit}>
+              <label className="block text-sm font-medium text-ink lg:col-span-6">
+                Sucursal
+                <AppSelect
+                  required
+                  value={formClientId}
+                  onChange={setFormClientId}
+                  options={clients.map((c) => ({ value: String(c.id), label: chargeCounterpartyLabel(c) }))}
+                />
+              </label>
+              <div className="block text-sm font-medium text-ink lg:col-span-3">
+                Vencimiento
+                <AppDatePicker required value={formDue} onChange={setFormDue} />
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2">
-                <span className="text-ink-muted">Monto actual</span>
-                <span className="font-semibold text-ink">{formatMoney(ch.amount)}</span>
+              <label className="block text-sm font-medium text-ink lg:col-span-3">
+                Monto (CLP)
+                <input
+                  required
+                  type="text"
+                  inputMode="numeric"
+                  className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-sm"
+                  value={formAmount}
+                  placeholder="$ 0"
+                  onChange={(e) => setFormAmount(normalizeClpInput(e.target.value))}
+                />
+              </label>
+              <div className="flex justify-end lg:col-span-12">
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="w-full rounded-xl border border-transparent bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60 sm:w-auto dark:shadow-none"
+                >
+                  {savingEdit ? "Guardando…" : "Guardar cambios"}
+                </button>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2">
-                <span className="text-ink-muted">Vencimiento</span>
-                <span className="font-semibold text-ink">{formatDate(ch.due_date)}</span>
-              </div>
-            </div>
-            {isOverdue && (
-              <p className="mt-4 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
-                Vencido: prioriza contacto y seguimiento para evitar mayor atraso.
-              </p>
-            )}
+            </form>
           </section>
         </div>
 
-        <section className="w-full min-w-0 rounded-2xl border border-surface-border bg-surface-card p-4 shadow-soft sm:p-6 xl:col-span-5 xl:min-w-[min(100%,20rem)]">
-          <h2 className="text-lg font-semibold text-ink">Línea de tiempo</h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Lo más reciente arriba. Incluye recordatorios automáticos y respuestas del cliente por WhatsApp (fecha y hora
-            en que escribió), cuando el mensaje se pudo asociar a este cobro.
-          </p>
-          {/* Scroll solo vertical: padding izquierdo para que los puntos (absolute -left) no queden fuera del área de recorte */}
-          <div className="mt-5 max-h-[min(55vh,26rem)] min-h-0 w-full min-w-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.35)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-surface-border/80 hover:[&::-webkit-scrollbar-thumb]:bg-ink-muted/40">
-            <div className="pl-3 pr-1 sm:pl-4 sm:pr-2">
-              <ol className="space-y-6 border-l border-surface-border pl-6 sm:pl-7">
-                {timelineOrdered.length === 0 ? (
-                  <li className="text-sm text-ink-muted">Aún no hay eventos. Los recordatorios aparecerán aquí.</li>
-                ) : (
-                  timelineOrdered.map((item) =>
-                    item.kind === "reminder" ? (
-                      <li key={item.id} className="relative min-w-0 max-w-full">
-                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-surface-card ring-2 ring-brand sm:-left-[33px]" />
-                        <div className="break-words text-sm font-medium text-ink">{timelineLabel(item.reminder)}</div>
-                        <div className="mt-1 break-words text-xs text-ink-muted">
-                          {formatDate(item.reminder.created_at)} · {item.reminder.kind} · {item.reminder.channel}
-                        </div>
-                        {item.reminder.status === "sent" && (
-                          <button
-                            type="button"
-                            onClick={() => setTimelineModal({ mode: "reminder", reminder: item.reminder })}
-                            className="mt-2 max-w-full rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
-                          >
-                            {item.reminder.channel === "email" ? "Ver email enviado" : "Ver WhatsApp enviado"}
-                          </button>
-                        )}
-                      </li>
-                    ) : (
-                      <li key={item.id} className="relative min-w-0 max-w-full">
-                        <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-surface-card ring-2 ring-brand sm:-left-[33px]" />
-                        <div className="break-words text-sm font-medium text-ink">Respuesta del cliente (WhatsApp)</div>
-                        <div className="mt-1 break-words text-xs text-ink-muted">
-                          {formatDateTime(item.reply.created_at)} · whatsapp · entrante
-                        </div>
-                        {item.reply.content?.trim() ? (
-                          <button
-                            type="button"
-                            onClick={() => setTimelineModal({ mode: "reply", reply: item.reply })}
-                            className="mt-2 max-w-full rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-left text-xs font-semibold text-ink hover:bg-surface"
-                          >
-                            Ver mensaje
-                          </button>
-                        ) : null}
-                      </li>
-                    ),
-                  )
-                )}
-              </ol>
-            </div>
-          </div>
-
-          <div className="mt-6 border-t border-surface-border pt-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Acciones rápidas</h3>
-            <p className="mt-2 text-sm text-ink-muted">Gestiona este cobro desde aquí.</p>
-            {!isPaid ? (
-              <div className="mt-4 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => void onRemind()}
-                  disabled={timelineBusy}
-                  className="inline-flex w-full items-center justify-center gap-2 bg-brand px-4 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  {reminding ? <ActionSpinner /> : null}
-                  {reminding ? "Enviando…" : "Enviar recordatorio ahora"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void onPay()}
-                  disabled={timelineBusy}
-                  className="inline-flex w-full items-center justify-center gap-2 border border-surface-border bg-surface-card px-4 text-sm font-semibold text-ink hover:bg-surface disabled:opacity-60"
-                >
-                  {paying ? <ActionSpinner /> : null}
-                  {paying ? "Registrando…" : "Registrar pago"}
-                </button>
-              </div>
+        <div className="contents xl:block xl:w-full xl:min-w-[min(100%,20rem)] xl:col-span-5 xl:space-y-6">
+          <section className="order-2 min-w-0 overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+            {threadOpen ? (
+              <p className="px-4 py-10 text-center text-sm text-ink-muted">La conversación está abierta en grande.</p>
             ) : (
-              <p className="mt-4 rounded-xl border border-brand/30 bg-brand-soft px-3 py-2 text-sm text-brand">
-                Este cobro ya está marcado como cobrado.
-              </p>
+              <ChatPanel
+                name={ch.client_name || "Cliente"}
+                phone={ch.client_phone}
+                items={chatItems}
+                onToggleExpanded={() => setThreadOpen(true)}
+                composer={
+                  <ReplyComposer
+                    id="charge-whatsapp-reply"
+                    value={replyText}
+                    onChange={setReplyText}
+                    file={replyFile}
+                    onFile={onReplyFile}
+                    onSubmit={(e) => void onReply(e)}
+                    sending={replying}
+                  />
+                }
+              />
             )}
+          </section>
+
+          <div className="order-6 min-w-0">
+            <EmailHistory to={ch.client_email} emails={emailReminders} />
           </div>
-        </section>
+        </div>
       </div>
 
-      {timelineModal && (
-        <AppModal>
-          <div className="w-full max-w-2xl rounded-2xl bg-surface-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-ink">
-                {timelineModal.mode === "reminder" ? "Mensaje enviado" : "Respuesta del cliente (WhatsApp)"}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setTimelineModal(null)}
-                className="rounded-lg px-2 py-1 text-sm font-medium text-ink-muted hover:bg-surface"
-              >
-                Cerrar
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-ink-muted">
-              {timelineModal.mode === "reminder" ? (
-                <>
-                  Canal: <span className="font-medium text-ink">{timelineModal.reminder.channel}</span> · Fecha:{" "}
-                  <span className="font-medium text-ink">{formatDate(timelineModal.reminder.created_at)}</span>
-                </>
-              ) : (
-                <>
-                  Recibido:{" "}
-                  <span className="font-medium text-ink">{formatDateTime(timelineModal.reply.created_at)}</span> ·
-                  WhatsApp entrante
-                </>
-              )}
-            </p>
-            <div className="mt-4 max-h-[55vh] overflow-y-auto rounded-xl border border-surface-border bg-surface/40 p-4">
-              <pre className="whitespace-pre-wrap break-words text-sm text-ink">
-                {timelineModal.mode === "reminder"
-                  ? timelineModal.reminder.message?.trim() || "No hay contenido de mensaje disponible para este evento."
-                  : timelineModal.reply.content?.trim() || "Sin texto en este mensaje."}
-              </pre>
-            </div>
+      {threadOpen && (
+        <AppModal onBackdropClick={() => setThreadOpen(false)}>
+          <div className="h-[min(92dvh,48rem)] w-full overflow-hidden bg-surface-card shadow-2xl sm:w-[min(92vw,52rem)] sm:rounded-2xl">
+            <ChatPanel
+              name={ch.client_name || "Cliente"}
+              phone={ch.client_phone}
+              items={chatItems}
+              expanded
+              onToggleExpanded={() => setThreadOpen(false)}
+              composer={
+                <ReplyComposer
+                  id="charge-whatsapp-reply-large"
+                  value={replyText}
+                  onChange={setReplyText}
+                  file={replyFile}
+                  onFile={onReplyFile}
+                  onSubmit={(e) => void onReply(e)}
+                  sending={replying}
+                />
+              }
+            />
           </div>
         </AppModal>
+      )}
+
+      {remindOpen && (
+        <ReminderDialog
+          clientName={ch.client_name || "la sucursal"}
+          options={reminderOptions}
+          initial={initialChannels}
+          sending={reminding}
+          onCancel={() => setRemindOpen(false)}
+          onConfirm={(channels) => void onRemind(channels)}
+        />
+      )}
+
+      {statusConfirm === "pay" && (
+        <ConfirmDialog
+          title="¿Marcar este cobro como cobrado?"
+          confirmLabel={paying ? "Registrando…" : "Sí, marcar como cobrado"}
+          busy={paying}
+          onCancel={() => setStatusConfirm(null)}
+          onConfirm={() => void onPay()}
+        >
+          Se registrará un pago por <span className="font-semibold text-ink">{formatMoney(ch.amount)}</span> con fecha de hoy y
+          dejarán de enviarse recordatorios. Si te equivocas, puedes reabrirlo después.
+        </ConfirmDialog>
+      )}
+
+      {statusConfirm === "reopen" && (
+        <ConfirmDialog
+          title="¿Reabrir este cobro?"
+          confirmLabel={reopening ? "Reabriendo…" : "Sí, reabrir"}
+          busy={reopening}
+          onCancel={() => setStatusConfirm(null)}
+          onConfirm={() => void onReopen()}
+        >
+          Se quitará el pago registrado y el cobro volverá a quedar por cobrar: pendiente o vencido según su fecha de
+          vencimiento ({formatDate(ch.due_date)}). Los recordatorios automáticos se reanudan.
+        </ConfirmDialog>
       )}
     </div>
   );
