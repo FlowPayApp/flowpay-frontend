@@ -19,6 +19,7 @@ import AppModal from "../components/AppModal";
 import AppSelect from "../components/AppSelect";
 import FilterTray from "../components/FilterTray";
 import IconActionButton from "../components/IconActionButton";
+import LoadingOverlay from "../components/LoadingOverlay";
 import PageLoading from "../components/PageLoading";
 import RowMenu from "../components/RowMenu";
 import ToggleSwitch from "../components/ToggleSwitch";
@@ -63,8 +64,9 @@ export default function PlatformCompanies() {
   const toast = useToast();
   const [loadingRaw, setLoadingRaw] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [sendingMail, setSendingMail] = useState(false);
   const [openCreateModal, setOpenCreateModal] = useState(false);
-  const [issuedPassword, setIssuedPassword] = useState<{ company: string; email: string; temporary_password: string } | null>(null);
+  const [issuedPassword, setIssuedPassword] = useState<{ company: string; email: string } | null>(null);
   const [openFilters, setOpenFilters] = useState(false);
   const [form, setForm] = useState({ name: "" });
   const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
@@ -235,15 +237,15 @@ export default function PlatformCompanies() {
   async function onSetActive(id: number, active: boolean) {
     setError(null);
     setBusy(true);
+    if (active) setSendingMail(true);
     try {
       const saved = await updateCompany(id, { is_active: active });
       const company = rows.find((row) => row.id === id);
       await load();
-      if (active && saved.temporary_password) {
+      if (active && saved.password_sent) {
         setIssuedPassword({
           company: company?.name ?? "la empresa",
           email: saved.email || company?.contact_email || "",
-          temporary_password: saved.temporary_password,
         });
       }
       toast.success(active ? "Empresa activada." : "Empresa desactivada.");
@@ -251,6 +253,7 @@ export default function PlatformCompanies() {
       toast.error(e instanceof Error ? e.message : "No se pudo actualizar el estado.");
     } finally {
       setBusy(false);
+      setSendingMail(false);
     }
   }
 
@@ -347,6 +350,7 @@ export default function PlatformCompanies() {
   return (
     <div className="mx-auto w-full max-w-6xl px-0">
       {loading && <PageLoading />}
+      <MailWait active={sendingMail} />
       {error && <div className="mb-4 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div>}
 
       <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -774,25 +778,17 @@ export default function PlatformCompanies() {
 
       {issuedPassword && (
         <AppModal onBackdropClick={() => setIssuedPassword(null)}>
-          <div className="w-full max-w-lg rounded-2xl bg-surface-card p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold text-ink">Contraseña de acceso</h2>
-            <p className="mt-2 text-sm text-ink-muted">
-              {issuedPassword.company} quedó activa. Entrégale esta contraseña a {issuedPassword.email || "la persona que solicitó la cuenta"}. Al ingresar deberá cambiarla.
+          <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold leading-6 text-ink">Empresa activa</h2>
+            <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+              {issuedPassword.company} ya puede entrar. La clave va por correo y hay que cambiarla al ingresar.
             </p>
-            <code className="mt-4 block break-all rounded-xl bg-surface px-3 py-3 font-mono text-base font-semibold text-ink">
-              {issuedPassword.temporary_password}
-            </code>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface"
-                onClick={() => {
-                  void navigator.clipboard.writeText(issuedPassword.temporary_password);
-                  toast.success("Contraseña copiada.");
-                }}
-              >
-                Copiar
-              </button>
+            {issuedPassword.email && (
+              <p className="mt-4 break-all rounded-xl border border-surface-border bg-surface px-3 py-2.5 text-sm font-medium leading-5 text-ink">
+                {issuedPassword.email}
+              </p>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
                 className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover"
@@ -1027,4 +1023,10 @@ function MiniKpi({
       <div className="mt-1 text-xl font-semibold text-ink">{value}</div>
     </div>
   );
+}
+
+function MailWait({ active }: { active: boolean }) {
+  const show = useMinLoading(active);
+  if (!show) return null;
+  return <LoadingOverlay above message="Enviando el correo…" />;
 }

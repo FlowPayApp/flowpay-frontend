@@ -305,9 +305,17 @@ html:not(.dark) select.rounded-xl:not([class*="appearance-none"]) {
 
 @keyframes auth-bar {
   from {
-    transform: translate3d(-100%, 0, 0);
+    transform: translate3d(-120%, 0, 0);
   }
   to {
-    transform: translate3d(300%, 0, 0);
+    transform: translate3d(420%, 0, 0);
   }
+}
+
+.auth-bar {
+  animation: auth-bar 1.6s linear infinite;
+}
+
+.auth-bar-late {
+  animation-delay: -0.8s;
 }

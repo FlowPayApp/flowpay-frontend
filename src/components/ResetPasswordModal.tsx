@@ -1,10 +1,11 @@
-import { Check, Copy, KeyRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, KeyRound } from "lucide-react";
+import { useMinLoading } from "../lib/useMinLoading";
 import AppModal from "./AppModal";
+import LoadingOverlay from "./LoadingOverlay";
 
 export type ResetPasswordModalState =
   | { phase: "confirm"; userId: number; email: string }
-  | { phase: "result"; email: string; temporary_password: string };
+  | { phase: "result"; email: string };
 
 type Props = {
   state: ResetPasswordModalState | null;
@@ -13,103 +14,56 @@ type Props = {
   onGenerate: () => void;
 };
 
-/** Modal en dos pasos: confirmar generación y mostrar contraseña temporal para copiar. */
+function EmailLine({ email }: { email: string }) {
+  return (
+    <p className="mt-4 break-all rounded-xl border border-surface-border bg-surface px-3 py-2.5 text-sm font-medium leading-5 text-ink">
+      {email}
+    </p>
+  );
+}
+
+/** Modal en dos pasos: confirmar el envío y avisar que la clave ya salió. */
 export default function ResetPasswordModal({ state, loading, onClose, onGenerate }: Props) {
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    setCopied(false);
-  }, [state]);
-
   if (!state) return null;
 
-  async function copyPassword(pwd: string) {
-    try {
-      await navigator.clipboard.writeText(pwd);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* ignore */
-    }
-  }
+  const sent = state.phase === "result";
+  const waiting = useMinLoading(loading);
 
   return (
-    <AppModal onBackdropClick={loading ? undefined : onClose}>
+    <AppModal onBackdropClick={waiting ? undefined : onClose}>
+      {waiting && <LoadingOverlay above message="Enviando el correo…" />}
       <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
-        {state.phase === "confirm" ? (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                <KeyRound className="h-5 w-5" strokeWidth={2} />
-              </span>
-              <h2 className="text-lg font-semibold text-ink">Nueva contraseña temporal</h2>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-ink-muted">
-              Se generará una contraseña de un solo uso para{" "}
-              <span className="font-medium text-ink">{state.email}</span>. El usuario deberá cambiarla al iniciar sesión.
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
+            {sent ? <Check className="h-5 w-5" strokeWidth={2.5} /> : <KeyRound className="h-5 w-5" strokeWidth={2} />}
+          </span>
+          <div className="min-w-0 pt-0.5">
+            <h2 className="text-lg font-semibold leading-6 text-ink">{sent ? "Clave enviada" : "Enviar clave temporal"}</h2>
+            <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+              {sent ? "Ya está en camino. Al entrar hay que cambiarla." : "Llega por correo. Al entrar hay que cambiarla."}
             </p>
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted transition hover:bg-surface disabled:opacity-50"
-                onClick={onClose}
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60"
-                onClick={onGenerate}
-                disabled={loading}
-              >
-                {loading ? "Generando…" : "Generar clave"}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                <Check className="h-5 w-5" strokeWidth={2.5} />
-              </span>
-              <h2 className="text-lg font-semibold text-ink">Contraseña generada</h2>
-            </div>
-            <p className="mt-3 text-sm text-ink-muted">
-              Copia la clave y envíala por correo a <span className="font-medium text-ink">{state.email}</span>.
-            </p>
-            <div className="mt-4 rounded-xl border border-surface-border bg-surface p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">Contraseña temporal</p>
-              <code className="mt-2 block break-all font-mono text-base font-semibold text-ink">{state.temporary_password}</code>
-            </div>
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-card px-4 py-2 text-sm font-medium text-ink shadow-sm transition hover:bg-surface"
-                onClick={() => void copyPassword(state.temporary_password)}
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-4 w-4 text-brand" />
-                    Copiado
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" />
-                    Copiar
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover"
-                onClick={onClose}
-              >
-                Cerrar
-              </button>
-            </div>
-          </>
-        )}
+          </div>
+        </div>
+        <EmailLine email={state.email} />
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          {!sent && (
+            <button
+              type="button"
+              className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted transition hover:bg-surface disabled:opacity-50"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60"
+            onClick={sent ? onClose : onGenerate}
+          >
+            {sent ? "Listo" : "Enviar clave"}
+          </button>
+        </div>
       </div>
     </AppModal>
   );

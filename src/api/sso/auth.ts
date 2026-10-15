@@ -1,4 +1,4 @@
-import { getToken } from "../../lib/auth";
+import { authorizedFetch } from "../../lib/auth";
 import type { CompanyUserDTO, MyProfileDTO } from "../types";
 
 export async function firstPasswordChange(payload: {
@@ -18,21 +18,18 @@ export async function firstPasswordChange(payload: {
 }
 
 export async function getMyProfile() {
-  const t = getToken();
-  const res = await fetch("/auth/me", {
-    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+  const res = await authorizedFetch("/auth/me", {
+    headers: {},
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json() as Promise<MyProfileDTO>;
 }
 
 export async function updateMyProfile(payload: { email: string; name: string; password?: string }) {
-  const t = getToken();
-  const res = await fetch("/auth/me", {
+  const res = await authorizedFetch("/auth/me", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -40,9 +37,8 @@ export async function updateMyProfile(payload: { email: string; name: string; pa
 }
 
 export async function listCompanyUsers() {
-  const t = getToken();
-  const res = await fetch("/auth/company/users", {
-    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+  const res = await authorizedFetch("/auth/company/users", {
+    headers: {},
   });
   const text = await res.text();
   if (!res.ok) {
@@ -58,12 +54,10 @@ export async function createCompanyUser(payload: {
   name: string;
   role: "admin" | "member";
 }) {
-  const t = getToken();
-  const res = await fetch("/auth/company/users", {
+  const res = await authorizedFetch("/auth/company/users", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -88,12 +82,10 @@ export async function updateCompanyUser(
   userId: number,
   payload: { email: string; name: string; role: "admin" | "member"; is_active: boolean },
 ) {
-  const t = getToken();
-  const res = await fetch(`/auth/company/users/${userId}`, {
+  const res = await authorizedFetch(`/auth/company/users/${userId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -103,10 +95,9 @@ export async function updateCompanyUser(
 }
 
 export async function deleteCompanyUser(userId: number) {
-  const t = getToken();
-  const res = await fetch(`/auth/company/users/${userId}`, {
+  const res = await authorizedFetch(`/auth/company/users/${userId}`, {
     method: "DELETE",
-    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+    headers: {},
   });
   if (!res.ok) {
     throw new Error(await readApiError(res, "No se pudo eliminar el usuario"));

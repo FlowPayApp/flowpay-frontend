@@ -144,8 +144,7 @@ export default function Layout() {
   const label = (text: string) => <span className={`${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}>{text}</span>;
 
   const signOut = () => {
-    logout();
-    nav("/login", { replace: true });
+    void logout().then(() => nav("/login", { replace: true }));
   };
 
   const accountSection = () => {
@@ -208,9 +207,7 @@ export default function Layout() {
             className={`absolute inset-y-0 left-0 grid w-12 place-items-center ${SIDEBAR_FADE} ${fadeIn(collapsed)}`}
             aria-hidden={!collapsed}
           >
-            <div className="grid h-9 w-9 place-items-center dark:rounded-lg dark:bg-white">
-              <BrandLogo variant="mark" tone="color" className="h-7" />
-            </div>
+            <BrandLogo variant="mark" className="h-7" />
           </div>
         </div>
         <button

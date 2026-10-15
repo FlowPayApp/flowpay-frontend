@@ -28,6 +28,17 @@ export default defineConfig(({ mode }) => {
           target: paymentsURL,
           changeOrigin: true,
         },
+        "/api/auth": {
+          target: ssoURL,
+          changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq, req) => {
+              if (req.headers.host) proxyReq.setHeader("x-forwarded-host", req.headers.host);
+              const proto = req.headers["x-forwarded-proto"];
+              proxyReq.setHeader("x-forwarded-proto", Array.isArray(proto) ? proto[0] : proto || "http");
+            });
+          },
+        },
         "/api/clients": {
           target: ssoURL,
           changeOrigin: true,

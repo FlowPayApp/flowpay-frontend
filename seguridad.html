@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeldFlus · Seguridad</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #121412;
+      --card: #1c201d;
+      --line: #343a36;
+      --ink: #f5f2ea;
+      --muted: #a8a298;
+      --brand: #2ec4b6;
+      --brand-dim: #163532;
+      --ok: #8fd4cf;
+      --ok-bg: #163532;
+      --mid: #d6b070;
+      --mid-bg: #342818;
+      --gap: #e0a094;
+      --gap-bg: #3a201c;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(900px 420px at 10% -10%, rgba(46, 196, 182, 0.16), transparent 60%),
+        var(--bg);
+      color: var(--ink);
+      font: 16px/1.5 "Segoe UI", sans-serif;
+    }
+    main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 72px; }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+    header h1 span { color: var(--brand); }
+    header p { margin: 0; max-width: 62ch; color: var(--muted); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 28px 0 22px;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+    }
+    .stat b { display: block; font-size: 32px; letter-spacing: -0.04em; line-height: 1; }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .stat.ok b { color: var(--ok); }
+    .stat.mid b { color: var(--mid); }
+    .stat.gap b { color: var(--gap); }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+    nav button {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font: inherit;
+      cursor: pointer;
+    }
+    nav button[aria-pressed="true"] {
+      background: var(--ink);
+      color: #141716;
+      border-color: var(--ink);
+    }
+    section { margin-top: 28px; }
+    section h2 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .list { display: grid; gap: 10px; }
+    article {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 14px;
+      align-items: start;
+      background: rgba(28, 32, 29, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+    article h3 { margin: 0 0 4px; font-size: 16px; letter-spacing: -0.02em; }
+    article p { margin: 0; color: var(--muted); font-size: 14px; }
+    .fields { display: grid; gap: 6px; margin: 0; }
+    .fields div { display: grid; grid-template-columns: 120px 1fr; gap: 8px; align-items: baseline; }
+    .fields dt { margin: 0; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .fields dd { margin: 0; font-size: 14px; }
+    .fields ol, .fields ul { margin: 0; padding-left: 1.1rem; }
+    .fields li + li { margin-top: 4px; }
+    code { font-family: Consolas, monospace; font-size: 0.92em; color: var(--ok); }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .have .pill { background: var(--ok-bg); color: var(--ok); }
+    .code .pill { background: var(--mid-bg); color: var(--mid); }
+    .miss .pill { background: var(--gap-bg); color: var(--gap); }
+    footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 700px) {
+      .stats { grid-template-columns: 1fr; }
+      article, .fields div { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Seguridad de <span>GeldFlus</span></h1>
+      <p>Lo de arriba ya está o está en el código. Abajo hay 4 paquetes: una tarjeta de Trello por persona. Cada uno trabaja en su repo y no pisa a los demás. Octubre 2026.</p>
+    </header>
+
+    <div class="stats">
+      <div class="stat ok"><b>10</b><span>Ya está en el producto</span></div>
+      <div class="stat mid"><b>8</b><span>En el código, falta desplegar</span></div>
+      <div class="stat gap"><b>4</b><span>Paquetes para repartir</span></div>
+    </div>
+
+    <nav>
+      <button type="button" aria-pressed="true" data-filter="all">Todo</button>
+      <button type="button" data-filter="have">Ya está</button>
+      <button type="button" data-filter="code">En el código</button>
+      <button type="button" data-filter="miss">Falta</button>
+    </nav>
+
+    <section data-group="have">
+      <h2>Ya está en el producto</h2>
+      <div class="list">
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>Contraseñas con bcrypt y política</h3>
+            <p>Mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo. El hash no se guarda en claro.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>El login no revela si el correo existe</h3>
+            <p>Correo desconocido y clave mala responden lo mismo: credenciales inválidas.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>El access token se firma y se valida sin base</h3>
+            <p>HS256 con el mismo secreto en SSO, backend y payments. El API de cobros no consulta la sesión en cada request.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>Cada empresa ve solo lo suyo</h3>
+            <p>Cobros, chat, bandeja y adjuntos salen del company_id del token. Un member queda acotado a su cartera.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>SQL con parámetros</h3>
+            <p>Las consultas arman los valores aparte del texto. No hay concatenación de SQL con datos del usuario.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>Enlace de pago opaco</h3>
+            <p>32 bytes aleatorios. No es un id adivinable.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>Adjuntos de WhatsApp solo desde Twilio</h3>
+            <p>La descarga de medios exige que la URL empiece por https://api.twilio.com/.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>CORS con lista cerrada</h3>
+            <p>geldflus.com, www y localhost. El resto se agrega con FLOWPAY_CORS_ORIGINS. Las credenciales van prendidas solo para esos orígenes.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>Tope de tamaño en archivos</h3>
+            <p>Adjuntos de cobro y archivos del chat tienen un máximo antes de guardarse.</p>
+          </div>
+        </article>
+        <article class="have">
+          <span class="pill">Listo</span>
+          <div>
+            <h3>El SSO arranca en release</h3>
+            <p>Gin no queda en modo debug en el servicio de identidad.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section data-group="code">
+      <h2>Sesión nueva · en el código, falta reiniciar y desplegar</h2>
+      <div class="list">
+        <article class="code">
+          <span class="pill">Código</span>
+          <div>
+            <h3>Access token de 15 minutos, solo en memoria</h3>
+            <p>El front ya no lo deja en localStorage. Al recargar se pide otro con la cookie.</p>
+          </div>
+        </article>
+        <article class="code">
+          <span class="pill">Código</span>
+          <div>
+            <h3>Refresh opaco en cookie</h3>
+            <p>HttpOnly, Secure, SameSite=Strict, path /api/auth. No es un JWT.</p>
+          </div>
+        </article>
+        <article class="code">
+          <span class="pill">Código</span>
+          <div>
+            <h3>En la base solo va el hash</h3>
+            <p>Tabla auth_sessions más los hashes usados. El valor de la cookie no se guarda.</p>
+          </div>
+        </article>
+        <article class="code">
+          <span class="pill">Código</span>
+          <div>
+            <h3>Rotación y detección de reuso</h3>
+            <p>Cada refresh invalida el anterior. Si reaparece uno viejo, se cierra esa sesión.</p>
+          </div>
+        </article>
+        <article class="code">
+          <span class="pill">Código</span>
+          <div>
+            <h3>Caduca por inactividad y por tope</h3>
+            <p>2 horas sin uso y 12 horas como máximo, desde que se abrió la sesión.</p>
+          </div>
+        </article>
+        <article class="code">
+          <span class="pill">Código</span>
+          <div>
+            <h3>Revocación de todas las sesiones</h3>
+            <p>Logout, cambio de clave, desactivar al usuario o cambiarle el rol cierran sus sesiones.</p>
+          </div>
+        </article>
+        <article class="code">
+          <span class="pill">Código</span>
+          <div>
+            <h3>Origin en refresh y logout</h3>
+            <p>Tiene que coincidir con el host público del front. SameSite=Strict va además.</p>
+          </div>
+        </article>
+        <article class="code">
+          <span class="pill">Código</span>
+          <div>
+            <h3>/api/auth llega al SSO</h3>
+            <p>El proxy de Vite y el de Vercel mandan ese path al SSO, no al API de cobros.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section data-group="miss">
+      <h2>Paquete 1 · SSO</h2>
+      <div class="list">
+        <article class="miss">
+          <span class="pill">1</span>
+          <div>
+            <h3>Identidad: login, sesiones y admins</h3>
+            <dl class="fields">
+              <div><dt>Repo</dt><dd>Solo <code>flowpay-sso</code>, y la pantalla de login del front cuando llegue el segundo factor. No tocar backend ni payments.</dd></div>
+              <div><dt>Descripción</dt><dd>Todo lo que pasa al entrar, al crear un admin y al cerrar la sesión está en el mismo servicio. Va una sola persona, en este orden, para no pisarse consigo misma.</dd></div>
+              <div><dt>Qué hacer</dt><dd>
+                <ol>
+                  <li>Limitar intentos en <code>/auth/login</code>, <code>/auth/register</code> y <code>/auth/password/first-change</code>. Por IP y por correo. Al pasar el tope, 429 unos minutos. No bloquear la cuenta para siempre.</li>
+                  <li>Cerrar <code>POST /auth/bootstrap/platform-admin</code> en producción. Sin un secreto de entorno, responde 404. En local puede seguir para el primer arranque.</li>
+                  <li>En el registro público, no responder “email ya registrado”. Un mensaje genérico. En el panel, el admin sí puede ver el conflicto.</li>
+                  <li>Dejar de devolver <code>temporary_password</code> al crear un admin, resetear su clave o activar una empresa. Enviarla una sola vez por correo. Si el correo falla, responder error.</li>
+                  <li>Al revocar una sesión, el access token tiene que morir en el request siguiente. El formato ya quedó así, y los paquetes 2 y 3 lo copian sin cambiarlo: claim <code>jti</code> de 32 hex en minúscula, tabla <code>revoked_access_tokens (jti TEXT PRIMARY KEY, expires_at TIMESTAMPTZ)</code>.</li>
+                  <li>Segundo factor TOTP solo para platform_admin. El secreto del authenticator va cifrado. Otro superadmin puede resetearlo.</li>
+                  <li>Avisar al superadmin cuando un mismo correo falle el login muchas veces, o cuando se reutilice un refresh token. Sin la clave en el aviso.</li>
+                  <li>Tabla de auditoría para cambios de usuario: rol, alta, baja, reset de clave. Quién, qué, cuándo, empresa. Sin guardar la clave.</li>
+                </ol>
+              </dd></div>
+              <div><dt>Se espera</dt><dd>No se adivina una clave a fuerza de intentos. Nadie se hace superadmin por la URL pública. El registro no confirma si un correo existe. La clave temporal llega solo por correo. Un token revocado no sirve en el request siguiente. El superadmin entra con código. Esas acciones de usuario quedan anotadas.</dd></div>
+              <div><dt>Tecnicismo</dt><dd>Rate limiting, bootstrap, user enumeration, secret in response, token revocation, MFA, audit log</dd></div>
+              <div><dt>Objetivo</dt><dd>Dejar la puerta de entrada cerrada, sin que otra persona edite el SSO al mismo tiempo.</dd></div>
+            </dl>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section data-group="miss">
+      <h2>Paquete 2 · Backend</h2>
+      <div class="list">
+        <article class="miss">
+          <span class="pill">2</span>
+          <div>
+            <h3>Cobros, WhatsApp y correo de la empresa</h3>
+            <dl class="fields">
+              <div><dt>Repo</dt><dd>Solo <code>flowpay-backend</code>. El formato del <code>jti</code> ya está definido: se aplica en <code>internal/middleware/jwt.go</code>, sin cambiar el parser.</dd></div>
+              <div><dt>Descripción</dt><dd>WhatsApp, los archivos del panel, la clave SMTP y el arranque del API viven en este servicio. Una persona los hace en orden.</dd></div>
+              <div><dt>Qué hacer</dt><dd>
+                <ol>
+                  <li>Apagar <code>POST /api/charges/:id/inbound-whatsapp/simulate</code> salvo que una variable de entorno lo prenda. En producción va apagada y responde 404.</li>
+                  <li>Si falta el token de Twilio o <code>FLOWPAY_TWILIO_VALIDATE_WEBHOOK</code> está apagado, el proceso no arranca en producción. Firma inválida: 403 y no se guarda el mensaje.</li>
+                  <li>Limitar por IP los webhooks de Twilio, con un tope alto para no cortar los avisos de estado. Pasado el tope, 429.</li>
+                  <li>Avisar cuando llegue un webhook sin firma. Sin el cuerpo del mensaje en el aviso.</li>
+                  <li>Arrancar con <code>gin.SetMode(gin.ReleaseMode)</code> en <code>cmd/server/main.go</code>, como ya hace el SSO.</li>
+                  <li>Cifrar <code>smtp_password</code> antes de guardarla. La llave va en una variable de entorno. Al arrancar, cifrar las filas que sigan en claro. Descifrar solo al enviar.</li>
+                  <li>Auditar en este servicio: marcar un cobro pagado y exportar clientes. Misma idea de fila que el paquete 1: quién, qué, cuándo, empresa.</li>
+                  <li>En <code>BearerJWT</code> de <code>internal/middleware/jwt.go</code>, rechazar el access token si su <code>jti</code> está revocado. El formato ya está cerrado: el claim <code>jti</code> son 32 hex en minúscula y ya cae en <code>claims.ID</code> (<code>jwt.RegisteredClaims</code>). La lista vive en la misma Postgres, tabla <code>revoked_access_tokens (jti TEXT PRIMARY KEY, expires_at TIMESTAMPTZ NOT NULL)</code>. Al arrancar, cargar <code>SELECT jti, expires_at FROM revoked_access_tokens WHERE expires_at &gt; NOW()</code> a memoria y refrescarla cada pocos segundos. El request normal solo mira esa memoria: si <code>claims.ID</code> está y no venció, 401. Si el token no trae <code>jti</code>, dejarlo pasar hasta que venza solo.</li>
+                </ol>
+              </dd></div>
+              <div><dt>Se espera</dt><dd>En producción no se pueden meter mensajes falsos. Un webhook sin firma no entra y además avisa. La clave SMTP no se lee en la tabla y los correos siguen saliendo. El arranque no lista las rutas. Marcar pagado y exportar clientes deja registro. Un token revocado por el SSO no pasa.</dd></div>
+              <div><dt>Tecnicismo</dt><dd>Webhook signature, rate limiting, encryption at rest, audit log, Gin ReleaseMode</dd></div>
+              <div><dt>Objetivo</dt><dd>Cerrar el API de cobros y WhatsApp sin entrar al SSO ni a payments.</dd></div>
+            </dl>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section data-group="miss">
+      <h2>Paquete 3 · Payments</h2>
+      <div class="list">
+        <article class="miss">
+          <span class="pill">3</span>
+          <div>
+            <h3>Portal de pago y Webpay</h3>
+            <dl class="fields">
+              <div><dt>Repo</dt><dd>Solo <code>flowpay-payments</code>. El mismo <code>jti</code> que el backend, en <code>internal/middleware/jwt.go</code>.</dd></div>
+              <div><dt>Descripción</dt><dd>El pago público y el arranque de este servicio no comparten archivos con el backend ni con el SSO.</dd></div>
+              <div><dt>Qué hacer</dt><dd>
+                <ol>
+                  <li>Arrancar con <code>gin.SetMode(gin.ReleaseMode)</code> en <code>cmd/server/main.go</code>.</li>
+                  <li>Limitar por IP el portal de pago y el retorno de Webpay. Un pago normal pasa. Una ráfaga responde 429.</li>
+                  <li>En <code>BearerJWT</code> de <code>internal/middleware/jwt.go</code>, el mismo chequeo que el backend. Claim <code>jti</code> de 32 hex en minúscula, leído de <code>claims.ID</code>. Tabla compartida <code>revoked_access_tokens (jti TEXT PRIMARY KEY, expires_at TIMESTAMPTZ NOT NULL)</code>. Cargar al arrancar las filas con <code>expires_at</code> futuro y refrescar esa memoria cada pocos segundos. 401 solo si el id está ahí. Un token sin <code>jti</code> sigue válido hasta su vencimiento.</li>
+                </ol>
+              </dd></div>
+              <div><dt>Se espera</dt><dd>El servicio no arranca en debug. Un cliente que paga no se corta. Muchos requests desde la misma IP sí. Un token revocado no abre el portal autenticado.</dd></div>
+              <div><dt>Tecnicismo</dt><dd>Rate limiting, Gin ReleaseMode, token revocation</dd></div>
+              <div><dt>Objetivo</dt><dd>Proteger el pago sin tocar el resto de los repos.</dd></div>
+            </dl>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section data-group="miss">
+      <h2>Paquete 4 · Front y operación</h2>
+      <div class="list">
+        <article class="miss">
+          <span class="pill">4</span>
+          <div>
+            <h3>Cabeceras, secretos, respaldo y revisión</h3>
+            <dl class="fields">
+              <div><dt>Repo</dt><dd>El front, en <code>middleware.ts</code>. El resto no es código de producto. El chequeo de librerías se agrega al final, solo como archivo de CI, cuando los otros tres paquetes ya están mergeados.</dd></div>
+              <div><dt>Descripción</dt><dd>Esto no entra en los controladores de los otros. Se puede hacer en paralelo, salvo rotar el JWT: el formato del <code>jti</code> ya está, y la rotación espera a que backend y payments rechacen esa lista.</dd></div>
+              <div><dt>Qué hacer</dt><dd>
+                <ol>
+                  <li>En el middleware del front, agregar Content-Security-Policy, Strict-Transport-Security, X-Frame-Options y Referrer-Policy. Probar login, cobros y el salto a Webpay.</li>
+                  <li>Confirmar que el backup de Postgres está cifrado y programado. Restaurar una copia en una base vacía y anotar cuánto tardó y cómo se pide la próxima.</li>
+                  <li>Dejar <code>FLOWPAY_JWT_SECRET</code>, Twilio y la llave de Webpay solo en el entorno. Escribir cómo se cambia cada uno. Rotar el JWT recién cuando backend y payments ya rechacen el <code>jti</code> de <code>revoked_access_tokens</code>: las sesiones viejas mueren y la gente vuelve a entrar.</li>
+                  <li>Al final, un chequeo de dependencias en el CI de los cuatro repos, que falle si hay una vulnerabilidad alta. Encargar una prueba de intrusión y abrir una tarjeta por cada hallazgo.</li>
+                </ol>
+              </dd></div>
+              <div><dt>Se espera</dt><dd>El HTML trae las cuatro cabeceras y el panel sigue funcionando. Una base restaurada abre con usuarios, empresas y cobros. No hay secretos en el repo y existe el paso a paso para cambiarlos. El CI corta un deploy con una librería crítica.</dd></div>
+              <div><dt>Tecnicismo</dt><dd>CSP y HSTS, secrets rotation, backup and restore, dependency scan</dd></div>
+              <div><dt>Objetivo</dt><dd>Cerrar el navegador y la operación sin editar el SSO, el backend ni payments mientras los otros trabajan.</dd></div>
+            </dl>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <footer>
+      Cuatro tarjetas, cuatro personas. El jti ya está definido: 32 hex en el claim jti, tabla revoked_access_tokens. Backend y payments lo aplican así, sin inventar otro.
+    </footer>
+
+  </main>
+  <script>
+    const buttons = document.querySelectorAll("nav button");
+    const sections = document.querySelectorAll("section");
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        buttons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+        const filter = button.dataset.filter;
+        sections.forEach((section) => {
+          section.hidden = filter !== "all" && section.dataset.group !== filter;
+        });
+      });
+    });
+  </script>
+</body>
+</html>

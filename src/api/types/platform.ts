@@ -49,6 +49,13 @@ export interface SignupPlan {
   commission_percent?: number;
 }
 
+export interface PlatformAdminDTO {
+  user_id: number;
+  email: string;
+  name: string;
+  is_active: boolean;
+}
+
 export interface CompanyAdminDTO {
   user_id: number;
   company_id: number;

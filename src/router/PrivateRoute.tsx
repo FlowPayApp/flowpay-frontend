@@ -1,11 +1,13 @@
 import Layout from "../components/Layout";
 import Landing from "../pages/Landing";
 import { Navigate, useLocation } from "react-router-dom";
+import { useAuthToken } from "../lib/auth";
 
 const PrivateRoute = () => {
   const location = useLocation();
+  const token = useAuthToken();
 
-  if (localStorage.getItem("flowpay_token")) {
+  if (token) {
     return <Layout />;
   }
   if (location.pathname === "/") {

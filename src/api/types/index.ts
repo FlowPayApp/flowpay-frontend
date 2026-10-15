@@ -23,6 +23,7 @@ export type {
   PlatformOverviewResponse,
   CompanyDTO,
   CompanyAdminDTO,
+  PlatformAdminDTO,
   SignupPlan,
 } from "./platform";
 export type { ReminderTemplateRowDTO, MessagingSettingsDTO, MessagingPhaseDefaults } from "./messaging";
