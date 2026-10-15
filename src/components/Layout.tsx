@@ -194,12 +194,12 @@ export default function Layout() {
         className={[
           "hidden shrink-0 flex-col border-r border-surface-border bg-surface-card px-3 py-6 lg:sticky lg:top-0 lg:z-20 lg:flex lg:h-dvh",
           `transition-[width] ${SIDEBAR_MOTION}`,
-          collapsed ? "w-[4.5rem]" : "w-60",
+          collapsed ? "w-[4.5rem]" : "w-52",
         ].join(" ")}
       >
         <div className="relative h-10 overflow-hidden" title={collapsed ? "GeldFlus" : undefined}>
           <div
-            className={`absolute inset-y-0 left-0 flex w-[13.5rem] items-center justify-center ${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}
+            className={`absolute inset-y-0 left-0 flex w-[11.5rem] items-center justify-center ${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}
             aria-hidden={collapsed}
           >
             <BrandLogo className="h-8" />

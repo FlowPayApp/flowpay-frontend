@@ -25,6 +25,6 @@ export type {
   CompanyAdminDTO,
   SignupPlan,
 } from "./platform";
-export type { ReminderTemplateRowDTO, MessagingSettingsDTO } from "./messaging";
+export type { ReminderTemplateRowDTO, MessagingSettingsDTO, MessagingPhaseDefaults } from "./messaging";
 export type { MyProfileDTO } from "./profile";
 export type { CompanyUserDTO } from "./companyUser";

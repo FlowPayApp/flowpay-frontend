@@ -19,4 +19,12 @@ export interface MessagingSettingsDTO {
   reminder_policy: ReminderPolicy;
   /** Hora diaria (HH:MM) del envío automático. */
   send_time: string;
+  /** Por fase, con un cobro de ejemplo: plantilla de WhatsApp aprobada y correo del sistema. */
+  defaults?: Record<string, MessagingPhaseDefaults>;
+}
+
+export interface MessagingPhaseDefaults {
+  whatsapp: string;
+  email_subject: string;
+  email_body: string;
 }
