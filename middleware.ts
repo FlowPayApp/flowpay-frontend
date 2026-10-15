@@ -11,6 +11,9 @@ function origin(name: string): string {
 }
 
 function upstream(pathname: string): { base: string; name: string } | null {
+  if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) {
+    return { base: origin("FLOWPAY_SSO_URL"), name: "FLOWPAY_SSO_URL" };
+  }
   if (pathname === "/auth" || pathname.startsWith("/auth/")) {
     return { base: origin("FLOWPAY_SSO_URL"), name: "FLOWPAY_SSO_URL" };
   }

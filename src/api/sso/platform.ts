@@ -1,29 +1,23 @@
-import { getToken } from "../../lib/auth";
-import type { CompanyAdminDTO, CompanyDTO, SignupPlan } from "../types";
+import { authorizedFetch } from "../../lib/auth";
+import type { CompanyAdminDTO, CompanyDTO, PlatformAdminDTO, SignupPlan } from "../types";
 
 export async function createCompany(payload: { name: string }) {
-  const t = getToken();
-  const res = await fetch("/auth/platform/companies", {
+  const res = await authorizedFetch("/auth/platform/companies", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || "No se pudo crear la empresa");
-  }
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo crear la empresa"));
   return res.json() as Promise<{ company_id: number }>;
 }
 
 export async function listCompanies() {
-  const t = getToken();
-  const res = await fetch("/auth/platform/companies", {
-    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+  const res = await authorizedFetch("/auth/platform/companies", {
+    headers: {},
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudieron cargar las empresas"));
   return res.json() as Promise<CompanyDTO[]>;
 }
 
@@ -39,10 +33,9 @@ async function readApiError(res: Response, fallback: string): Promise<string> {
 }
 
 export async function deleteCompany(companyId: number) {
-  const t = getToken();
-  const res = await fetch(`/auth/platform/companies/${companyId}`, {
+  const res = await authorizedFetch(`/auth/platform/companies/${companyId}`, {
     method: "DELETE",
-    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+    headers: {},
   });
   if (!res.ok) throw new Error(await readApiError(res, "No se pudo borrar la empresa"));
 }
@@ -64,12 +57,10 @@ export async function updateSignupPlan(
     commission_percent: number;
   },
 ) {
-  const t = getToken();
-  const res = await fetch(`/auth/platform/plans/${planId}`, {
+  const res = await authorizedFetch(`/auth/platform/plans/${planId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -89,17 +80,15 @@ export async function updateCompany(
     clear_commission_override?: boolean;
   },
 ) {
-  const t = getToken();
-  const res = await fetch(`/auth/platform/companies/${companyId}`, {
+  const res = await authorizedFetch(`/auth/platform/companies/${companyId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ ok?: boolean; email?: string; temporary_password?: string }>;
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo guardar la empresa"));
+  return res.json() as Promise<{ ok?: boolean; email?: string; password_sent?: boolean }>;
 }
 
 export async function createAdminForCompany(payload: {
@@ -107,34 +96,74 @@ export async function createAdminForCompany(payload: {
   email: string;
   name: string;
 }) {
-  const t = getToken();
-  const res = await fetch("/auth/platform/company-admins", {
+  const res = await authorizedFetch("/auth/platform/company-admins", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || "No se pudo crear admin");
-  }
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo crear el admin"));
   return res.json() as Promise<{
     user_id: number;
     company_id: number;
     role: string;
-    temporary_password: string;
+    password_sent: boolean;
     must_change_password: boolean;
   }>;
 }
 
-export async function listCompanyAdmins() {
-  const t = getToken();
-  const res = await fetch("/auth/platform/company-admins", {
-    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+export async function createPlatformAdmin(payload: { email: string; name: string }) {
+  const res = await authorizedFetch("/auth/platform/admins", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo crear el superadmin"));
+  return res.json() as Promise<{
+    user_id: number;
+    role: string;
+    password_sent: boolean;
+    must_change_password: boolean;
+  }>;
+}
+
+export async function updatePlatformAdmin(userId: number, payload: { is_active: boolean }) {
+  const res = await authorizedFetch(`/auth/platform/admins/${userId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo guardar el superadmin"));
+  return res.json() as Promise<{ ok?: boolean; signed_out?: boolean }>;
+}
+
+export async function deletePlatformAdmin(userId: number) {
+  const res = await authorizedFetch(`/auth/platform/admins/${userId}`, {
+    method: "DELETE",
+    headers: {},
+  });
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo borrar el superadmin"));
+  return res.json() as Promise<{ ok?: boolean; signed_out?: boolean }>;
+}
+
+export async function listPlatformAdmins() {
+  const res = await authorizedFetch("/auth/platform/admins", {
+    headers: {},
+  });
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudieron cargar los superadmins"));
+  return res.json() as Promise<PlatformAdminDTO[]>;
+}
+
+export async function listCompanyAdmins() {
+  const res = await authorizedFetch("/auth/platform/company-admins", {
+    headers: {},
+  });
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudieron cargar los admins"));
   return res.json() as Promise<CompanyAdminDTO[]>;
 }
 
@@ -142,39 +171,32 @@ export async function updateCompanyAdmin(
   userId: number,
   payload: { email?: string; name?: string; is_active?: boolean },
 ) {
-  const t = getToken();
-  const res = await fetch(`/auth/platform/company-admins/${userId}`, {
+  const res = await authorizedFetch(`/auth/platform/company-admins/${userId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo guardar el admin"));
 }
 
 export async function deleteCompanyAdmin(userId: number) {
-  const t = getToken();
-  const res = await fetch(`/auth/platform/company-admins/${userId}`, {
+  const res = await authorizedFetch(`/auth/platform/company-admins/${userId}`, {
     method: "DELETE",
-    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+    headers: {},
   });
   if (!res.ok) throw new Error(await readApiError(res, "No se pudo borrar el admin"));
 }
 
 export async function resetCompanyAdminPassword(userId: number) {
-  const t = getToken();
-  const res = await fetch(`/auth/platform/company-admins/${userId}/reset-password`, {
+  const res = await authorizedFetch(`/auth/platform/company-admins/${userId}/reset-password`, {
     method: "POST",
-    headers: { ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+    headers: {},
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || "No se pudo resetear contraseña");
-  }
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo resetear la contraseña"));
   return res.json() as Promise<{
-    temporary_password: string;
+    password_sent: boolean;
     must_change_password: boolean;
   }>;
 }

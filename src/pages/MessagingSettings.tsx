@@ -1,43 +1,40 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
-  ArrowDown,
-  ArrowUp,
   BellRing,
+  CalendarCheck,
   CalendarClock,
   ChevronDown,
+  CircleAlert,
   Landmark,
+  Lock,
   Mail,
   MessageCircle,
   MessageSquareText,
+  Pencil,
   Plus,
-  Trash2,
+  Repeat,
+  RotateCcw,
 } from "lucide-react";
 import { useMinLoading } from "../lib/useMinLoading";
 import { fetchCompanyMessaging, saveCompanyMessaging } from "../api";
-import type { MessagingSettingsDTO, ReminderPolicy, ReminderTemplateRowDTO } from "../api";
+import type { MessagingPhaseDefaults, MessagingSettingsDTO, ReminderPolicy, ReminderTemplateRowDTO } from "../api";
 import PageLoading from "../components/PageLoading";
 import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import { useToast } from "../components/Toast";
 import { DEFAULT_REMINDER_POLICY, describeReminderPolicy } from "../lib/reminderPolicy";
 
-type EditableTemplate = {
-  key: string;
-  phase: string;
-  day_min: number;
-  day_max: number;
-  email_subject: string;
-  body: string;
-  whatsapp_body: string;
-};
+type Phase = "approaching" | "due_today" | "overdue_first" | "overdue_followup";
 
-type Channel = "whatsapp" | "email";
+type EmailText = { subject: string; body: string; custom: boolean };
 
-const PHASE_OPTIONS: { value: string; label: string }[] = [
-  { value: "approaching", label: "Antes de vencer" },
-  { value: "due_today", label: "Día que vence" },
-  { value: "overdue_first", label: "Recién vencido" },
-  { value: "overdue_followup", label: "Seguimiento vencido" },
+type Emails = Record<Phase, EmailText>;
+
+const MOMENTS: { phase: Phase; title: string; icon: LucideIcon }[] = [
+  { phase: "approaching", title: "Antes de vencer", icon: CalendarClock },
+  { phase: "due_today", title: "El día que vence", icon: CalendarCheck },
+  { phase: "overdue_first", title: "Recién vencido", icon: CircleAlert },
+  { phase: "overdue_followup", title: "Seguimiento", icon: Repeat },
 ];
 
 const MESSAGE_FIELDS: { token: string; label: string }[] = [
@@ -291,48 +288,34 @@ function PaymentLinkField({ value, onChange }: { value: string; onChange: (next:
   );
 }
 
-function newRow(): EditableTemplate {
+function emptyEmails(): Emails {
   return {
-    key: `n-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    phase: "approaching",
-    day_min: 1,
-    day_max: 3,
-    email_subject: "",
-    body: "",
-    whatsapp_body: "",
+    approaching: { subject: "", body: "", custom: false },
+    due_today: { subject: "", body: "", custom: false },
+    overdue_first: { subject: "", body: "", custom: false },
+    overdue_followup: { subject: "", body: "", custom: false },
   };
 }
 
-function dtoToEditable(t: ReminderTemplateRowDTO): EditableTemplate {
-  return {
-    key: `e-${t.id ?? Math.random().toString(36).slice(2, 9)}`,
-    phase: t.phase,
-    day_min: t.day_min,
-    day_max: t.day_max,
-    email_subject: t.email_subject ?? "",
-    body: t.body ?? "",
-    whatsapp_body: t.whatsapp_body ?? "",
-  };
-}
-
-function whenLabel(row: EditableTemplate) {
-  if (row.phase === "approaching") {
-    const lo = Math.min(row.day_min, row.day_max);
-    const hi = Math.max(row.day_min, row.day_max);
-    if (lo === hi) return lo === 1 ? "1 día antes de vencer" : `${lo} días antes de vencer`;
-    return `Entre ${lo} y ${hi} días antes de vencer`;
+/** Un correo por momento: si había varios para la misma fase, gana el de menor orden (el que se enviaba). */
+function emailsFromTemplates(templates: ReminderTemplateRowDTO[]): Emails {
+  const out = emptyEmails();
+  for (const t of [...templates].sort((a, b) => a.sort_order - b.sort_order)) {
+    const slot = out[t.phase as Phase];
+    if (!slot || slot.custom || !(t.body ?? "").trim()) continue;
+    out[t.phase as Phase] = { subject: t.email_subject ?? "", body: t.body, custom: true };
   }
-  if (row.phase === "due_today") return "El día que vence";
-  if (row.phase === "overdue_first") return "Primer aviso después de vencer";
-  return "Seguimiento de cobro vencido";
+  return out;
 }
 
-function snapshot(transfer: string, paymentUrl: string, policy: ReminderPolicy, rows: EditableTemplate[]) {
+function snapshot(transfer: string, paymentUrl: string, policy: ReminderPolicy, emails: Emails) {
   return JSON.stringify({
     transfer,
     paymentUrl,
     policy: { ...policy, days_before: [...policy.days_before].sort((a, b) => a - b) },
-    rows: rows.map(({ key: _key, ...row }) => row),
+    emails: MOMENTS.map(({ phase }) =>
+      emails[phase].body.trim() ? [emails[phase].subject, emails[phase].body] : null,
+    ),
   });
 }
 
@@ -353,13 +336,11 @@ function Section({
   icon: Icon,
   title,
   hint,
-  aside,
   children,
 }: {
   icon: LucideIcon;
   title: string;
   hint?: string;
-  aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -372,256 +353,154 @@ function Section({
           <h2 className="text-base font-semibold text-ink">{title}</h2>
           {hint ? <p className="text-sm leading-snug text-ink-muted">{hint}</p> : null}
         </div>
-        {aside}
       </header>
       <div className="px-4 py-5 sm:px-6">{children}</div>
     </section>
   );
 }
 
-function ChannelTag({ icon: Icon, label, filled }: { icon: LucideIcon; label: string; filled: boolean }) {
+function ChannelHeading({ icon: Icon, label, aside }: { icon: LucideIcon; label: string; aside?: React.ReactNode }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-        filled ? "border border-transparent bg-brand-soft text-brand" : "border border-dashed border-surface-border text-ink-muted"
-      }`}
-    >
-      <Icon className="h-3 w-3" strokeWidth={2} />
-      {label}
-    </span>
-  );
-}
-
-function ChannelHeading({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted sm:hidden">
-      <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-      {label}
-    </p>
-  );
-}
-
-function PreviewBox({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mt-4 rounded-xl bg-surface p-3">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Así lo verá tu cliente</p>
-      {children}
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+        {label}
+      </p>
+      {aside}
     </div>
   );
 }
 
-function TemplateCard({
-  row,
-  index,
-  total,
+function MomentCard({
+  title,
+  icon: Icon,
   open,
+  email,
+  defaults,
   transfer,
   paymentUrl,
   onToggle,
   onChange,
-  onMove,
-  onRemove,
 }: {
-  row: EditableTemplate;
-  index: number;
-  total: number;
+  title: string;
+  icon: LucideIcon;
   open: boolean;
+  email: EmailText;
+  defaults?: MessagingPhaseDefaults;
   transfer: string;
   paymentUrl: string;
   onToggle: () => void;
-  onChange: (patch: Partial<EditableTemplate>) => void;
-  onMove: (delta: -1 | 1) => void;
-  onRemove: () => void;
+  onChange: (next: EmailText) => void;
 }) {
-  const [channel, setChannel] = useState<Channel>("whatsapp");
-  const hasWa = row.whatsapp_body.trim() !== "";
-  const hasMail = row.body.trim() !== "";
+  const custom = email.custom;
 
   return (
     <li className={`rounded-xl border transition-colors ${open ? "border-brand/30 bg-surface-card" : "border-surface-border bg-surface/40"}`}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface text-xs font-semibold tabular-nums text-ink-muted">
-          {index + 1}
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-surface text-ink-muted">
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-ink">{whenLabel(row)}</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <ChannelTag icon={MessageCircle} label="WhatsApp" filled={hasWa} />
-            <ChannelTag icon={Mail} label="Correo" filled={hasMail} />
-          </div>
+          <p className="truncate text-sm font-semibold text-ink">{title}</p>
+          <p className={`mt-0.5 text-xs ${custom ? "font-medium text-brand" : "text-ink-muted"}`}>
+            {custom ? "Correo personalizado" : "Correo predeterminado"}
+          </p>
         </div>
         <ChevronDown className={`h-4 w-4 shrink-0 text-ink-muted transition-transform ${open ? "rotate-180" : ""}`} strokeWidth={2} />
       </button>
 
       {open && (
-        <div className="space-y-5 border-t border-surface-border px-4 py-4">
+        <div className="space-y-6 border-t border-surface-border px-4 py-4">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Cuándo</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Cuándo">
-              {PHASE_OPTIONS.map((option) => {
-                const on = row.phase === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() =>
-                      onChange({
-                        phase: option.value,
-                        day_min: option.value === "approaching" ? (row.phase === "approaching" ? row.day_min : 1) : 0,
-                        day_max: option.value === "approaching" ? (row.phase === "approaching" ? row.day_max : 3) : 999,
-                      })
-                    }
-                    className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-left text-sm font-medium transition-colors ${
-                      on ? "border-brand bg-brand-soft text-brand" : "border-surface-border bg-surface-card text-ink hover:bg-surface"
-                    }`}
-                  >
-                    <span
-                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                        on ? "border-brand" : "border-ink-muted/40"
-                      }`}
-                      aria-hidden
-                    >
-                      {on && <span className="h-2 w-2 rounded-full bg-brand" />}
-                    </span>
-                    <span className="leading-tight">{option.label}</span>
-                  </button>
-                );
-              })}
+            <ChannelHeading
+              icon={MessageCircle}
+              label="WhatsApp"
+              aside={
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-muted">
+                  <Lock className="h-3 w-3" strokeWidth={2} />
+                  Plantilla aprobada
+                </span>
+              }
+            />
+            <div className="rounded-xl bg-surface p-3">
+              {defaults?.whatsapp ? (
+                <div className="max-w-[90%] whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm bg-surface-card px-3 py-2 text-sm text-ink shadow-sm">
+                  {defaults.whatsapp}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-muted">Se envía la plantilla aprobada de este momento.</p>
+              )}
             </div>
-            {row.phase === "approaching" && (
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink">
-                Entre
-                <input
-                  type="number"
-                  min={0}
-                  aria-label="Desde"
-                  className="h-9 w-16 rounded-lg border border-surface-border bg-[rgb(var(--color-field))] px-2 text-center text-sm tabular-nums"
-                  value={row.day_min}
-                  onChange={(e) => onChange({ day_min: Math.max(0, Number(e.target.value) || 0) })}
-                />
-                y
-                <input
-                  type="number"
-                  min={0}
-                  aria-label="Hasta"
-                  className="h-9 w-16 rounded-lg border border-surface-border bg-[rgb(var(--color-field))] px-2 text-center text-sm tabular-nums"
-                  value={row.day_max}
-                  onChange={(e) => onChange({ day_max: Math.max(0, Number(e.target.value) || 0) })}
-                />
-                días antes
-              </div>
-            )}
           </div>
 
-          <div>
-            <div className="mb-2 hidden rounded-lg border border-surface-border bg-surface p-0.5 sm:inline-flex">
-              {(
-                [
-                  { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, filled: hasWa },
-                  { id: "email", label: "Correo", icon: Mail, filled: hasMail },
-                ] as const
-              ).map((tab) => {
-                const on = channel === tab.id;
-                const Icon = tab.icon;
-                return (
+          <div className="border-t border-surface-border pt-5">
+            <ChannelHeading
+              icon={Mail}
+              label="Correo"
+              aside={
+                custom ? (
                   <button
-                    key={tab.id}
                     type="button"
-                    onClick={() => setChannel(tab.id)}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors ${
-                      on ? "bg-surface-card text-ink shadow-sm" : "text-ink-muted hover:text-ink"
-                    }`}
+                    onClick={() => onChange({ subject: "", body: "", custom: false })}
+                    className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-ink-muted hover:bg-surface hover:text-ink"
                   >
-                    <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-                    {tab.label}
-                    {tab.filled && <span className="h-1.5 w-1.5 rounded-full bg-brand" />}
+                    <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} />
+                    Usar predeterminado
                   </button>
-                );
-              })}
-            </div>
+                ) : null
+              }
+            />
 
-            <div className="space-y-6 sm:space-y-0">
-              <div className={channel === "whatsapp" ? "" : "sm:hidden"}>
-                <ChannelHeading icon={MessageCircle} label="WhatsApp" />
-                <MessageEditor
-                  value={row.whatsapp_body}
-                  placeholder="Hola, te recordamos tu pago de…"
-                  onChange={(whatsapp_body) => onChange({ whatsapp_body })}
-                />
-                {hasWa && (
-                  <PreviewBox>
-                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm bg-surface-card px-3 py-2 text-sm text-ink shadow-sm">
-                      {preview(row.whatsapp_body, transfer, paymentUrl)}
-                    </div>
-                  </PreviewBox>
-                )}
-              </div>
-
-              <div className={`border-t border-surface-border pt-5 sm:border-0 sm:pt-0 ${channel === "email" ? "" : "sm:hidden"}`}>
-                <ChannelHeading icon={Mail} label="Correo" />
+            {custom ? (
+              <>
                 <div className="space-y-2">
                   <MessageEditor
-                    value={row.email_subject}
+                    value={email.subject}
                     multiline={false}
                     withInserts={false}
-                    placeholder="Asunto del correo"
-                    onChange={(email_subject) => onChange({ email_subject })}
+                    placeholder={defaults?.email_subject || "Asunto del correo"}
+                    onChange={(subject) => onChange({ ...email, subject })}
                   />
                   <MessageEditor
-                    value={row.body}
+                    value={email.body}
                     placeholder="Hola, te recordamos tu pago de…"
-                    onChange={(body) => onChange({ body })}
+                    onChange={(body) => onChange({ ...email, body })}
                   />
                 </div>
-                {hasMail && (
-                  <PreviewBox>
+                {email.body.trim() !== "" && (
+                  <div className="mt-4 rounded-xl bg-surface p-3">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Así lo verá tu cliente</p>
                     <div className="rounded-lg bg-surface-card px-3 py-2.5 text-sm text-ink shadow-sm">
-                      {row.email_subject.trim() ? (
-                        <p className="mb-1.5 border-b border-surface-border pb-1.5 font-semibold">
-                          {preview(row.email_subject, transfer, paymentUrl)}
-                        </p>
-                      ) : null}
-                      <p className="whitespace-pre-wrap break-words">{preview(row.body, transfer, paymentUrl)}</p>
+                      <p className="mb-1.5 border-b border-surface-border pb-1.5 font-semibold">
+                        {email.subject.trim() ? preview(email.subject, transfer, paymentUrl) : defaults?.email_subject}
+                      </p>
+                      <p className="whitespace-pre-wrap break-words">{preview(email.body, transfer, paymentUrl)}</p>
                     </div>
-                  </PreviewBox>
+                  </div>
                 )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 border-t border-surface-border pt-3">
-            <div className="flex gap-1">
-              <button
-                type="button"
-                aria-label="Subir"
-                title="Subir (tiene prioridad si coincide con otro)"
-                disabled={index === 0}
-                onClick={() => onMove(-1)}
-                className="grid h-9 w-9 place-items-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-30"
-              >
-                <ArrowUp className="h-4 w-4" strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                aria-label="Bajar"
-                title="Bajar"
-                disabled={index === total - 1}
-                onClick={() => onMove(1)}
-                className="grid h-9 w-9 place-items-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-30"
-              >
-                <ArrowDown className="h-4 w-4" strokeWidth={2} />
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-danger hover:bg-danger-soft"
-            >
-              <Trash2 className="h-4 w-4" strokeWidth={2} />
-              Eliminar
-            </button>
+              </>
+            ) : (
+              <>
+                <div className="rounded-xl bg-surface p-3">
+                  {defaults ? (
+                    <div className="rounded-lg bg-surface-card px-3 py-2.5 text-sm text-ink shadow-sm">
+                      <p className="mb-1.5 border-b border-surface-border pb-1.5 font-semibold">{defaults.email_subject}</p>
+                      <p className="whitespace-pre-wrap break-words">{defaults.email_body}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-ink-muted">Se envía el correo predeterminado.</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...email, custom: true })}
+                  className="mt-3 inline-flex h-10 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-semibold text-ink hover:bg-surface"
+                >
+                  <Pencil className="h-4 w-4" strokeWidth={2} />
+                  Escribir mi correo
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -637,10 +516,11 @@ export default function MessagingSettings() {
   const toast = useToast();
   const [transfer, setTransfer] = useState("");
   const [paymentUrl, setPaymentUrl] = useState("");
-  const [rows, setRows] = useState<EditableTemplate[]>([]);
+  const [emails, setEmails] = useState<Emails>(emptyEmails);
+  const [defaults, setDefaults] = useState<Record<string, MessagingPhaseDefaults>>({});
   const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
   const [sendTime, setSendTime] = useState("");
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openPhase, setOpenPhase] = useState<Phase | null>(null);
   const [baseline, setBaseline] = useState<string | null>(null);
 
   const loaded = useRef<MessagingSettingsDTO | null>(null);
@@ -649,14 +529,14 @@ export default function MessagingSettings() {
     const nextTransfer = data.transfer_instructions ?? "";
     const nextUrl = data.payment_url_template ?? "";
     const nextPolicy = data.reminder_policy ?? DEFAULT_REMINDER_POLICY;
-    const nextRows = [...(data.templates ?? [])].sort((a, b) => a.sort_order - b.sort_order).map(dtoToEditable);
+    const nextEmails = emailsFromTemplates(data.templates ?? []);
     setTransfer(nextTransfer);
     setPaymentUrl(nextUrl);
     setPolicy(nextPolicy);
     setSendTime(data.send_time ?? "");
-    setRows(nextRows);
-    setOpenKey(null);
-    setBaseline(snapshot(nextTransfer, nextUrl, nextPolicy, nextRows));
+    setEmails(nextEmails);
+    setDefaults(data.defaults ?? {});
+    setBaseline(snapshot(nextTransfer, nextUrl, nextPolicy, nextEmails));
   }, []);
 
   const load = useCallback(async () => {
@@ -668,7 +548,6 @@ export default function MessagingSettings() {
       apply(data);
     } catch {
       setError("No se pudo cargar la configuración.");
-      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -678,26 +557,8 @@ export default function MessagingSettings() {
     void load();
   }, [load]);
 
-  const current = useMemo(() => snapshot(transfer, paymentUrl, policy, rows), [transfer, paymentUrl, policy, rows]);
+  const current = useMemo(() => snapshot(transfer, paymentUrl, policy, emails), [transfer, paymentUrl, policy, emails]);
   const dirty = baseline !== null && current !== baseline;
-
-  const patchRow = (key: string, patch: Partial<EditableTemplate>) =>
-    setRows((list) => list.map((row) => (row.key === key ? { ...row, ...patch } : row)));
-
-  const moveRow = (index: number, delta: -1 | 1) =>
-    setRows((list) => {
-      const target = index + delta;
-      if (target < 0 || target >= list.length) return list;
-      const next = [...list];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-
-  const addRow = () => {
-    const row = newRow();
-    setRows((list) => [...list, row]);
-    setOpenKey(row.key);
-  };
 
   async function onSave() {
     setSaving(true);
@@ -706,18 +567,15 @@ export default function MessagingSettings() {
       await saveCompanyMessaging({
         transfer_instructions: transfer,
         payment_url_template: paymentUrl,
-        templates: rows
-          .map((r, index) => ({ r, index }))
-          .filter(({ r }) => r.body.trim() !== "" || r.whatsapp_body.trim() !== "")
-          .map(({ r, index }) => ({
-            phase: r.phase,
-            day_min: r.phase === "approaching" ? Math.min(r.day_min, r.day_max) : 0,
-            day_max: r.phase === "approaching" ? Math.max(r.day_min, r.day_max) : 999,
-            sort_order: index,
-            email_subject: r.email_subject,
-            body: r.body,
-            whatsapp_body: r.whatsapp_body,
-          })),
+        templates: MOMENTS.filter(({ phase }) => emails[phase].body.trim() !== "").map(({ phase }) => ({
+          phase,
+          day_min: 0,
+          day_max: 999,
+          sort_order: 0,
+          email_subject: emails[phase].subject,
+          body: emails[phase].body,
+          whatsapp_body: "",
+        })),
         reminder_policy: policy,
       });
       toast.success("Cambios guardados.");
@@ -753,59 +611,26 @@ export default function MessagingSettings() {
         </p>
       </Section>
 
-      <Section
-        icon={MessageSquareText}
-        title="Qué decir"
-        hint="Lo que recibe tu cliente en cada aviso"
-        aside={
-          rows.length > 0 ? (
-            <button
-              type="button"
-              onClick={addRow}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 text-sm font-semibold text-ink hover:bg-surface"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.5} />
-              <span className="hidden sm:inline">Nuevo mensaje</span>
-              <span className="sm:hidden">Nuevo</span>
-            </button>
-          ) : null
-        }
-      >
-        {rows.length === 0 ? (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-surface-border px-4 py-8 text-center">
-            <MessageSquareText className="h-8 w-8 text-ink-muted" strokeWidth={1.5} />
-            <p className="mt-3 text-sm font-medium text-ink">Usando los mensajes predeterminados</p>
-            <button
-              type="button"
-              onClick={addRow}
-              className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.5} />
-              Escribir mi mensaje
-            </button>
-          </div>
-        ) : (
-          <ul className="space-y-3">
-            {rows.map((row, index) => (
-              <TemplateCard
-                key={row.key}
-                row={row}
-                index={index}
-                total={rows.length}
-                open={openKey === row.key}
-                transfer={transfer}
-                paymentUrl={paymentUrl}
-                onToggle={() => setOpenKey((k) => (k === row.key ? null : row.key))}
-                onChange={(patch) => patchRow(row.key, patch)}
-                onMove={(delta) => moveRow(index, delta)}
-                onRemove={() => setRows((list) => list.filter((x) => x.key !== row.key))}
-              />
-            ))}
-          </ul>
-        )}
+      <Section icon={MessageSquareText} title="Qué decir" hint="WhatsApp usa plantillas aprobadas. El correo lo puedes escribir tú.">
+        <ul className="space-y-3">
+          {MOMENTS.map((moment) => (
+            <MomentCard
+              key={moment.phase}
+              title={moment.title}
+              icon={moment.icon}
+              open={openPhase === moment.phase}
+              email={emails[moment.phase]}
+              defaults={defaults[moment.phase]}
+              transfer={transfer}
+              paymentUrl={paymentUrl}
+              onToggle={() => setOpenPhase((p) => (p === moment.phase ? null : moment.phase))}
+              onChange={(next) => setEmails((all) => ({ ...all, [moment.phase]: next }))}
+            />
+          ))}
+        </ul>
       </Section>
 
-      <Section icon={Landmark} title="Cómo te pagan" hint="Se insertan en tus mensajes">
+      <Section icon={Landmark} title="Cómo te pagan" hint="Se pueden insertar en tus correos">
         <div className="space-y-5">
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-ink">Datos de transferencia</span>

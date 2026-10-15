@@ -144,8 +144,7 @@ export default function Layout() {
   const label = (text: string) => <span className={`${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}>{text}</span>;
 
   const signOut = () => {
-    logout();
-    nav("/login", { replace: true });
+    void logout().then(() => nav("/login", { replace: true }));
   };
 
   const accountSection = () => {
@@ -194,12 +193,12 @@ export default function Layout() {
         className={[
           "hidden shrink-0 flex-col border-r border-surface-border bg-surface-card px-3 py-6 lg:sticky lg:top-0 lg:z-20 lg:flex lg:h-dvh",
           `transition-[width] ${SIDEBAR_MOTION}`,
-          collapsed ? "w-[4.5rem]" : "w-60",
+          collapsed ? "w-[4.5rem]" : "w-52",
         ].join(" ")}
       >
         <div className="relative h-10 overflow-hidden" title={collapsed ? "GeldFlus" : undefined}>
           <div
-            className={`absolute inset-y-0 left-0 flex w-[13.5rem] items-center justify-center ${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}
+            className={`absolute inset-y-0 left-0 flex w-[11.5rem] items-center justify-center ${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}
             aria-hidden={collapsed}
           >
             <BrandLogo className="h-8" />
@@ -208,9 +207,7 @@ export default function Layout() {
             className={`absolute inset-y-0 left-0 grid w-12 place-items-center ${SIDEBAR_FADE} ${fadeIn(collapsed)}`}
             aria-hidden={!collapsed}
           >
-            <div className="grid h-9 w-9 place-items-center dark:rounded-lg dark:bg-white">
-              <BrandLogo variant="mark" tone="color" className="h-7" />
-            </div>
+            <BrandLogo variant="mark" className="h-7" />
           </div>
         </div>
         <button

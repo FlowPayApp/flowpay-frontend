@@ -1,4 +1,4 @@
-import { getToken } from "../../lib/auth";
+import { authorizedFetch } from "../../lib/auth";
 import { api } from "../client";
 import type { ChargeDTO, ChargeInboundWhatsApp, ChargeRemindersPayload, Inbox, Reminder, ReminderChannel } from "../types";
 
@@ -83,12 +83,7 @@ export async function sendChargeWhatsAppFile(chargeId: number, file: File, text:
   const fd = new FormData();
   fd.append("file", file);
   if (text.trim()) fd.append("text", text.trim());
-  const headers: HeadersInit = {};
-  const t = getToken();
-  if (t) {
-    headers.Authorization = `Bearer ${t}`;
-  }
-  const res = await fetch(`/api/charges/${chargeId}/whatsapp/file`, { method: "POST", headers, body: fd });
+  const res = await authorizedFetch(`/api/charges/${chargeId}/whatsapp/file`, { method: "POST", body: fd });
   const body = await res.text();
   if (!res.ok) {
     let message = "No se pudo enviar el archivo.";
@@ -116,14 +111,8 @@ export async function fetchInbox() {
 export async function uploadChargeAttachment(chargeId: number, file: File) {
   const fd = new FormData();
   fd.append("file", file);
-  const headers: HeadersInit = {};
-  const t = getToken();
-  if (t) {
-    headers.Authorization = `Bearer ${t}`;
-  }
-  const res = await fetch(`/api/charges/${chargeId}/attachment`, {
+  const res = await authorizedFetch(`/api/charges/${chargeId}/attachment`, {
     method: "POST",
-    headers,
     body: fd,
   });
   if (!res.ok) {

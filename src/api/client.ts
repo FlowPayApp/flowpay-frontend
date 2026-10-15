@@ -1,5 +1,7 @@
-import axios from "axios";
-import { getToken, setToken } from "../lib/auth";
+import axios, { type InternalAxiosRequestConfig } from "axios";
+import { getToken, refreshSession, setToken } from "../lib/auth";
+
+type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 export const api = axios.create({
   baseURL: "",
@@ -19,11 +21,18 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
+    const config = err.config as RetryConfig | undefined;
     const path = window.location.pathname;
     const publicAuth =
       path === "/login" || path === "/register" || path.startsWith("/pay");
-    if (err.response?.status === 401 && !publicAuth) {
+    if (err.response?.status === 401 && config && !config._retry && !publicAuth) {
+      config._retry = true;
+      const ok = await refreshSession();
+      if (ok) {
+        config.headers.Authorization = `Bearer ${getToken()}`;
+        return api(config);
+      }
       setToken(null);
       window.location.assign("/login");
     }
