@@ -64,7 +64,11 @@ export default function middleware(request: Request) {
   const dest = new URL(incoming.pathname + incoming.search, target.base);
   const headers = new Headers(request.headers);
   headers.delete("host");
-  headers.set("x-forwarded-host", incoming.host);
-  headers.set("x-forwarded-proto", incoming.protocol.replace(":", ""));
+  const publicHost = incoming.host;
+  const publicProto = incoming.protocol.replace(":", "");
+  headers.set("x-forwarded-host", publicHost);
+  headers.set("x-forwarded-proto", publicProto);
+  headers.set("x-flowpay-public-host", publicHost);
+  headers.set("x-flowpay-public-proto", publicProto);
   return rewrite(dest, { request: { headers } });
 }

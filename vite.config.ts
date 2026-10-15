@@ -33,9 +33,14 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq, req) => {
-              if (req.headers.host) proxyReq.setHeader("x-forwarded-host", req.headers.host);
+              if (req.headers.host) {
+                proxyReq.setHeader("x-forwarded-host", req.headers.host);
+                proxyReq.setHeader("x-flowpay-public-host", req.headers.host);
+              }
               const proto = req.headers["x-forwarded-proto"];
-              proxyReq.setHeader("x-forwarded-proto", Array.isArray(proto) ? proto[0] : proto || "http");
+              const publicProto = Array.isArray(proto) ? proto[0] : proto || "http";
+              proxyReq.setHeader("x-forwarded-proto", publicProto);
+              proxyReq.setHeader("x-flowpay-public-proto", publicProto);
             });
           },
         },
