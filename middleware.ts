@@ -47,9 +47,6 @@ export default function middleware(request: Request) {
     if (incoming.pathname === "/landing" || incoming.pathname === "/landing/") {
       return Response.redirect(new URL("/" + incoming.search, request.url), 308);
     }
-    if (incoming.pathname === "/") {
-      return rewrite(new URL("/landing.html", request.url));
-    }
     if (incoming.pathname.includes(".")) {
       return next();
     }
