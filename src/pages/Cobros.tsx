@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMinLoading } from "../lib/useMinLoading";
-import { ChevronRight, Eye, Filter, Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Eye, FileText, Filter, Loader2, Paperclip, Plus, Trash2, X } from "lucide-react";
 import OpenLink from "../components/OpenLink";
 import RowMenu from "../components/RowMenu";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { createCharge, deleteCharge, fetchCharges, fetchClients, fetchCompanyMessaging } from "../api";
+import { createCharge, deleteCharge, fetchCharges, fetchClients, fetchCompanyMessaging, uploadChargeAttachment } from "../api";
 import type { ChargeDTO, ClientDTO, ReminderMode, ReminderPolicy } from "../api";
 import AppModal from "../components/AppModal";
 import AppDatePicker from "../components/AppDatePicker";
@@ -17,7 +17,14 @@ import TablePagination from "../components/TablePagination";
 import { useToast } from "../components/Toast";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
-import { DEFAULT_REMINDER_POLICY, describeReminderPolicy, reminderChannelOptions } from "../lib/reminderPolicy";
+import { INVOICE_ACCEPT, invoiceFileProblem, invoiceFileSize } from "../lib/invoiceFile";
+import {
+  DEFAULT_REMINDER_POLICY,
+  REMINDER_MODE_OPTIONS,
+  describeChargeChannel,
+  describeChargeReminders,
+  reminderChannelOptions,
+} from "../lib/reminderPolicy";
 import { isCompanyAdmin } from "../lib/roles";
 
 const EMPTY_REMINDERS = { mode: "company" as ReminderMode, channel: "" };
@@ -77,6 +84,9 @@ export default function Cobros() {
   const [open, setOpen] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
   const [form, setForm] = useState({ client_id: "", amount: "", due_date: "" });
+  const [invoice, setInvoice] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
   const [reminders, setReminders] = useState(EMPTY_REMINDERS);
   const [companyPolicy, setCompanyPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
   const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
@@ -109,11 +119,48 @@ export default function Cobros() {
       });
   }, []);
 
+  function resetForm() {
+    setForm({ client_id: "", amount: "", due_date: "" });
+    setReminders(EMPTY_REMINDERS);
+    setInvoice(null);
+    setError(null);
+    if (invoiceInputRef.current) invoiceInputRef.current.value = "";
+  }
+
+  function closeForm() {
+    if (saving) return;
+    setOpen(false);
+    resetForm();
+  }
+
+  function onInvoiceFile(file: File | null) {
+    if (!file) {
+      setInvoice(null);
+      return;
+    }
+    const problem = invoiceFileProblem(file);
+    if (problem) {
+      toast.error(problem);
+      setInvoice(null);
+      if (invoiceInputRef.current) invoiceInputRef.current.value = "";
+      return;
+    }
+    setInvoice(file);
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (invoice) {
+      const problem = invoiceFileProblem(invoice);
+      if (problem) {
+        toast.error(problem);
+        return;
+      }
+    }
+    setSaving(true);
     try {
-      await createCharge({
+      const created = await createCharge({
         client_id: Number(form.client_id),
         amount: parseClpInput(form.amount),
         due_date: form.due_date,
@@ -121,14 +168,31 @@ export default function Cobros() {
         reminder_channel: reminders.channel,
         ...(reminders.mode === "custom" ? { reminder_policy: policy } : {}),
       });
+      if (invoice) {
+        try {
+          await uploadChargeAttachment(created.id, invoice);
+        } catch (err: unknown) {
+          toast.error(
+            err instanceof Error
+              ? `El cobro se creó, pero no se pudo adjuntar la factura: ${err.message}`
+              : "El cobro se creó, pero no se pudo adjuntar la factura. Puedes subirla desde el detalle.",
+          );
+          setOpen(false);
+          resetForm();
+          setLoading(true);
+          await load();
+          return;
+        }
+      }
       setOpen(false);
-      setForm({ client_id: "", amount: "", due_date: "" });
-      setReminders(EMPTY_REMINDERS);
-      toast.success("Cobro creado.");
+      resetForm();
+      toast.success(invoice ? "Cobro creado con factura." : "Cobro creado.");
       setLoading(true);
       await load();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "No se pudo crear el cobro.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -167,6 +231,7 @@ export default function Cobros() {
   }, [filteredRows, pageClamped, pageSize]);
 
   const activeClients = useMemo(() => clients.filter((c) => c.is_active !== false), [clients]);
+  const selectedClient = activeClients.find((c) => String(c.id) === form.client_id);
 
   return (
     <div className="mx-auto w-full max-w-[100rem] space-y-6">
@@ -411,7 +476,7 @@ export default function Cobros() {
 
       {open && (
         <AppModal>
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-surface-card p-6 shadow-2xl">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-surface-card p-6 shadow-2xl">
             <h2 className="text-lg font-semibold text-ink">Nuevo cobro</h2>
             <p className="mt-1 text-sm text-ink-muted">Registra un monto esperado para activar recordatorios.</p>
             <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -456,54 +521,109 @@ export default function Cobros() {
                   onChange={(due_date) => setForm((f) => ({ ...f, due_date }))}
                 />
               </div>
+              <div className="block text-sm font-medium text-ink">
+                Factura
+                <p className="mt-1 text-xs font-normal text-ink-muted">
+                  Opcional. PDF, foto, Excel u otro documento, hasta 8 MB. El cliente la ve en el portal de pago.
+                </p>
+                <input
+                  ref={invoiceInputRef}
+                  type="file"
+                  accept={INVOICE_ACCEPT}
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    event.target.value = "";
+                    onInvoiceFile(file);
+                  }}
+                />
+                {invoice ? (
+                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-surface-border bg-surface px-3 py-2">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand">
+                      <FileText className="h-5 w-5" strokeWidth={2} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-ink">{invoice.name}</span>
+                      <span className="block text-xs font-normal text-ink-muted">{invoiceFileSize(invoice.size)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      aria-label="Quitar factura"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-muted hover:bg-surface-card hover:text-ink disabled:opacity-60"
+                      onClick={() => onInvoiceFile(null)}
+                    >
+                      <X className="h-4 w-4" strokeWidth={2} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    className="mt-2 inline-flex items-center gap-2 rounded-xl border border-dashed border-surface-border bg-surface px-3 py-2.5 text-sm font-medium text-ink hover:bg-surface-card disabled:opacity-60"
+                    onClick={() => invoiceInputRef.current?.click()}
+                  >
+                    <Paperclip className="h-4 w-4 text-ink-muted" strokeWidth={2} />
+                    Adjuntar factura
+                  </button>
+                )}
+              </div>
               <fieldset className="space-y-3 rounded-xl border border-surface-border p-3">
                 <legend className="px-1 text-sm font-medium text-ink">Recordatorios automáticos</legend>
-                <AppSelect
-                  className="w-full"
-                  value={reminders.mode}
-                  onChange={(mode) => {
-                    if (mode === "custom" && reminders.mode !== "custom") setPolicy(companyPolicy);
-                    setReminders((r) => ({ ...r, mode: mode as ReminderMode }));
-                  }}
-                  options={[
-                    { value: "company", label: "Como la empresa" },
-                    { value: "custom", label: "Personalizados para este cobro" },
-                    { value: "off", label: "Desactivados" },
-                  ]}
-                />
+                <p className="text-xs text-ink-muted">Avisos que se mandan solos, antes y después del vencimiento.</p>
+                <label className="block text-sm font-medium text-ink">
+                  Cuándo avisar
+                  <AppSelect
+                    className="w-full"
+                    value={reminders.mode}
+                    onChange={(mode) => {
+                      if (mode === "custom" && reminders.mode !== "custom") setPolicy(companyPolicy);
+                      setReminders((r) => ({ ...r, mode: mode as ReminderMode }));
+                    }}
+                    options={REMINDER_MODE_OPTIONS}
+                  />
+                </label>
+                <p className="text-xs text-ink-muted">
+                  {describeChargeReminders(reminders.mode, reminders.mode === "custom" ? policy : companyPolicy)}
+                </p>
                 {reminders.mode !== "off" ? (
-                  <label className="block text-xs text-ink-muted">
-                    Canal
+                  <label className="block text-sm font-medium text-ink">
+                    Por dónde avisar
                     <AppSelect
                       value={reminders.channel}
                       onChange={(channel) => setReminders((r) => ({ ...r, channel }))}
-                      options={reminderChannelOptions(
-                        activeClients.find((c) => String(c.id) === form.client_id)?.followup_channel,
-                      )}
+                      options={reminderChannelOptions(selectedClient ? selectedClient.followup_channel || "all" : undefined)}
                     />
                   </label>
                 ) : null}
+                {reminders.mode !== "off" ? (
+                  <p className="text-xs text-ink-muted">
+                    {describeChargeChannel(
+                      reminders.channel,
+                      selectedClient?.followup_channel,
+                      selectedClient ? chargeCounterpartyLabel(selectedClient) : undefined,
+                    )}
+                  </p>
+                ) : null}
                 {reminders.mode === "custom" ? <ReminderPolicyFields value={policy} onChange={setPolicy} /> : null}
-                <p className="text-xs text-ink-muted">
-                  {reminders.mode === "off"
-                    ? "Solo se enviarán los recordatorios que mandes a mano."
-                    : describeReminderPolicy(reminders.mode === "custom" ? policy : companyPolicy)}
-                </p>
               </fieldset>
               {error && <p className="text-sm text-danger">{error}</p>}
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface"
-                  onClick={() => setOpen(false)}
+                  disabled={saving}
+                  className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface disabled:opacity-60"
+                  onClick={closeForm}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
                 >
-                  Guardar
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {saving ? "Guardando…" : "Guardar"}
                 </button>
               </div>
             </form>

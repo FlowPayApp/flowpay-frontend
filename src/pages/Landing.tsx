@@ -15,8 +15,8 @@ const NAV = [
 ] as const;
 
 function mailHref() {
-  const subject = "Consulta GeldFlus";
-  const body = "Hola,\n\nQuiero conocer GeldFlus para cobrar a mis locales.\n\nEmpresa:\nCantidad aproximada de locales:\n\nGracias.";
+  const subject = "Consulta sobre GeldFlus";
+  const body = "Estimados,\n\nDeseo conocer GeldFlus para la cobranza de mis locales.\n\nEmpresa:\nCantidad aproximada de locales:\n\nSaludos cordiales.";
   return `mailto:${CONTACT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
@@ -90,7 +90,7 @@ export default function Landing() {
                   : "bg-[#8fd4cf]/15 text-[#8fd4cf] hover:bg-[#8fd4cf] hover:text-[#141716]"
               }`}
             >
-              Empezar
+              Comenzar
             </a>
             {NAV.map((item) => (
               <a key={item.href} href={item.href} className={solidNav ? "hover:text-ink" : "hover:text-white"}>
@@ -138,7 +138,7 @@ export default function Landing() {
                 onClick={() => setMenu(false)}
                 className="-ml-3 w-fit rounded-full bg-brand-soft px-3 py-1.5 font-semibold text-brand dark:text-[#8fd4cf]"
               >
-                Empezar
+                Comenzar
               </a>
               {NAV.map((item) => (
                 <a key={item.href} href={item.href} onClick={() => setMenu(false)} className="py-1 text-ink-muted">
@@ -159,10 +159,11 @@ export default function Landing() {
             <div className="mx-auto max-w-3xl text-center">
               <p className="text-sm font-semibold tracking-wide text-[#8fd4cf]">Cobranza automática para distribuidores</p>
               <h1 className="mt-4 font-display text-5xl font-medium leading-[1.05] tracking-tight text-balance sm:text-7xl">
-                Cobra a tus locales <span className="text-[#8fd4cf]">sin perseguirlos</span>
+                <span className="block">Cobranza de cada local,</span>
+                <span className="block text-[#8fd4cf]">con aviso y pago</span>
               </h1>
               <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[#f5f2ea]/75">
-                GeldFlus le avisa a cada local antes de que venza, por WhatsApp y correo, con un enlace para pagar. Tú dejas de llamar uno por uno.
+                Registre el monto y la fecha de vencimiento. GeldFlus envía el recordatorio por WhatsApp y correo, con un enlace de pago. El estado del cobro queda en su panel.
               </p>
               <div className="mt-8 flex justify-center">
                 <a
@@ -182,9 +183,9 @@ export default function Landing() {
           <div className="mx-auto max-w-6xl">
             <p className="text-sm font-semibold text-brand dark:text-[#8fd4cf]">Cómo funciona</p>
             <h2 className="mt-2 max-w-xl font-display text-3xl font-medium tracking-tight sm:text-4xl">
-              Un local, de la fecha al pago
+              Un cobro, del registro al pago
             </h2>
-            <p className="mt-3 max-w-xl text-ink-muted">Ejemplo ficticio. El mismo cobro, en tres momentos. Toca el que quieras ver.</p>
+            <p className="mt-3 max-w-xl text-ink-muted">Ejemplo ilustrativo. El mismo cobro, en tres etapas. Seleccione la que desea revisar.</p>
             <div className="mt-8 flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-surface-border bg-surface-card px-5 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted">El local</p>
@@ -202,7 +203,7 @@ export default function Landing() {
               >
                 {STEPS[step].line}
               </p>
-              <p className="shrink-0 text-sm text-ink-muted">{pinned ? "En pausa · toca el paso para seguir" : "Avanza solo"}</p>
+              <p className="shrink-0 text-sm text-ink-muted">{pinned ? "En pausa. Seleccione un paso para continuar." : "Avance automático"}</p>
             </div>
             <ol
               className={`mt-6 grid gap-4 md:grid-cols-3 ${hold || pinned ? "land-hold" : ""}`}
@@ -278,30 +279,30 @@ export default function Landing() {
 
         <section id="empezar" className="scroll-mt-24 px-4 sm:px-6">
           <div className="land-cta relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] px-6 py-14 text-center text-[rgb(245_242_234)] dark:ring-1 dark:ring-white/10 sm:px-12 sm:py-20">
-            <p className="text-sm font-semibold tracking-wide text-[#8fd4cf]">Listo para partir</p>
+            <p className="text-sm font-semibold tracking-wide text-[#8fd4cf]">Para comenzar</p>
             <h2 className="mx-auto mt-4 max-w-3xl font-display text-4xl font-medium leading-[1.05] tracking-tight text-balance sm:text-6xl">
-              Empieza con los cobros de <span className="text-[#8fd4cf]">este mes</span>
+              Active la cobranza de <span className="text-[#8fd4cf]">este mes</span>
             </h2>
             <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[#f5f2ea]/75">
-              Pide tu cuenta hoy. La revisamos, la activamos y te enviamos la contraseña.
+              Solicite su cuenta. La revisamos, la activamos y enviamos las credenciales de acceso.
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 to="/register"
                 className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#8fd4cf] px-8 text-base font-semibold text-[#141716] transition-colors hover:bg-white sm:w-auto"
               >
-                Quiero mi cuenta
+                Solicitar cuenta
                 <ArrowRight className="size-4" />
               </Link>
               <a
                 href="#planes"
                 className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border border-white/20 px-8 text-base font-semibold hover:bg-white/10 sm:w-auto"
               >
-                Ver los planes
+                Ver planes
               </a>
             </div>
             <ul className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center gap-3 text-sm text-[#f5f2ea]/75 sm:flex-row sm:gap-8">
-              {["Funciona desde el navegador", "El local no crea una cuenta", "Avisos por WhatsApp y correo"].map((item) => (
+              {["Acceso desde el navegador", "El local no requiere una cuenta", "Recordatorios por WhatsApp y correo"].map((item) => (
                 <li key={item} className="flex items-center gap-2">
                   <Check className="size-4 shrink-0 text-[#8fd4cf]" />
                   {item}
@@ -313,8 +314,8 @@ export default function Landing() {
 
         <section id="planes" className="scroll-mt-4 px-4 py-20 sm:px-6">
           <div className="mx-auto max-w-5xl">
-            <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Pagas según cuántos locales tienes</h2>
-            <p className="mt-3 max-w-lg text-ink-muted">Todos los planes incluyen los avisos por WhatsApp y correo, y el enlace para pagar.</p>
+            <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Planes según la cantidad de locales</h2>
+            <p className="mt-3 max-w-lg text-ink-muted">Todos los planes incluyen recordatorios por WhatsApp y correo, y el enlace de pago.</p>
             <div className="mt-8 grid items-stretch gap-4 md:grid-cols-3">
               {PLANS.map((plan) => (
                 <article
@@ -346,7 +347,7 @@ export default function Landing() {
                       plan.highlight ? "bg-brand text-white hover:bg-brand-hover" : "border border-surface-border hover:bg-surface"
                     }`}
                   >
-                    Pedir este plan
+                    Solicitar este plan
                   </Link>
                 </article>
               ))}
@@ -356,7 +357,7 @@ export default function Landing() {
 
         <section id="preguntas" className="scroll-mt-24 px-4 sm:px-6">
           <div className="mx-auto max-w-2xl">
-            <h2 className="font-display text-3xl font-medium tracking-tight">Preguntas</h2>
+            <h2 className="font-display text-3xl font-medium tracking-tight">Preguntas frecuentes</h2>
             <div className="mt-6 divide-y divide-surface-border border-y border-surface-border">
               {FAQ.map((item, index) => {
                 const open = openFaq === index;
@@ -382,8 +383,8 @@ export default function Landing() {
         <section id="contacto" className="scroll-mt-4 px-4 py-20 text-center sm:px-6">
           <div className="relative mx-auto max-w-xl overflow-hidden rounded-3xl bg-[#141716] px-6 py-14 text-[rgb(245_242_234)] dark:ring-1 dark:ring-white/10">
             <div className="relative">
-              <h2 className="font-display text-3xl font-medium tracking-tight">¿Prefieres conversarlo antes?</h2>
-              <p className="mt-3 text-[#f5f2ea]/75">Escríbenos cuántos locales tienes y cómo cobras hoy. Te respondemos por correo.</p>
+              <h2 className="font-display text-3xl font-medium tracking-tight">Consulte antes de solicitar su cuenta</h2>
+              <p className="mt-3 text-[#f5f2ea]/75">Indíquenos la cantidad de locales y cómo gestiona la cobranza actualmente. Respondemos por correo.</p>
               <a
                 href={mailHref()}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-[#141716]"
@@ -462,24 +463,24 @@ type SceneProps = { live: boolean; playing: boolean; onUse: () => void };
 
 const STEPS = [
   {
-    kicker: "Tú cargas",
-    title: "El local y la fecha",
-    line: "Tú dejas el local, el monto y la fecha.",
-    text: "Lo haces una vez. Desde ahí, el resto sale solo.",
+    kicker: "Registro",
+    title: "Local, monto y fecha",
+    line: "Registre el local, el monto y el vencimiento.",
+    text: "El cobro queda en la cartera. Los recordatorios se programan a partir de esa fecha.",
     scene: (props: SceneProps) => <LoadScene {...props} />,
   },
   {
-    kicker: "GeldFlus avisa",
-    title: "El mensaje sale solo",
-    line: "GeldFlus avisa por WhatsApp y por correo.",
-    text: "Elige el canal y el momento para ver el mensaje.",
+    kicker: "Recordatorio",
+    title: "El aviso se envía en la fecha",
+    line: "El recordatorio se envía por WhatsApp y por correo.",
+    text: "Antes del vencimiento, el día que vence y si la fecha se supera. Seleccione el canal y el momento.",
     scene: (props: SceneProps) => <MessageScene {...props} />,
   },
   {
-    kicker: "El local paga",
-    title: "Sin crear una cuenta",
-    line: "El local paga desde el enlace.",
-    text: "Con tarjeta. Si transfiere o paga con cheque, lo marcas tú.",
+    kicker: "Pago",
+    title: "Enlace de pago",
+    line: "El local paga desde el enlace, sin crear una cuenta.",
+    text: "Con tarjeta, a través de Webpay. Transferencia y cheque se registran en el panel y detienen los avisos.",
     scene: (props: SceneProps) => <PayScene {...props} />,
   },
 ];
@@ -489,18 +490,18 @@ const CHANNELS = ["WhatsApp", "Correo"] as const;
 const MOMENTS = [
   {
     label: "Antes",
-    subject: `Tu cuenta vence el ${EXAMPLE.due}`,
-    text: `Hola. Tu cuenta de ${EXAMPLE.amount} vence el ${EXAMPLE.due}. Puedes pagarla desde este enlace.`,
+    subject: `Su cuenta vence el ${EXAMPLE.due}`,
+    text: `Su cuenta de ${EXAMPLE.amount} vence el ${EXAMPLE.due}. Puede pagarla desde este enlace.`,
   },
   {
     label: "El día",
-    subject: "Tu cuenta vence hoy",
-    text: `Hola. Hoy vence tu cuenta de ${EXAMPLE.amount}. Puedes pagarla desde este enlace.`,
+    subject: "Su cuenta vence hoy",
+    text: `Hoy vence su cuenta de ${EXAMPLE.amount}. Puede pagarla desde este enlace.`,
   },
   {
-    label: "Si se pasa",
-    subject: "Tu cuenta está vencida",
-    text: `Hola. Tu cuenta de ${EXAMPLE.amount} venció el ${EXAMPLE.due}. Puedes pagarla desde este enlace.`,
+    label: "Vencido",
+    subject: "Su cuenta se encuentra vencida",
+    text: `Su cuenta de ${EXAMPLE.amount} venció el ${EXAMPLE.due}. Puede pagarla desde este enlace.`,
   },
 ] as const;
 
@@ -616,7 +617,7 @@ function PayScene({ live }: SceneProps) {
       </div>
       <p className={`mt-4 font-display text-4xl ${live ? "land-settle" : ""}`}>{EXAMPLE.amount}</p>
       <p className="mt-1 text-sm font-semibold">{EXAMPLE.store}</p>
-      <p className="mt-3 text-sm leading-relaxed text-ink-muted">Abrió el enlace y pagó. No creó una cuenta.</p>
+      <p className="mt-3 text-sm leading-relaxed text-ink-muted">El local abrió el enlace y completó el pago, sin crear una cuenta.</p>
     </div>
   );
 }

@@ -13,7 +13,7 @@ function withCurrent(choices: number[], current: number[]) {
 
 function chipLabel(d: number) {
   if (d === 0) return "El día que vence";
-  return d === 1 ? "1 día antes" : `${d} días antes`;
+  return d === 1 ? "1 día" : `${d} días`;
 }
 
 function maxLabel(n: number) {
@@ -44,7 +44,7 @@ export default function ReminderPolicyFields({
     <div className="space-y-4">
       <fieldset>
         <legend className="text-sm font-medium text-ink">Antes del vencimiento</legend>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="mt-2 flex flex-wrap gap-2">
           {days.map((d) => {
             const on = value.days_before.includes(d);
             return (
@@ -54,7 +54,7 @@ export default function ReminderPolicyFields({
                 aria-pressed={on}
                 disabled={disabled}
                 onClick={() => toggleDay(d)}
-                className={`flex h-11 items-center gap-2.5 rounded-xl border px-3 text-left text-sm font-medium transition-colors disabled:opacity-60 ${
+                className={`inline-flex min-h-11 max-w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-medium transition-colors disabled:opacity-60 ${
                   on ? "border-brand bg-brand-soft text-brand" : "border-surface-border bg-surface-card text-ink hover:bg-surface"
                 }`}
               >
@@ -66,7 +66,7 @@ export default function ReminderPolicyFields({
                 >
                   {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
                 </span>
-                <span className="truncate">{chipLabel(d)}</span>
+                <span>{chipLabel(d)}</span>
               </button>
             );
           })}

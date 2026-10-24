@@ -107,7 +107,7 @@ export async function fetchInbox() {
   return data;
 }
 
-/** PDF o imagen (máx. 8 MB). Se adjunta al WhatsApp de recordatorio si defines FLOWPAY_PUBLIC_BASE_URL en el API. */
+/** PDF, foto, Excel u otro documento (máx. 8 MB). Se adjunta al WhatsApp de recordatorio si defines FLOWPAY_PUBLIC_BASE_URL en el API. */
 export async function uploadChargeAttachment(chargeId: number, file: File) {
   const fd = new FormData();
   fd.append("file", file);

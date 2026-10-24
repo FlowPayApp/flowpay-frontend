@@ -55,7 +55,14 @@ import { StatusBadge } from "../components/Badge";
 import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatDate, formatMoney } from "../lib/format";
-import { DEFAULT_REMINDER_POLICY, describeReminderPolicy, reminderChannelOptions } from "../lib/reminderPolicy";
+import { INVOICE_ACCEPT, invoiceFileProblem } from "../lib/invoiceFile";
+import {
+  DEFAULT_REMINDER_POLICY,
+  REMINDER_MODE_OPTIONS,
+  describeChargeChannel,
+  describeChargeReminders,
+  reminderChannelOptions,
+} from "../lib/reminderPolicy";
 import { isCompanyAdmin } from "../lib/roles";
 
 function normalizeClpInput(value: string) {
@@ -818,12 +825,6 @@ function ReminderDialog({
   );
 }
 
-const MODE_OPTIONS: { value: ReminderMode; label: string }[] = [
-  { value: "company", label: "Como la empresa" },
-  { value: "custom", label: "Personalizada para este cobro" },
-  { value: "off", label: "Desactivados" },
-];
-
 function samePolicy(a: ReminderPolicy, b: ReminderPolicy) {
   const days = (p: ReminderPolicy) => [...new Set(p.days_before)].sort((x, y) => y - x).join(",");
   return days(a) === days(b) && a.overdue_every === b.overdue_every && a.overdue_max === b.overdue_max;
@@ -879,20 +880,20 @@ function ChargeRemindersCard({
       </p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="block text-sm font-medium text-ink">
-          Frecuencia
+          Cuándo avisar
           <AppSelect
             value={mode}
             onChange={(next) => {
               setMode(next as ReminderMode);
               if (next === "custom" && mode !== "custom") setPolicy(companyPolicy);
             }}
-            options={MODE_OPTIONS}
+            options={REMINDER_MODE_OPTIONS}
           />
         </label>
         {mode !== "off" ? (
           <label className="block text-sm font-medium text-ink">
-            Canal
-            <AppSelect value={channel} onChange={setChannel} options={reminderChannelOptions(charge.client_followup_channel)} />
+            Por dónde avisar
+            <AppSelect value={channel} onChange={setChannel} options={reminderChannelOptions(charge.client_followup_channel || "all")} />
           </label>
         ) : null}
       </div>
@@ -902,9 +903,10 @@ function ChargeRemindersCard({
         </div>
       ) : null}
       <p className="mt-4 rounded-xl bg-surface px-3 py-2 text-sm text-ink">
-        {mode === "off"
-          ? "No se enviarán recordatorios automáticos. Puedes enviar uno manual cuando quieras."
-          : describeReminderPolicy(mode === "custom" ? policy : companyPolicy)}
+        {describeChargeReminders(mode, mode === "custom" ? policy : companyPolicy)}
+        {mode !== "off"
+          ? ` ${describeChargeChannel(channel, charge.client_followup_channel, charge.client_name)}`
+          : ""}
       </p>
       {mode === "company" && isCompanyAdmin() ? (
         <p className="mt-2 text-xs text-ink-muted">
@@ -1137,6 +1139,12 @@ export default function ChargeDetail() {
   }
 
   async function onInvoiceFile(file: File) {
+    const problem = invoiceFileProblem(file);
+    if (problem) {
+      setToast({ text: problem, tone: "error" });
+      if (invoiceInputRef.current) invoiceInputRef.current.value = "";
+      return;
+    }
     setUploadingInvoice(true);
     setToast(null);
     try {
@@ -1404,13 +1412,13 @@ export default function ChargeDetail() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-ink">Factura</h2>
-                <p className="mt-1 text-sm text-ink-muted">PDF o imagen, hasta 8 MB. El cliente la ve en el portal de pago.</p>
+                <p className="mt-1 text-sm text-ink-muted">PDF, foto, Excel u otro documento, hasta 8 MB. El cliente la ve en el portal de pago.</p>
               </div>
               <div>
                 <input
                   ref={invoiceInputRef}
                   type="file"
-                  accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg"
+                  accept={INVOICE_ACCEPT}
                   className="hidden"
                   onChange={(event) => {
                     const file = event.target.files?.[0];

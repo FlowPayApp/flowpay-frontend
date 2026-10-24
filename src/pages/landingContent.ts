@@ -1,54 +1,54 @@
 export const SITE_URL = "https://www.geldflus.com";
 export const CONTACT = "contacto@geldflus.com";
 
-export const SEO_TITLE = "GeldFlus · Cobranza automática para distribuidores por WhatsApp";
+export const SEO_TITLE = "GeldFlus · Cobranza automática para distribuidores";
 export const SEO_DESCRIPTION =
-  "GeldFlus le avisa a cada local antes de que venza, por WhatsApp y correo, con un enlace para pagar. Cobranza automática para distribuidores en Chile.";
+  "Registre los cobros de cada local, envíe recordatorios por WhatsApp y correo, y cobre con un enlace de pago. Plataforma de cobranza para distribuidores en Chile.";
 
 export const PLANS = [
   {
     name: "Esencial",
-    detail: "Para quien hoy cobra a mano.",
+    detail: "Para operaciones que hoy cobran de forma manual.",
     price: "$39.000",
-    features: ["Hasta 25 locales", "Avisos por WhatsApp y correo", "Enlace para pagar", "1 persona a cargo"],
+    features: ["Hasta 25 locales", "Recordatorios por WhatsApp y correo", "Enlace de pago con Webpay", "1 administrador"],
     highlight: false,
   },
   {
     name: "Crecimiento",
-    detail: "Para una red con cobradores.",
+    detail: "Para una red con equipo de cobranza.",
     price: "$89.000",
-    features: ["Hasta 120 locales", "Todo lo de Esencial", "Cobradores en el equipo", "Carga desde una planilla"],
+    features: ["Hasta 120 locales", "Todo lo de Esencial", "Equipo de cobradores", "Importación desde planilla"],
     highlight: true,
   },
   {
     name: "Empresa",
-    detail: "Para una red grande.",
+    detail: "Para redes de mayor escala.",
     price: "$169.000",
-    features: ["Locales sin tope", "Todo lo de Crecimiento", "Varias personas a cargo", "Te acompañamos al partir"],
+    features: ["Locales sin límite", "Todo lo de Crecimiento", "Varios administradores", "Acompañamiento en la implementación"],
     highlight: false,
   },
 ] as const;
 
 export const FAQ = [
   {
-    q: "¿Para quién es?",
-    a: "Para quien reparte a almacenes y sucursales y cobra después. Cada local queda con su encargado, su teléfono y su fecha.",
+    q: "¿A quién está dirigido?",
+    a: "A empresas que distribuyen a almacenes y sucursales y cobran a plazo. Cada local queda asociado a un encargado, un teléfono y sus fechas de vencimiento.",
   },
   {
-    q: "¿El local tiene que registrarse?",
-    a: "No. Le llega el enlace, ve el monto y paga. Tú sigues en tu panel.",
+    q: "¿El local debe crear una cuenta?",
+    a: "No. Recibe el enlace, consulta el monto y paga. El seguimiento continúa en el panel de la empresa.",
   },
   {
     q: "¿El local puede responder el mensaje?",
-    a: "Sí. Su respuesta queda en el mismo cobro, y tú la ves en tu panel.",
+    a: "Sí. La respuesta queda asociada al mismo cobro y se visualiza en el panel.",
   },
   {
-    q: "¿Y si paga por transferencia o con cheque?",
-    a: "Lo marcas como pagado y deja de recibir avisos. El enlace es para cuando paga con tarjeta.",
+    q: "¿Qué ocurre si el pago es por transferencia o cheque?",
+    a: "El cobro se registra como pagado y se detienen los recordatorios. El enlace de pago aplica cuando el local paga con tarjeta.",
   },
   {
-    q: "¿Tengo que cargar los locales uno por uno?",
-    a: "No. En los planes Crecimiento y Empresa los subes todos desde una planilla.",
+    q: "¿Los locales se cargan uno por uno?",
+    a: "En los planes Crecimiento y Empresa puede importarlos desde una planilla.",
   },
 ] as const;
 
