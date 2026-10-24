@@ -50,7 +50,6 @@ const AppRouter = () => {
       <Routes>
         <Route path="/pay/:token" element={<PayPage />} />
         <Route path="/pay/:token/return" element={<PayReturnPage />} />
-        <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/*" element={<PublicRoute />}>
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
