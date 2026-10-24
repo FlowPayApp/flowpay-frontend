@@ -1,4 +1,4 @@
-import type { ReminderPolicy } from "../api";
+import type { ReminderMode, ReminderPolicy } from "../api";
 
 export const OVERDUE_UNLIMITED = -1;
 
@@ -28,18 +28,71 @@ export function describeReminderPolicy(p: ReminderPolicy) {
   return `${before.charAt(0).toUpperCase()}${before.slice(1)}. ${after}`;
 }
 
+export const REMINDER_MODE_OPTIONS: { value: ReminderMode; label: string }[] = [
+  { value: "company", label: "Frecuencia de la empresa" },
+  { value: "custom", label: "Solo este cobro" },
+  { value: "off", label: "Sin avisos automáticos" },
+];
+
 const CHANNEL_LABELS: Record<string, string> = {
   all: "WhatsApp y correo",
   whatsapp: "Solo WhatsApp",
   email: "Solo correo",
-  none: "Sin recordatorios",
+  none: "Sin avisos",
 };
 
-/** Opciones de canal de los automáticos de un cobro; la vacía usa el de la sucursal. */
+function lowerFirst(text: string) {
+  if (!text) return text;
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function mediumPhrase(channel: string) {
+  switch (channel) {
+    case "whatsapp":
+      return "WhatsApp";
+    case "email":
+      return "correo";
+    case "none":
+      return "ningún medio";
+    default:
+      return "WhatsApp y correo";
+  }
+}
+
+/** Cuándo se avisan los cobros, en una frase que se entiende sin conocer la configuración. */
+export function describeChargeReminders(mode: ReminderMode, policy: ReminderPolicy) {
+  if (mode === "off") {
+    return "No se envían avisos solos. Puedes mandar uno a mano desde el cobro.";
+  }
+  const when = lowerFirst(describeReminderPolicy(policy));
+  if (mode === "company") {
+    return `Usa la frecuencia de la empresa, la misma del resto de los cobros: ${when}`;
+  }
+  return `Solo este cobro, distinto al resto: ${when}`;
+}
+
+/** Por dónde sale el aviso. El canal vacío hereda el de la sucursal. */
+export function describeChargeChannel(channel: string, clientChannel?: string, clientName?: string) {
+  const chosen = channel.trim().toLowerCase();
+  if (!chosen) {
+    const key = clientChannel?.trim().toLowerCase() || "";
+    if (!clientName) {
+      return "Se avisa por el medio que tenga guardada la sucursal. Elige una arriba para ver cuál es.";
+    }
+    if (key === "none") {
+      return `${clientName} tiene los avisos automáticos apagados. Elige WhatsApp o correo si quieres enviarle igual.`;
+    }
+    return `Se avisa a ${clientName} por ${mediumPhrase(key || "all")}, que es lo que tiene guardado.`;
+  }
+  return `Se avisa por ${mediumPhrase(chosen)}.`;
+}
+
+/** Opciones de medio de los avisos de un cobro; la vacía usa el configurado en la sucursal. */
 export function reminderChannelOptions(clientChannel?: string) {
-  const own = CHANNEL_LABELS[clientChannel?.trim().toLowerCase() || "all"] ?? CHANNEL_LABELS.all;
+  const key = clientChannel?.trim().toLowerCase() ?? "";
+  const own = key ? CHANNEL_LABELS[key] : undefined;
   return [
-    { value: "", label: `Como la sucursal (${own.toLowerCase()})` },
+    { value: "", label: own ? `Preferencia de la sucursal: ${own}` : "Preferencia de la sucursal" },
     { value: "all", label: CHANNEL_LABELS.all },
     { value: "whatsapp", label: CHANNEL_LABELS.whatsapp },
     { value: "email", label: CHANNEL_LABELS.email },

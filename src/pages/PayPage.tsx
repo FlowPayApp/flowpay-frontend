@@ -13,6 +13,7 @@ import BrandLogo from "../components/BrandLogo";
 import PageLoading from "../components/PageLoading";
 import ThemeToggle from "../components/ThemeToggle";
 import { formatDate, formatMoney } from "../lib/format";
+import { invoiceFilename } from "../lib/invoiceFile";
 
 type ChargeStatusKey = "pending" | "paid" | "overdue";
 
@@ -24,13 +25,6 @@ function statusKey(row: PortalCharge): ChargeStatusKey {
 
 function sortByDueDate(a: PortalCharge, b: PortalCharge) {
   return a.due_date.localeCompare(b.due_date);
-}
-
-function invoiceFilename(ext?: string | null) {
-  const kind = (ext ?? "").toLowerCase();
-  if (kind === "png") return "factura.png";
-  if (kind === "jpg" || kind === "jpeg") return "factura.jpg";
-  return "factura.pdf";
 }
 
 const VISIBLE_CHARGES = 10;
