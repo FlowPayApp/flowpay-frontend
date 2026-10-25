@@ -35,6 +35,10 @@ export interface CompanyDTO {
   price_clp_override?: number | null;
   /** Comisión propia, en porcentaje. Null usa la del plan. */
   commission_percent_override?: number | null;
+  /** Si falta (API antigua), la empresa puede avisar por correo. */
+  allow_email?: boolean;
+  /** Si falta (API antigua), la empresa puede avisar por WhatsApp. */
+  allow_whatsapp?: boolean;
 }
 
 export interface SignupPlan {

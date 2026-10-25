@@ -54,6 +54,7 @@ import PageLoading from "../components/PageLoading";
 import { StatusBadge } from "../components/Badge";
 import ReminderPolicyFields from "../components/ReminderPolicyFields";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
+import { useCompanyChannels } from "../lib/companyChannels";
 import { formatDate, formatMoney } from "../lib/format";
 import { INVOICE_ACCEPT, invoiceFileProblem } from "../lib/invoiceFile";
 import {
@@ -837,6 +838,7 @@ function ChargeRemindersCard({
   charge: ChargeDTO;
   onSave: (payload: ChargeRemindersPayload) => Promise<void>;
 }) {
+  const channels = useCompanyChannels();
   const savedMode = charge.reminder_mode ?? "company";
   const savedChannel = charge.reminder_channel ?? "";
   const companyPolicy = charge.company_reminder_policy ?? DEFAULT_REMINDER_POLICY;
@@ -890,10 +892,10 @@ function ChargeRemindersCard({
             options={REMINDER_MODE_OPTIONS}
           />
         </label>
-        {mode !== "off" ? (
+        {mode !== "off" && channels.email && channels.whatsapp ? (
           <label className="block text-sm font-medium text-ink">
             Por dónde avisar
-            <AppSelect value={channel} onChange={setChannel} options={reminderChannelOptions(charge.client_followup_channel || "all")} />
+            <AppSelect value={channel} onChange={setChannel} options={reminderChannelOptions(charge.client_followup_channel || "all", channels)} />
           </label>
         ) : null}
       </div>
@@ -904,14 +906,14 @@ function ChargeRemindersCard({
       ) : null}
       <p className="mt-4 rounded-xl bg-surface px-3 py-2 text-sm text-ink">
         {describeChargeReminders(mode, mode === "custom" ? policy : companyPolicy)}
-        {mode !== "off"
-          ? ` ${describeChargeChannel(channel, charge.client_followup_channel, charge.client_name)}`
+        {mode !== "off" && (channels.email || channels.whatsapp)
+          ? ` ${describeChargeChannel(channel, charge.client_followup_channel, charge.client_name, channels)}`
           : ""}
       </p>
       {mode === "company" && isCompanyAdmin() ? (
         <p className="mt-2 text-xs text-ink-muted">
           La frecuencia de la empresa se cambia en{" "}
-          <Link to="/mensajes" className="font-medium text-brand hover:underline">
+          <Link to="/configuracion/avisos" className="font-medium text-brand hover:underline">
             Configuración
           </Link>
           .
@@ -951,6 +953,9 @@ function statusDetail(ch: ChargeDTO) {
 export default function ChargeDetail() {
   const { id } = useParams();
   const chargeId = Number(id);
+  const channels = useCompanyChannels();
+  const whatsappOn = useRef(false);
+  whatsappOn.current = channels.whatsapp;
   const [ch, setCh] = useState<ChargeDTO | null>(null);
   const [rems, setRems] = useState<Reminder[]>([]);
   const [inboundWA, setInboundWA] = useState<ChargeInboundWhatsApp[]>([]);
@@ -987,9 +992,14 @@ export default function ChargeDetail() {
       const i = await fetchCharge(chargeId);
       setCh(i);
       try {
-        const [r, wa] = await Promise.all([fetchReminders(chargeId), fetchChargeInboundWhatsApp(chargeId)]);
+        const r = await fetchReminders(chargeId);
         setRems(Array.isArray(r) ? r : []);
-        setInboundWA(Array.isArray(wa) ? wa : []);
+        if (whatsappOn.current) {
+          const wa = await fetchChargeInboundWhatsApp(chargeId);
+          setInboundWA(Array.isArray(wa) ? wa : []);
+        } else {
+          setInboundWA([]);
+        }
       } catch {
         setRems([]);
         setInboundWA([]);
@@ -1020,9 +1030,14 @@ export default function ChargeDetail() {
       if (busy || document.visibilityState !== "visible") return;
       busy = true;
       try {
-        const [r, wa] = await Promise.all([fetchReminders(chargeId), fetchChargeInboundWhatsApp(chargeId)]);
+        const r = await fetchReminders(chargeId);
         setRems(Array.isArray(r) ? r : []);
-        setInboundWA(Array.isArray(wa) ? wa : []);
+        if (whatsappOn.current) {
+          const wa = await fetchChargeInboundWhatsApp(chargeId);
+          setInboundWA(Array.isArray(wa) ? wa : []);
+        } else {
+          setInboundWA([]);
+        }
       } catch {
         /* se reintenta en el próximo ciclo */
       } finally {
@@ -1301,8 +1316,12 @@ export default function ChargeDetail() {
     return iso && Date.parse(iso) > now ? iso : null;
   };
   const reminderOptions: ReminderOption[] = [
-    { channel: "whatsapp", contact: ch.client_phone?.trim() ?? "", waitUntil: waitUntil("whatsapp") },
-    { channel: "email", contact: ch.client_email?.trim() ?? "", waitUntil: waitUntil("email") },
+    ...(channels.whatsapp
+      ? [{ channel: "whatsapp" as const, contact: ch.client_phone?.trim() ?? "", waitUntil: waitUntil("whatsapp") }]
+      : []),
+    ...(channels.email
+      ? [{ channel: "email" as const, contact: ch.client_email?.trim() ?? "", waitUntil: waitUntil("email") }]
+      : []),
   ];
   const reachable = reminderOptions.filter((o) => o.contact !== "");
   const sendable = reachable.filter(reminderUsable).map((o) => o.channel);
@@ -1316,8 +1335,14 @@ export default function ChargeDetail() {
     .sort((a, b) => Date.parse(a) - Date.parse(b))[0];
   const remindBlocked = sendable.length === 0;
   const remindTitle =
-    reachable.length === 0
-      ? "La sucursal no tiene teléfono ni correo registrado"
+    !channels.email && !channels.whatsapp
+      ? "Esta empresa no tiene un medio de aviso"
+      : reachable.length === 0
+        ? channels.whatsapp && !channels.email
+          ? "La sucursal no tiene teléfono registrado"
+          : channels.email && !channels.whatsapp
+            ? "La sucursal no tiene correo registrado"
+            : "La sucursal no tiene teléfono ni correo registrado"
       : remindBlocked
         ? "Cada canal admite un recordatorio manual por hora"
         : "Elige por dónde enviar el recordatorio";
@@ -1347,6 +1372,7 @@ export default function ChargeDetail() {
                   </div>
                   {!isPaid ? (
                     <div className="flex flex-wrap gap-2">
+                      {channels.email || channels.whatsapp ? (
                       <button
                         type="button"
                         onClick={() => setRemindOpen(true)}
@@ -1361,6 +1387,7 @@ export default function ChargeDetail() {
                         )}
                         {remindBlocked && nextFree ? `Recordatorio disponible a las ${chatClock(nextFree)}` : "Enviar recordatorio"}
                       </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => setStatusConfirm("pay")}
@@ -1398,12 +1425,14 @@ export default function ChargeDetail() {
                     <div className="mt-1 text-sm font-semibold text-ink">{scheduled.length} en cola</div>
                   </div>
                 </div>
+                {channels.whatsapp ? (
                 <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
                   <div className="text-xs uppercase tracking-wide text-ink-muted">Teléfono cliente</div>
                   <div className="mt-1 text-sm font-semibold text-ink">
                     {ch.client_phone?.trim() ? ch.client_phone : "Sin teléfono registrado"}
                   </div>
                 </div>
+                ) : null}
               </div>
             </div>
           </section>
@@ -1494,7 +1523,9 @@ export default function ChargeDetail() {
           </section>
         </div>
 
+        {channels.whatsapp || channels.email ? (
         <div className="contents xl:block xl:w-full xl:min-w-[min(100%,20rem)] xl:col-span-5 xl:space-y-6">
+          {channels.whatsapp ? (
           <section className="order-2 min-w-0 overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
             {threadOpen ? (
               <p className="px-4 py-10 text-center text-sm text-ink-muted">La conversación está abierta en grande.</p>
@@ -1518,14 +1549,18 @@ export default function ChargeDetail() {
               />
             )}
           </section>
+          ) : null}
 
+          {channels.email ? (
           <div className="order-6 min-w-0">
             <EmailHistory to={ch.client_email} emails={emailReminders} />
           </div>
+          ) : null}
         </div>
+        ) : null}
       </div>
 
-      {threadOpen && (
+      {channels.whatsapp && threadOpen && (
         <AppModal onBackdropClick={() => setThreadOpen(false)}>
           <div className="h-[min(92dvh,48rem)] w-full overflow-hidden bg-surface-card shadow-2xl sm:w-[min(92vw,52rem)] sm:rounded-2xl">
             <ChatPanel

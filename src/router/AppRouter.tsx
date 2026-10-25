@@ -12,7 +12,8 @@ import Dashboard from '../pages/Dashboard';
 import Clients from '../pages/Clients';
 import ClientLoads from '../pages/ClientLoads';
 import ClientDetail from '../pages/ClientDetail';
-import MessagingSettings from '../pages/MessagingSettings';
+import { WhatPanel, WhenPanel } from '../pages/MessagingSettings';
+import Settings, { PaymentMethodsPanel } from '../pages/Settings';
 import Equipo from '../pages/Equipo';
 import EquipoDetail from '../pages/EquipoDetail';
 import Profile from '../pages/Profile';
@@ -64,7 +65,13 @@ const AppRouter = () => {
           <Route path="clients/cargas" element={<AdminOnly><ClientLoads /></AdminOnly>} />
           <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="perfil" element={<Profile />} />
-          <Route path="mensajes" element={<AdminOnly><MessagingSettings /></AdminOnly>} />
+          <Route path="configuracion" element={<AdminOnly><Settings /></AdminOnly>}>
+            <Route path="cobro" element={<Navigate to="/configuracion/medios" replace />} />
+            <Route path="medios" element={<PaymentMethodsPanel />} />
+            <Route path="avisos" element={<WhenPanel />} />
+            <Route path="mensajes" element={<WhatPanel />} />
+          </Route>
+          <Route path="mensajes" element={<Navigate to="/configuracion" replace />} />
           <Route path="equipo" element={<AdminOnly><Equipo /></AdminOnly>} />
           <Route path="equipo/:userId" element={<AdminOnly><EquipoDetail /></AdminOnly>} />
           <Route path="platform" element={<PlatformOverview />} />

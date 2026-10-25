@@ -25,6 +25,7 @@ import {
   describeChargeReminders,
   reminderChannelOptions,
 } from "../lib/reminderPolicy";
+import { useCompanyChannels } from "../lib/companyChannels";
 import { isCompanyAdmin } from "../lib/roles";
 
 const EMPTY_REMINDERS = { mode: "company" as ReminderMode, channel: "" };
@@ -71,6 +72,7 @@ function ChargeRowActions({
 }
 
 export default function Cobros() {
+  const channels = useCompanyChannels();
   const nav = useNavigate();
   const admin = isCompanyAdmin();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -586,22 +588,23 @@ export default function Cobros() {
                 <p className="text-xs text-ink-muted">
                   {describeChargeReminders(reminders.mode, reminders.mode === "custom" ? policy : companyPolicy)}
                 </p>
-                {reminders.mode !== "off" ? (
+                {reminders.mode !== "off" && channels.email && channels.whatsapp ? (
                   <label className="block text-sm font-medium text-ink">
                     Por dónde avisar
                     <AppSelect
                       value={reminders.channel}
                       onChange={(channel) => setReminders((r) => ({ ...r, channel }))}
-                      options={reminderChannelOptions(selectedClient ? selectedClient.followup_channel || "all" : undefined)}
+                      options={reminderChannelOptions(selectedClient ? selectedClient.followup_channel || "all" : undefined, channels)}
                     />
                   </label>
                 ) : null}
-                {reminders.mode !== "off" ? (
+                {reminders.mode !== "off" && (channels.email || channels.whatsapp) ? (
                   <p className="text-xs text-ink-muted">
                     {describeChargeChannel(
                       reminders.channel,
                       selectedClient?.followup_channel,
                       selectedClient ? chargeCounterpartyLabel(selectedClient) : undefined,
+                      channels,
                     )}
                   </p>
                 ) : null}

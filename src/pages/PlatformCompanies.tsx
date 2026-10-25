@@ -69,7 +69,12 @@ export default function PlatformCompanies() {
   const [issuedPassword, setIssuedPassword] = useState<{ company: string; email: string } | null>(null);
   const [openFilters, setOpenFilters] = useState(false);
   const [form, setForm] = useState({ name: "" });
-  const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
+  const [editing, setEditing] = useState<{
+    id: number;
+    name: string;
+    allow_email: boolean;
+    allow_whatsapp: boolean;
+  } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CompanyDTO | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [plans, setPlans] = useState<SignupPlan[]>([]);
@@ -162,12 +167,30 @@ export default function PlatformCompanies() {
     }
   }
 
+  function openCompanyEdit(c: CompanyDTO) {
+    setEditing({
+      id: c.id,
+      name: c.name,
+      allow_email: c.allow_email !== false,
+      allow_whatsapp: c.allow_whatsapp !== false,
+    });
+  }
+
   async function onSaveEdit() {
     if (!editing) return;
+    const name = editing.name.trim();
+    if (!name) {
+      toast.error("El nombre no puede estar vacío.");
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
-      await updateCompany(editing.id, { name: editing.name });
+      await updateCompany(editing.id, {
+        name,
+        allow_email: editing.allow_email,
+        allow_whatsapp: editing.allow_whatsapp,
+      });
       setEditing(null);
       await load();
       toast.success("Empresa guardada.");
@@ -439,49 +462,35 @@ export default function PlatformCompanies() {
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
                       {initials(c.name)}
                     </span>
-                    {editing?.id === c.id ? (
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <input
-                          className="h-9 w-full min-w-0 rounded-lg border border-surface-border px-2.5 text-sm"
-                          value={editing.name}
-                          onChange={(e) => setEditing({ id: c.id, name: e.target.value })}
-                          autoFocus
-                        />
-                        <IconActionButton icon={Check} label="Guardar nombre" variant="accent" disabled={busy} onClick={() => void onSaveEdit()} />
-                        <IconActionButton icon={X} label="Cancelar edición" disabled={busy} onClick={() => setEditing(null)} />
-                      </div>
-                    ) : (
-                      <>
-                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openCommercial(c)}>
-                          <p className="truncate text-[15px] font-semibold text-ink">{c.name}</p>
-                          <p className="mt-0.5 truncate text-xs text-ink-muted">
-                            {c.contact_email || c.contact_name || "Sin correo de contacto"}
-                          </p>
-                          <p className={`mt-0.5 truncate text-xs font-medium ${active ? "text-brand" : "text-ink-muted"}`}>
-                            {status}
-                            {plan ? <span className="font-normal text-ink-muted"> · {plan}</span> : null}
-                          </p>
-                        </button>
-                        <ToggleSwitch
-                          checked={active}
-                          onCheckedChange={(next) => {
-                            if (next !== active) void onSetActive(c.id, next);
-                          }}
-                          disabled={busy}
-                          aria-label={active ? "Empresa activa" : "Empresa inactiva"}
-                        />
-                        <RowMenu
-                          label={`Acciones de ${c.name}`}
-                          items={[
-                            { label: "Condiciones", icon: Building2, onSelect: () => openCommercial(c) },
-                            { label: "WhatsApp", icon: MessageCircle, onSelect: () => openWaEdit(c) },
-                            { label: "Correo de envío", icon: Mail, onSelect: () => openMailEdit(c) },
-                            { label: "Editar nombre", icon: Pencil, onSelect: () => setEditing({ id: c.id, name: c.name }) },
-                            { label: "Borrar", icon: Trash2, danger: true, onSelect: () => setDeleteTarget(c) },
-                          ]}
-                        />
-                      </>
-                    )}
+                    <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openCompanyEdit(c)}>
+                      <p className="truncate text-[15px] font-semibold text-ink">{c.name}</p>
+                      <p className="mt-0.5 truncate text-xs text-ink-muted">
+                        {c.contact_email || c.contact_name || "Sin correo de contacto"}
+                      </p>
+                      <p className={`mt-0.5 truncate text-xs font-medium ${active ? "text-brand" : "text-ink-muted"}`}>
+                        {status}
+                        {plan ? <span className="font-normal text-ink-muted"> · {plan}</span> : null}
+                        {notifyAccessLabel(c) ? <span className="font-normal text-ink-muted"> · {notifyAccessLabel(c)}</span> : null}
+                      </p>
+                    </button>
+                    <ToggleSwitch
+                      checked={active}
+                      onCheckedChange={(next) => {
+                        if (next !== active) void onSetActive(c.id, next);
+                      }}
+                      disabled={busy}
+                      aria-label={active ? "Empresa activa" : "Empresa inactiva"}
+                    />
+                    <RowMenu
+                      label={`Acciones de ${c.name}`}
+                      items={[
+                        { label: "Editar", icon: Pencil, onSelect: () => openCompanyEdit(c) },
+                        { label: "Condiciones", icon: Building2, onSelect: () => openCommercial(c) },
+                        { label: "WhatsApp", icon: MessageCircle, onSelect: () => openWaEdit(c) },
+                        { label: "Correo de envío", icon: Mail, onSelect: () => openMailEdit(c) },
+                        { label: "Borrar", icon: Trash2, danger: true, onSelect: () => setDeleteTarget(c) },
+                      ]}
+                    />
                   </div>
                   <div className="ml-[3.25rem] mt-2 flex flex-wrap gap-x-3 gap-y-1 pr-2 text-xs text-ink-muted">
                     <span>
@@ -538,28 +547,20 @@ export default function PlatformCompanies() {
                   <tr key={c.id} className="hover:bg-surface/40">
                     <td className="px-4 py-3 tabular-nums sm:px-6">{c.id}</td>
                     <td className="max-w-0 px-3 py-3 sm:px-5">
-                      {editing?.id === c.id ? (
-                        <input
-                          className="w-full min-w-0 rounded-lg border border-surface-border px-2 py-1.5 text-sm"
-                          value={editing.name}
-                          onChange={(e) => setEditing({ id: c.id, name: e.target.value })}
-                          autoFocus
-                        />
-                      ) : (
-                        <button type="button" className="block w-full text-left" onClick={() => openCommercial(c)}>
-                          <span className="line-clamp-2 break-words font-medium text-ink">{c.name}</span>
-                          {c.contact_name ? <span className="mt-0.5 block break-words text-xs text-ink-muted">{c.contact_name}</span> : null}
-                          {c.contact_email ? <span className="mt-0.5 block break-all text-xs text-ink">{c.contact_email}</span> : (
-                            <span className="mt-0.5 block text-xs text-ink-muted">Sin correo de contacto</span>
-                          )}
-                          {c.contact_phone ? <span className="mt-0.5 block text-xs text-ink-muted">{c.contact_phone}</span> : null}
-                          <span className="mt-0.5 block text-xs text-ink-muted">
-                            {c.is_active === false ? (c.requested_plan && !c.approved ? "Pendiente" : "Inactiva") : "Activa"}
-                            {labelFor(c.requested_plan) ? ` · ${labelFor(c.requested_plan)}` : ""}
-                            {c.price_clp_override != null || c.commission_percent_override != null ? " · a medida" : ""}
-                          </span>
-                        </button>
-                      )}
+                      <button type="button" className="block w-full text-left" onClick={() => openCompanyEdit(c)}>
+                        <span className="line-clamp-2 break-words font-medium text-ink">{c.name}</span>
+                        {c.contact_name ? <span className="mt-0.5 block break-words text-xs text-ink-muted">{c.contact_name}</span> : null}
+                        {c.contact_email ? <span className="mt-0.5 block break-all text-xs text-ink">{c.contact_email}</span> : (
+                          <span className="mt-0.5 block text-xs text-ink-muted">Sin correo de contacto</span>
+                        )}
+                        {c.contact_phone ? <span className="mt-0.5 block text-xs text-ink-muted">{c.contact_phone}</span> : null}
+                        <span className="mt-0.5 block text-xs text-ink-muted">
+                          {c.is_active === false ? (c.requested_plan && !c.approved ? "Pendiente" : "Inactiva") : "Activa"}
+                          {labelFor(c.requested_plan) ? ` · ${labelFor(c.requested_plan)}` : ""}
+                          {c.price_clp_override != null || c.commission_percent_override != null ? " · a medida" : ""}
+                          {notifyAccessLabel(c) ? ` · ${notifyAccessLabel(c)}` : ""}
+                        </span>
+                      </button>
                     </td>
                     <td className="px-3 py-3 text-center tabular-nums sm:px-5">{c.client_count ?? 0}</td>
                     <td className="px-3 py-3 text-center tabular-nums sm:px-5">{c.admin_count ?? 0}</td>
@@ -592,30 +593,12 @@ export default function PlatformCompanies() {
                           disabled={busy}
                           aria-label={isCompanyActive(c) ? "Empresa activa" : "Empresa inactiva"}
                         />
-                        {editing?.id === c.id ? (
-                          <>
-                            <IconActionButton
-                              icon={Check}
-                              label="Guardar nombre"
-                              variant="accent"
-                              disabled={busy}
-                              onClick={() => void onSaveEdit()}
-                            />
-                            <IconActionButton
-                              icon={X}
-                              label="Cancelar edición"
-                              disabled={busy}
-                              onClick={() => setEditing(null)}
-                            />
-                          </>
-                        ) : (
-                          <IconActionButton
-                            icon={Pencil}
-                            label="Editar nombre"
-                            disabled={busy || deleting}
-                            onClick={() => setEditing({ id: c.id, name: c.name })}
-                          />
-                        )}
+                        <IconActionButton
+                          icon={Pencil}
+                          label="Editar empresa"
+                          disabled={busy || deleting}
+                          onClick={() => openCompanyEdit(c)}
+                        />
                         <IconActionButton
                           icon={Trash2}
                           label="Borrar empresa"
@@ -829,6 +812,60 @@ export default function PlatformCompanies() {
         </AppModal>
       )}
 
+      {editing && (
+        <AppModal onBackdropClick={() => { if (!busy) setEditing(null); }}>
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-surface-card p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-ink">Editar empresa</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Elige por dónde puede avisar. El número de WhatsApp y el correo de envío se guardan aparte y siguen ahí aunque apagues un medio.
+            </p>
+            <form
+              className="mt-4 space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void onSaveEdit();
+              }}
+            >
+              <Input label="Nombre" value={editing.name} onChange={(name) => setEditing({ ...editing, name })} />
+              <div className="divide-y divide-surface-border rounded-2xl border border-surface-border">
+                <div className="flex items-center justify-between gap-4 px-4 py-3">
+                  <span>
+                    <span className="block text-sm font-medium text-ink">Correo</span>
+                    <span className="mt-0.5 block text-xs text-ink-muted">La empresa ve y envía avisos por correo.</span>
+                  </span>
+                  <ToggleSwitch
+                    checked={editing.allow_email}
+                    onCheckedChange={(allow_email) => setEditing({ ...editing, allow_email })}
+                    disabled={busy}
+                    aria-label="Permitir correo"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4 px-4 py-3">
+                  <span>
+                    <span className="block text-sm font-medium text-ink">WhatsApp</span>
+                    <span className="mt-0.5 block text-xs text-ink-muted">La empresa ve y envía avisos por WhatsApp.</span>
+                  </span>
+                  <ToggleSwitch
+                    checked={editing.allow_whatsapp}
+                    onCheckedChange={(allow_whatsapp) => setEditing({ ...editing, allow_whatsapp })}
+                    disabled={busy}
+                    aria-label="Permitir WhatsApp"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" className="rounded-xl px-4 py-2 text-sm font-medium text-ink-muted hover:bg-surface" disabled={busy} onClick={() => setEditing(null)}>
+                  Cancelar
+                </button>
+                <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60" type="submit" disabled={busy}>
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </AppModal>
+      )}
+
       {waEdit && (
         <AppModal onBackdropClick={() => setWaEdit(null)}>
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-surface-card p-6 shadow-2xl">
@@ -885,7 +922,7 @@ export default function PlatformCompanies() {
             <h2 className="text-lg font-semibold text-ink">Correo de la empresa</h2>
             <p className="mt-1 text-sm text-ink-muted">{mailEdit.name}</p>
             <p className="mt-3 text-sm text-ink-muted">
-              Los recordatorios por correo salen desde este buzón, al email que tenga el cliente. El texto lo escribe la empresa en Configuración, en Mensajes, con Agregar.
+              Los recordatorios por correo salen desde este buzón, al email que tenga el cliente. El texto lo escribe la empresa en Configuración, en Qué decir.
             </p>
             <div className="mt-4 space-y-3">
               <label className="block text-sm font-medium text-ink">
@@ -979,6 +1016,15 @@ export default function PlatformCompanies() {
       )}
     </div>
   );
+}
+
+function notifyAccessLabel(c: CompanyDTO) {
+  const email = c.allow_email !== false;
+  const whatsapp = c.allow_whatsapp !== false;
+  if (email && whatsapp) return "";
+  if (whatsapp) return "Solo WhatsApp";
+  if (email) return "Solo correo";
+  return "Sin avisos";
 }
 
 function Input(props: { label: string; value: string; onChange: (v: string) => void; type?: string }) {

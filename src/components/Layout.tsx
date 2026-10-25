@@ -15,6 +15,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { getSessionClaims, getToken, logout } from "../lib/auth";
+import { useCompanyChannels } from "../lib/companyChannels";
 import { useScrollLock } from "../lib/useScrollLock";
 import BrandLogo from "./BrandLogo";
 import InboxBell from "./InboxBell";
@@ -113,8 +114,9 @@ export default function Layout() {
   const tabs = mobileTabs(isPlatformAdmin);
   const overflow = moreLinks(role, isPlatformAdmin);
   const isCompanyAdmin = role === "admin" && !isPlatformAdmin;
-  const showInbox = hasToken && !isPlatformAdmin;
-  const settingsActive = isCompanyAdmin && tabActive(location.pathname, { to: "/mensajes", label: "Configuración", icon: Settings });
+  const channels = useCompanyChannels();
+  const showInbox = hasToken && !isPlatformAdmin && channels.whatsapp;
+  const settingsActive = isCompanyAdmin && tabActive(location.pathname, { to: "/configuracion", label: "Configuración", icon: Settings });
   const profileActive = tabActive(location.pathname, { to: "/perfil", end: true, label: "Perfil", icon: CircleUserRound });
   const moreActive = overflow.some((item) => tabActive(location.pathname, item)) || settingsActive || profileActive;
 
@@ -166,7 +168,7 @@ export default function Layout() {
         {showInbox && <InboxBell variant="sidebar" collapsed={collapsed} />}
         {isCompanyAdmin && (
           <NavLink
-            to="/mensajes"
+            to="/configuracion"
             title={collapsed ? "Configuración" : undefined}
             className={({ isActive }) => rowClass(isActive)}
           >
@@ -292,7 +294,7 @@ export default function Layout() {
             </NavLink>
             {isCompanyAdmin && (
               <NavLink
-                to="/mensajes"
+                to="/configuracion"
                 className={({ isActive }) =>
                   [
                     "flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold",

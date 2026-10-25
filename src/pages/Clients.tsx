@@ -15,6 +15,7 @@ import PageLoading from "../components/PageLoading";
 import TablePagination from "../components/TablePagination";
 import { useToast } from "../components/Toast";
 import { initials } from "../lib/initials";
+import { useCompanyChannels } from "../lib/companyChannels";
 import { isCompanyAdmin } from "../lib/roles";
 import { PAYMENT_METHODS } from "../lib/paymentMethods";
 
@@ -45,6 +46,7 @@ function ClientRowActions({ client, canDelete, onDelete }: { client: ClientDTO; 
 
 export default function Clients() {
   const nav = useNavigate();
+  const channels = useCompanyChannels();
   const admin = isCompanyAdmin();
   const [rows, setRows] = useState<ClientDTO[]>([]);
   const [sellers, setSellers] = useState<CompanyUserDTO[]>([]);
@@ -493,6 +495,7 @@ export default function Clients() {
                   onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                 />
               </label>
+              {channels.whatsapp ? (
               <label className="block text-sm font-medium text-ink">
                 TELEFONO
                 <input
@@ -501,6 +504,8 @@ export default function Clients() {
                   onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 />
               </label>
+              ) : null}
+              {channels.email ? (
               <label className="block text-sm font-medium text-ink">
                 EMAIL
                 <input
@@ -510,6 +515,7 @@ export default function Clients() {
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 />
               </label>
+              ) : null}
               <label className="block text-sm font-medium text-ink">
                 MPAGO · Método de pago
                 <AppSelect
