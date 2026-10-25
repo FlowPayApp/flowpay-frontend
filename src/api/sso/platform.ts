@@ -78,6 +78,8 @@ export async function updateCompany(
     commission_percent_override?: number;
     clear_price_override?: boolean;
     clear_commission_override?: boolean;
+    allow_email?: boolean;
+    allow_whatsapp?: boolean;
   },
 ) {
   const res = await authorizedFetch(`/auth/platform/companies/${companyId}`, {

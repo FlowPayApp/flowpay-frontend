@@ -6,6 +6,13 @@ export interface PaymentPortalCompany {
   transfer_instructions?: string;
 }
 
+export interface PaymentPortalMethods {
+  webpay: boolean;
+  khipu: boolean;
+  fintoc: boolean;
+  transfer: boolean;
+}
+
 export interface PaymentPortalClient {
   label: string;
 }
@@ -29,6 +36,7 @@ export interface PaymentPortalResponse {
   token_status: string;
   issued_at: string;
   company: PaymentPortalCompany;
+  methods?: PaymentPortalMethods;
   client: PaymentPortalClient;
   charges: PortalCharge[];
   totals: PaymentPortalTotals;
@@ -163,6 +171,7 @@ function mockPortal(token: string): PaymentPortalResponse {
       transfer_instructions:
         "Transferencia:\nBanco Estado\nCuenta 12345678\nRUT 76.000.000-0",
     },
+    methods: { webpay: true, khipu: false, fintoc: false, transfer: true },
     client: { label: "Sucursal Centro — mock" },
     totals: { pending: 85000, overdue: 40000, paid: 120000 },
     charges: [

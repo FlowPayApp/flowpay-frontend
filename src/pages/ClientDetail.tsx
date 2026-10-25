@@ -11,6 +11,7 @@ import ToggleSwitch from "../components/ToggleSwitch";
 import { useToast } from "../components/Toast";
 import { chargeCounterpartyLabel } from "../lib/chargeCounterpartyLabel";
 import { formatMoney } from "../lib/format";
+import { useCompanyChannels } from "../lib/companyChannels";
 import { isCompanyAdmin } from "../lib/roles";
 import { PAYMENT_METHODS, paymentMethodLabel } from "../lib/paymentMethods";
 
@@ -33,6 +34,20 @@ export default function ClientDetail() {
   const [assignBusy, setAssignBusy] = useState(false);
   const [sellers, setSellers] = useState<CompanyUserDTO[]>([]);
   const admin = isCompanyAdmin();
+  const channels = useCompanyChannels();
+  const followupOptions = [
+    ...(channels.email && channels.whatsapp ? [{ value: "all", label: "WhatsApp y correo" }] : []),
+    ...(channels.whatsapp ? [{ value: "whatsapp", label: channels.email ? "Solo WhatsApp" : "WhatsApp" }] : []),
+    ...(channels.email ? [{ value: "email", label: channels.whatsapp ? "Solo correo" : "Correo" }] : []),
+    { value: "none", label: "Sin avisos" },
+  ];
+  const followupValue = (() => {
+    const stored = c?.followup_channel ?? "all";
+    if (followupOptions.some((option) => option.value === stored)) return stored;
+    if (channels.whatsapp && !channels.email) return "whatsapp";
+    if (channels.email && !channels.whatsapp) return "email";
+    return "none";
+  })();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -262,15 +277,21 @@ export default function ClientDetail() {
               {c.name}
             </div>
           </div>
+          {channels.email || channels.whatsapp ? (
           <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
             <div className="text-xs uppercase tracking-wide text-ink-muted">Contacto</div>
+            {channels.email ? (
             <div className="mt-1 truncate text-sm text-ink" title={c.email ?? ""}>
               {dash(c.email)}
             </div>
-            <div className="truncate text-xs text-ink-muted" title={c.phone ?? ""}>
+            ) : null}
+            {channels.whatsapp ? (
+            <div className={`truncate text-ink-muted ${channels.email ? "text-xs" : "mt-1 text-sm text-ink"}`} title={c.phone ?? ""}>
               {dash(c.phone)}
             </div>
+            ) : null}
           </div>
+          ) : null}
           <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-3">
             <div className="text-xs uppercase tracking-wide text-ink-muted">Vendedor</div>
             <div className="mt-1 truncate text-sm font-semibold text-ink" title={c.seller_name ?? ""}>
@@ -323,28 +344,31 @@ export default function ClientDetail() {
               <span className="text-sm text-ink">{isClientActive(c) ? "Activo" : "Inactivo"}</span>
             </div>
           </div>
+          {channels.email || channels.whatsapp ? (
           <div className="rounded-xl border border-surface-border bg-surface-card px-4 py-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Seguimiento automático</h3>
-            <p className="mt-1 text-xs text-ink-muted">Canal preferido para recordatorios automáticos.</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {channels.email && channels.whatsapp
+                ? "Medio preferido para los avisos automáticos."
+                : channels.whatsapp
+                  ? "Los avisos automáticos salen por WhatsApp."
+                  : "Los avisos automáticos salen por correo."}
+            </p>
             <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
               <label htmlFor="client-followup-channel" className="shrink-0 text-sm font-medium text-ink">
-                Canal:
+                Avisos:
               </label>
               <AppSelect
                 id="client-followup-channel"
                 className="min-w-[10rem] max-w-[15.5rem] flex-1 sm:flex-initial"
                 busy={followupSaving}
-                value={c.followup_channel ?? "all"}
+                value={followupValue}
                 onChange={(channel) => void onFollowupChange(channel as "all" | "email" | "whatsapp" | "none")}
-                options={[
-                  { value: "all", label: "WhatsApp + Correo" },
-                  { value: "whatsapp", label: "Solo WhatsApp" },
-                  { value: "email", label: "Solo Correo" },
-                  { value: "none", label: "Sin seguimiento" },
-                ]}
+                options={followupOptions}
               />
             </div>
           </div>
+          ) : null}
         </div>
         ) : null}
 
@@ -389,6 +413,7 @@ export default function ClientDetail() {
               onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
             />
           </label>
+          {channels.whatsapp ? (
           <label className="block text-sm font-medium text-ink">
             TELEFONO
             <input
@@ -397,6 +422,8 @@ export default function ClientDetail() {
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
             />
           </label>
+          ) : null}
+          {channels.email ? (
           <label className="block text-sm font-medium text-ink">
             EMAIL
             <input
@@ -406,6 +433,7 @@ export default function ClientDetail() {
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             />
           </label>
+          ) : null}
           <label className="block text-sm font-medium text-ink sm:col-span-2">
             MPAGO · Método de pago
             <AppSelect

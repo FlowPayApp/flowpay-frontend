@@ -1,16 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
-  BellRing,
   CalendarCheck,
   CalendarClock,
   ChevronDown,
   CircleAlert,
-  Landmark,
   Lock,
   Mail,
   MessageCircle,
-  MessageSquareText,
   Pencil,
   Plus,
   Repeat,
@@ -19,9 +17,11 @@ import {
 import { useMinLoading } from "../lib/useMinLoading";
 import { fetchCompanyMessaging, saveCompanyMessaging } from "../api";
 import type { MessagingPhaseDefaults, MessagingSettingsDTO, ReminderPolicy, ReminderTemplateRowDTO } from "../api";
-import PageLoading from "../components/PageLoading";
+import LoadingIndicator from "../components/LoadingIndicator";
 import ReminderPolicyFields from "../components/ReminderPolicyFields";
+import SettingsFrame from "../components/SettingsFrame";
 import { useToast } from "../components/Toast";
+import { useCompanyChannels } from "../lib/companyChannels";
 import { DEFAULT_REMINDER_POLICY, describeReminderPolicy } from "../lib/reminderPolicy";
 
 type Phase = "approaching" | "due_today" | "overdue_first" | "overdue_followup";
@@ -58,26 +58,11 @@ const URL_SAMPLE: Record<string, string> = {
   "{{client_id}}": "12",
 };
 
-const FIELD_MARK = "\u2060";
 const CHIP_CLASS =
   "mx-0.5 inline-flex items-center rounded-md bg-brand-soft px-1.5 py-0.5 align-baseline text-xs font-semibold text-brand";
-const INPUT_CLASS =
-  "w-full rounded-xl border border-surface-border bg-[rgb(var(--color-field))] px-3 py-2.5 text-sm text-ink outline-none focus:border-brand/50";
 
 function fieldLabel(token: string, fields: { token: string; label: string }[]) {
   return fields.find((field) => field.token === token)?.label ?? "Dato";
-}
-
-function markedLabel(label: string) {
-  return `${FIELD_MARK}${label}${FIELD_MARK}`;
-}
-
-function tokensToVisible(value: string, fields: { token: string; label: string }[]) {
-  return fields.reduce((text, field) => text.replaceAll(field.token, markedLabel(field.label)), value);
-}
-
-function visibleToTokens(value: string, fields: { token: string; label: string }[]) {
-  return fields.reduce((text, field) => text.replaceAll(markedLabel(field.label), field.token), value);
 }
 
 function fillEditor(el: HTMLElement, stored: string) {
@@ -244,50 +229,6 @@ function MessageEditor({
   );
 }
 
-function PaymentLinkField({ value, onChange }: { value: string; onChange: (next: string) => void }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const visible = tokensToVisible(value, URL_FIELDS);
-
-  function insertChargeNumber() {
-    const input = ref.current;
-    const label = markedLabel("número del cobro");
-    if (!input) {
-      onChange(visibleToTokens(visible + label, URL_FIELDS));
-      return;
-    }
-    const start = input.selectionStart ?? visible.length;
-    const end = input.selectionEnd ?? start;
-    const next = visible.slice(0, start) + label + visible.slice(end);
-    onChange(visibleToTokens(next, URL_FIELDS));
-    requestAnimationFrame(() => {
-      const caret = start + label.length;
-      input.focus();
-      input.setSelectionRange(caret, caret);
-    });
-  }
-
-  return (
-    <div>
-      <input
-        ref={ref}
-        type="text"
-        className={INPUT_CLASS}
-        value={visible}
-        onChange={(event) => onChange(visibleToTokens(event.target.value, URL_FIELDS))}
-        placeholder="https://pago.tuempresa.cl/cobro/"
-      />
-      <button
-        type="button"
-        className="mt-2 inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-surface-border px-2.5 text-xs font-medium text-ink-muted transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand"
-        onClick={insertChargeNumber}
-      >
-        <Plus className="h-3 w-3" strokeWidth={2.5} />
-        Número del cobro
-      </button>
-    </div>
-  );
-}
-
 function emptyEmails(): Emails {
   return {
     approaching: { subject: "", body: "", custom: false },
@@ -332,34 +273,7 @@ function preview(text: string, transfer: string, paymentUrl: string) {
   return MESSAGE_FIELDS.reduce((out, field) => out.replaceAll(field.token, sample[field.token]), text);
 }
 
-function Section({
-  icon: Icon,
-  title,
-  hint,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
-      <header className="flex items-center gap-3 border-b border-surface-border px-4 py-4 sm:px-6">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
-          <Icon className="h-5 w-5" strokeWidth={2} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold text-ink">{title}</h2>
-          {hint ? <p className="text-sm leading-snug text-ink-muted">{hint}</p> : null}
-        </div>
-      </header>
-      <div className="px-4 py-5 sm:px-6">{children}</div>
-    </section>
-  );
-}
-
-function ChannelHeading({ icon: Icon, label, aside }: { icon: LucideIcon; label: string; aside?: React.ReactNode }) {
+function ChannelHeading({ icon: Icon, label, aside }: { icon: LucideIcon; label: string; aside?: ReactNode }) {
   return (
     <div className="mb-2 flex items-center justify-between gap-2">
       <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
@@ -379,6 +293,8 @@ function MomentCard({
   defaults,
   transfer,
   paymentUrl,
+  showEmail,
+  showWhatsapp,
   onToggle,
   onChange,
 }: {
@@ -389,10 +305,19 @@ function MomentCard({
   defaults?: MessagingPhaseDefaults;
   transfer: string;
   paymentUrl: string;
+  showEmail: boolean;
+  showWhatsapp: boolean;
   onToggle: () => void;
   onChange: (next: EmailText) => void;
 }) {
   const custom = email.custom;
+  const status = showEmail
+    ? custom
+      ? "Correo personalizado"
+      : "Correo predeterminado"
+    : showWhatsapp
+      ? "Plantilla de WhatsApp"
+      : "Sin medio de aviso";
 
   return (
     <li className={`rounded-xl border transition-colors ${open ? "border-brand/30 bg-surface-card" : "border-surface-border bg-surface/40"}`}>
@@ -402,15 +327,16 @@ function MomentCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{title}</p>
-          <p className={`mt-0.5 text-xs ${custom ? "font-medium text-brand" : "text-ink-muted"}`}>
-            {custom ? "Correo personalizado" : "Correo predeterminado"}
+          <p className={`mt-0.5 text-xs ${showEmail && custom ? "font-medium text-brand" : "text-ink-muted"}`}>
+            {status}
           </p>
         </div>
         <ChevronDown className={`h-4 w-4 shrink-0 text-ink-muted transition-transform ${open ? "rotate-180" : ""}`} strokeWidth={2} />
       </button>
 
-      {open && (
+      {open && (showWhatsapp || showEmail) && (
         <div className="space-y-6 border-t border-surface-border px-4 py-4">
+          {showWhatsapp ? (
           <div>
             <ChannelHeading
               icon={MessageCircle}
@@ -432,8 +358,10 @@ function MomentCard({
               )}
             </div>
           </div>
+          ) : null}
 
-          <div className="border-t border-surface-border pt-5">
+          {showEmail ? (
+          <div className={showWhatsapp ? "border-t border-surface-border pt-5" : ""}>
             <ChannelHeading
               icon={Mail}
               label="Correo"
@@ -502,13 +430,41 @@ function MomentCard({
               </>
             )}
           </div>
+          ) : null}
         </div>
       )}
     </li>
   );
 }
 
-export default function MessagingSettings() {
+type MessagingFormValue = {
+  loading: boolean;
+  error: string | null;
+  saving: boolean;
+  dirty: boolean;
+  transfer: string;
+  setTransfer: (value: string) => void;
+  paymentUrl: string;
+  emails: Emails;
+  setEmails: Dispatch<SetStateAction<Emails>>;
+  defaults: Record<string, MessagingPhaseDefaults>;
+  policy: ReminderPolicy;
+  setPolicy: (value: ReminderPolicy) => void;
+  sendTime: string;
+  discard: () => void;
+  save: () => void;
+  saveTransferInstructions: (value: string) => Promise<void>;
+};
+
+const MessagingFormContext = createContext<MessagingFormValue | null>(null);
+
+export function useMessagingForm() {
+  const value = useContext(MessagingFormContext);
+  if (!value) throw new Error("La configuración no está disponible.");
+  return value;
+}
+
+export function MessagingFormProvider({ children }: { children: ReactNode }) {
   const [loadingRaw, setLoading] = useState(true);
   const loading = useMinLoading(loadingRaw);
   const [saving, setSaving] = useState(false);
@@ -520,9 +476,7 @@ export default function MessagingSettings() {
   const [defaults, setDefaults] = useState<Record<string, MessagingPhaseDefaults>>({});
   const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
   const [sendTime, setSendTime] = useState("");
-  const [openPhase, setOpenPhase] = useState<Phase | null>(null);
   const [baseline, setBaseline] = useState<string | null>(null);
-
   const loaded = useRef<MessagingSettingsDTO | null>(null);
 
   const apply = useCallback((data: MessagingSettingsDTO) => {
@@ -560,119 +514,179 @@ export default function MessagingSettings() {
   const current = useMemo(() => snapshot(transfer, paymentUrl, policy, emails), [transfer, paymentUrl, policy, emails]);
   const dirty = baseline !== null && current !== baseline;
 
-  async function onSave() {
-    setSaving(true);
-    setError(null);
-    try {
-      await saveCompanyMessaging({
-        transfer_instructions: transfer,
-        payment_url_template: paymentUrl,
-        templates: MOMENTS.filter(({ phase }) => emails[phase].body.trim() !== "").map(({ phase }) => ({
-          phase,
-          day_min: 0,
-          day_max: 999,
-          sort_order: 0,
-          email_subject: emails[phase].subject,
-          body: emails[phase].body,
-          whatsapp_body: "",
-        })),
-        reminder_policy: policy,
-      });
-      toast.success("Cambios guardados.");
-      await load();
-    } catch {
-      toast.error("No se pudieron guardar los cambios. Inténtalo de nuevo.");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const discard = useCallback(() => {
+    if (loaded.current) apply(loaded.current);
+  }, [apply]);
 
+  const save = useCallback(() => {
+    void (async () => {
+      setSaving(true);
+      setError(null);
+      try {
+        await saveCompanyMessaging({
+          transfer_instructions: transfer,
+          payment_url_template: paymentUrl,
+          templates: MOMENTS.filter(({ phase }) => emails[phase].body.trim() !== "").map(({ phase }) => ({
+            phase,
+            day_min: 0,
+            day_max: 999,
+            sort_order: 0,
+            email_subject: emails[phase].subject,
+            body: emails[phase].body,
+            whatsapp_body: "",
+          })),
+          reminder_policy: policy,
+        });
+        toast.success("Cambios guardados.");
+        await load();
+      } catch {
+        toast.error("No se pudieron guardar los cambios. Inténtalo de nuevo.");
+      } finally {
+        setSaving(false);
+      }
+    })();
+  }, [emails, load, paymentUrl, policy, toast, transfer]);
+
+  const saveTransferInstructions = useCallback(async (value: string) => {
+    const base = loaded.current;
+    if (!base) throw new Error("La configuración no está lista.");
+    const next = value.trim();
+    await saveCompanyMessaging({
+      transfer_instructions: next,
+      payment_url_template: base.payment_url_template ?? "",
+      templates: (base.templates ?? []).map((row) => ({
+        phase: row.phase,
+        day_min: row.day_min,
+        day_max: row.day_max,
+        sort_order: row.sort_order,
+        email_subject: row.email_subject ?? "",
+        body: row.body ?? "",
+        whatsapp_body: row.whatsapp_body ?? "",
+      })),
+      reminder_policy: base.reminder_policy,
+    });
+    loaded.current = { ...base, transfer_instructions: next };
+    setTransfer(next);
+    setBaseline((prev) => {
+      if (!prev) return snapshot(next, paymentUrl, policy, emails);
+      try {
+        const parsed = JSON.parse(prev) as { transfer: string };
+        parsed.transfer = next;
+        return JSON.stringify(parsed);
+      } catch {
+        return snapshot(next, paymentUrl, policy, emails);
+      }
+    });
+  }, [emails, paymentUrl, policy]);
+
+  const value = useMemo<MessagingFormValue>(
+    () => ({
+      loading,
+      error,
+      saving,
+      dirty,
+      transfer,
+      setTransfer,
+      paymentUrl,
+      emails,
+      setEmails,
+      defaults,
+      policy,
+      setPolicy,
+      sendTime,
+      discard,
+      save,
+      saveTransferInstructions,
+    }),
+    [loading, error, saving, dirty, transfer, paymentUrl, emails, defaults, policy, sendTime, discard, save, saveTransferInstructions],
+  );
+
+  return <MessagingFormContext.Provider value={value}>{children}</MessagingFormContext.Provider>;
+}
+
+function MessagingGate({ children }: { children: ReactNode }) {
+  const { loading, error } = useMessagingForm();
   if (loading) {
-    return <PageLoading />;
+    return (
+      <div className="flex min-h-48 items-center justify-center" role="status" aria-live="polite">
+        <LoadingIndicator />
+      </div>
+    );
   }
+  if (error) {
+    return <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>;
+  }
+  return children;
+}
 
+export function WhenPanel() {
+  const { sendTime } = useMessagingForm();
   return (
-    <div className={`mx-auto max-w-3xl space-y-6 ${dirty ? "pb-16 lg:pb-0" : ""}`}>
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Configuración</h1>
+    <SettingsFrame
+      title="Cuándo avisar"
+      hint={sendTime ? `Los recordatorios salen a las ${sendTime}.` : "Frecuencia con la que se avisa al cliente."}
+    >
+      <MessagingGate>
+        <WhenFields />
+      </MessagingGate>
+    </SettingsFrame>
+  );
+}
 
-      {error && (
-        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>
-      )}
-
-      <Section
-        icon={BellRing}
-        title="Cuándo avisar"
-        hint={sendTime ? `Los recordatorios salen a las ${sendTime}` : undefined}
-      >
-        <ReminderPolicyFields value={policy} onChange={setPolicy} />
-        <p className="mt-5 flex items-start gap-2 rounded-xl bg-surface px-3 py-2.5 text-sm text-ink">
-          <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-brand" strokeWidth={2} />
-          {describeReminderPolicy(policy)}
-        </p>
-      </Section>
-
-      <Section icon={MessageSquareText} title="Qué decir" hint="WhatsApp usa plantillas aprobadas. El correo lo puedes escribir tú.">
-        <ul className="space-y-3">
-          {MOMENTS.map((moment) => (
-            <MomentCard
-              key={moment.phase}
-              title={moment.title}
-              icon={moment.icon}
-              open={openPhase === moment.phase}
-              email={emails[moment.phase]}
-              defaults={defaults[moment.phase]}
-              transfer={transfer}
-              paymentUrl={paymentUrl}
-              onToggle={() => setOpenPhase((p) => (p === moment.phase ? null : moment.phase))}
-              onChange={(next) => setEmails((all) => ({ ...all, [moment.phase]: next }))}
-            />
-          ))}
-        </ul>
-      </Section>
-
-      <Section icon={Landmark} title="Cómo te pagan" hint="Se pueden insertar en tus correos">
-        <div className="space-y-5">
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink">Datos de transferencia</span>
-            <textarea
-              className={`${INPUT_CLASS} min-h-[6rem]`}
-              value={transfer}
-              onChange={(e) => setTransfer(e.target.value)}
-              placeholder={"Banco Estado · Cuenta corriente\nN° 123456789 · RUT 76.123.456-7\npagos@tuempresa.cl"}
-            />
-          </label>
-          <div>
-            <span className="mb-1.5 block text-sm font-medium text-ink">Enlace de pago</span>
-            <PaymentLinkField value={paymentUrl} onChange={setPaymentUrl} />
-          </div>
-        </div>
-      </Section>
-
-      {dirty && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 lg:sticky lg:inset-x-auto lg:bottom-6">
-          <div className="flex items-center justify-between gap-3 border-t border-surface-border bg-surface-card px-4 py-2.5 shadow-[0_-8px_24px_rgba(28,25,23,0.08)] lg:rounded-2xl lg:border lg:py-3 lg:shadow-[0_16px_40px_rgba(28,25,23,0.16)]">
-            <p className="text-sm font-medium text-ink">Cambios sin guardar</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => loaded.current && apply(loaded.current)}
-                className="h-10 rounded-lg px-3 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-60"
-              >
-                Descartar
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void onSave()}
-                className="h-10 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
-              >
-                {saving ? "Guardando…" : "Guardar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+function WhenFields() {
+  const { policy, setPolicy } = useMessagingForm();
+  return (
+    <div>
+      <ReminderPolicyFields value={policy} onChange={setPolicy} />
+      <p className="mt-5 flex items-start gap-2 rounded-xl bg-surface px-3 py-2.5 text-sm text-ink">
+        <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-brand" strokeWidth={2} />
+        {describeReminderPolicy(policy)}
+      </p>
     </div>
+  );
+}
+
+export function WhatPanel() {
+  const channels = useCompanyChannels();
+  const hint = channels.email && channels.whatsapp
+    ? "WhatsApp usa plantillas aprobadas. El correo lo puedes escribir tú."
+    : channels.whatsapp
+      ? "WhatsApp usa plantillas aprobadas."
+      : channels.email
+        ? "El correo lo puedes escribir tú."
+        : "Esta empresa todavía no tiene un medio de aviso asignado.";
+  return (
+    <SettingsFrame title="Qué decir" hint={hint}>
+      <MessagingGate>
+        <WhatFields />
+      </MessagingGate>
+    </SettingsFrame>
+  );
+}
+
+function WhatFields() {
+  const { emails, setEmails, defaults, transfer, paymentUrl } = useMessagingForm();
+  const channels = useCompanyChannels();
+  const [openPhase, setOpenPhase] = useState<Phase | null>(null);
+  if (channels.ready && !channels.email && !channels.whatsapp) return null;
+  return (
+    <ul className="space-y-3">
+      {MOMENTS.map((moment) => (
+        <MomentCard
+          key={moment.phase}
+          title={moment.title}
+          icon={moment.icon}
+          open={openPhase === moment.phase}
+          email={emails[moment.phase]}
+          defaults={defaults[moment.phase]}
+          transfer={transfer}
+          paymentUrl={paymentUrl}
+          showEmail={channels.email}
+          showWhatsapp={channels.whatsapp}
+          onToggle={() => setOpenPhase((current) => (current === moment.phase ? null : moment.phase))}
+          onChange={(next) => setEmails((all) => ({ ...all, [moment.phase]: next }))}
+        />
+      ))}
+    </ul>
   );
 }
