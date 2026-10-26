@@ -17,7 +17,7 @@ const TONE = {
     Icon: Check,
   },
   error: {
-    label: "No se pudo",
+    label: "Error",
     bar: "bg-[rgb(142_58_46)]",
     icon: "bg-[rgb(142_58_46)] text-white",
     Icon: AlertCircle,

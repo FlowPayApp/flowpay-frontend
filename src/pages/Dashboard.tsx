@@ -436,7 +436,10 @@ export default function Dashboard() {
                         {c.overdue_count > 0 ? ` · ${c.overdue_count} vencido${c.overdue_count === 1 ? "" : "s"}` : ""}
                       </div>
                     </div>
+                    <div className="flex items-center">
+                      <p className="text-xs text-ink mr-1">Riesgo:</p>
                     <RiskBadge level={c.risk_level} compact />
+                    </div>
                   </Link>
                 </li>
               ))}

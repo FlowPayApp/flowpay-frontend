@@ -24,10 +24,10 @@ export function RiskBadge({ level, compact = false }: { level: "low" | "medium" 
     medium: "bg-warn-soft text-warn",
     high: "bg-danger-soft text-danger",
   };
-  const short = level === "high" ? "Alta" : level === "medium" ? "Media" : "Bajo";
+  const short = level === "high" ? "Alto" : level === "medium" ? "Medio" : "Bajo";
   return (
     <span className={`${chip} ${map[level]}`}>
-      {compact ? short : `Riesgo ${short === "Alta" ? "alto" : short.toLowerCase()}`}
+      {compact ? short : `Riesgo ${short === "Alto" ? "alto" : short.toLowerCase()}`}
     </span>
   );
 }

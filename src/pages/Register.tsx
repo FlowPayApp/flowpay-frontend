@@ -33,7 +33,7 @@ const FALLBACK_PLANS: SignupPlan[] = [
     price: "$189.000",
     period: "mes",
     highlight: true,
-    features: ["Hasta 120 sucursales", "Todo lo de Esencial", "Cobradores en el equipo", "Carga de sucursales desde Excel"],
+    features: ["Hasta 120 sucursales", "Todo lo del plan Esencial", "Cobradores en el equipo", "Carga de sucursales desde Excel"],
   },
   {
     id: "empresa",
@@ -41,7 +41,7 @@ const FALLBACK_PLANS: SignupPlan[] = [
     detail: "Para una red grande, con puesta en marcha acompañada.",
     price: "$349.000",
     period: "mes",
-    features: ["Sucursales sin tope", "Todo lo de Crecimiento", "Varios administradores", "Acompañamiento en la carga inicial"],
+    features: ["Sucursales sin tope", "Todo lo del plan Crecimiento", "Varios administradores", "Acompañamiento en la carga inicial"],
   },
 ];
 
@@ -104,7 +104,7 @@ export default function Register() {
     <AuthShell
       title="Crear cuenta"
       aside={done ? undefined : <PlanList plans={plans} selected={plan} onSelect={setPlan} columns />}
-      lede={done ? "Tu solicitud quedó registrada." : "Cuéntanos de tu empresa. El plan se elige a la izquierda. La contraseña te la entregamos cuando la cuenta quede activa."}
+      lede={done ? "Tu solicitud quedó registrada." : "Cuéntanos de tu empresa. La contraseña te la entregamos cuando la cuenta quede activa."}
       footer={
         <p className="text-center sm:text-left">
           <Link to="/login" className="font-semibold text-brand hover:underline">
@@ -126,7 +126,7 @@ export default function Register() {
             Plan elegido: {plans.find((item) => item.id === plan)?.label} · {plans.find((item) => item.id === plan)?.price} / mes
           </p>
         ) : (
-          <p className="hidden text-sm text-ink-muted lg:block">Elige un plan en el panel de la izquierda.</p>
+          <p className="hidden text-sm text-ink-muted lg:block">Elige un plan.</p>
         )}
         <div className="lg:hidden">
           <p className="mb-2 text-sm font-medium text-ink">Plan</p>
