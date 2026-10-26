@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Download, Loader2, Printer, XCircle } from "lucide-react";
 import {
   commitPaymentReturn,
+  fetchKhipuStatus,
   fetchPaymentPortal,
   isPaymentMock,
   type PaymentCommitResponse,
@@ -17,7 +18,7 @@ import {
   type PaymentReceiptData,
 } from "../lib/paymentReceipt";
 
-type Phase = "committing" | "done" | "error";
+type Phase = "committing" | "pending" | "done" | "error";
 
 export default function PayReturnPage() {
   const { token: rawToken } = useParams<{ token: string }>();
@@ -26,10 +27,13 @@ export default function PayReturnPage() {
   const [result, setResult] = useState<PaymentCommitResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [portal, setPortal] = useState<PaymentPortalResponse | null>(null);
+  const [stalled, setStalled] = useState(false);
 
   const portalToken = decodePortalToken(rawToken);
   const tokenWs = searchParams.get("token_ws")?.trim() ?? "";
   const estadoQuery = searchParams.get("estado")?.trim() ?? "";
+  const buyOrder = searchParams.get("buy_order")?.trim() ?? "";
+  const medio = searchParams.get("medio")?.trim() ?? "";
 
   useEffect(() => {
     if (!portalToken) {
@@ -47,6 +51,7 @@ export default function PayReturnPage() {
         authorization_code: searchParams.get("authorization_code") ?? undefined,
         amount: amountRaw ? Number(amountRaw) : undefined,
         message: searchParams.get("message") ?? "Pago autorizado",
+        method: searchParams.get("medio") ?? undefined,
       });
       setPhase("done");
       return;
@@ -54,6 +59,17 @@ export default function PayReturnPage() {
     if (estadoQuery === "failed") {
       setPhase("error");
       setError(searchParams.get("message") ?? "El pago no fue autorizado.");
+      return;
+    }
+    if (estadoQuery === "pending") {
+      setResult({
+        status: "pending",
+        buy_order: searchParams.get("buy_order") ?? undefined,
+        amount: searchParams.get("amount") ? Number(searchParams.get("amount")) : undefined,
+        message: searchParams.get("message") ?? "Khipu está confirmando la transferencia",
+        method: "khipu",
+      });
+      setPhase("pending");
       return;
     }
 
@@ -90,6 +106,38 @@ export default function PayReturnPage() {
   }, [portalToken, tokenWs, estadoQuery, searchParams]);
 
   useEffect(() => {
+    if (phase !== "pending" || !portalToken || !buyOrder) return;
+    let cancelled = false;
+    let attempts = 0;
+    const id = window.setInterval(() => {
+      attempts += 1;
+      if (attempts > 40) {
+        if (!cancelled) setStalled(true);
+        window.clearInterval(id);
+        return;
+      }
+      void fetchKhipuStatus(portalToken, buyOrder)
+        .then((data) => {
+          if (cancelled) return;
+          if (data.status === "authorized") {
+            setResult({ ...data, method: data.method || "khipu" });
+            setPhase("done");
+          } else if (data.status === "failed") {
+            setError(data.message || "La transferencia no se completó.");
+            setPhase("error");
+          }
+        })
+        .catch(() => {
+          if (!cancelled && attempts >= 8) setStalled(true);
+        });
+    }, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [phase, portalToken, buyOrder]);
+
+  useEffect(() => {
     if (phase !== "done" || !portalToken) return;
     let cancelled = false;
     fetchPaymentPortal(portalToken)
@@ -113,9 +161,9 @@ export default function PayReturnPage() {
       authorizationCode: result.authorization_code,
       buyOrder: result.buy_order,
       paidAt: new Date(),
-      paymentMethod: "Webpay Plus (Transbank)",
+      paymentMethod: result.method === "khipu" || medio === "khipu" ? "Khipu" : "Webpay Plus (Transbank)",
     };
-  }, [result, portal]);
+  }, [result, portal, medio]);
 
   const portalHref = portalToken ? `/pay/${encodeURIComponent(portalToken)}` : "/";
 
@@ -139,13 +187,33 @@ export default function PayReturnPage() {
         </div>
       )}
 
+      {phase === "pending" && (
+        <div className="rounded-2xl border border-surface-border bg-surface-card p-10 text-center shadow-soft">
+          <Loader2 className={`mx-auto h-10 w-10 text-brand ${stalled ? "" : "animate-spin"}`} aria-hidden />
+          <p className="mt-4 text-lg font-semibold text-ink">Confirmando la transferencia</p>
+          <p className="mt-2 text-sm text-ink-muted">
+            {stalled
+              ? "Khipu todavía no confirma la transferencia. Si ya pagaste, el cobro se actualiza solo en cuanto llegue el aviso."
+              : "Khipu está confirmando la transferencia. No cierres esta ventana."}
+          </p>
+          <Link
+            to={portalHref}
+            className="mt-8 inline-flex rounded-xl border border-surface-border bg-surface-card px-5 py-3 text-sm font-semibold text-ink hover:bg-surface"
+          >
+            Volver al portal
+          </Link>
+        </div>
+      )}
+
       {phase === "done" && result && (
         <div className="space-y-6">
           <div className="rounded-2xl border border-brand/30 bg-brand-soft/80 p-8 text-center shadow-soft">
             <CheckCircle2 className="mx-auto h-12 w-12 text-brand" />
             <h1 className="mt-4 text-2xl font-bold text-ink">Pago recibido</h1>
             <p className="mt-2 text-sm text-ink-muted">
-              Tu pago fue autorizado correctamente. El comercio verá el cobro actualizado en GeldFlus.
+              {result.method === "khipu" || medio === "khipu"
+                ? "La transferencia quedó confirmada. El comercio verá el cobro actualizado en GeldFlus."
+                : "Tu pago fue autorizado correctamente. El comercio verá el cobro actualizado en GeldFlus."}
             </p>
             {result.amount != null && (
               <p className="mt-6 text-3xl font-bold tabular-nums tracking-tight text-ink">
