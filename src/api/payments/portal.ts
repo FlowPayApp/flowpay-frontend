@@ -49,11 +49,12 @@ export interface PaymentCheckoutResponse {
 }
 
 export interface PaymentCommitResponse {
-  status: "authorized" | "failed";
+  status: "authorized" | "failed" | "pending";
   buy_order?: string;
   authorization_code?: string;
   amount?: number;
   message?: string;
+  method?: string;
 }
 
 async function parseError(res: Response, fallback: string): Promise<Error> {
@@ -82,10 +83,11 @@ export async function fetchPaymentPortal(token: string): Promise<PaymentPortalRe
   return res.json() as Promise<PaymentPortalResponse>;
 }
 
-/** Inicia checkout Webpay: backend crea transacción en Transbank y devuelve redirect_url. */
+/** Inicia el checkout del medio elegido. Webpay y Khipu devuelven redirect_url. */
 export async function startPaymentCheckout(
   portalToken: string,
   chargeRefs: string[],
+  method: "webpay" | "khipu" = "webpay",
 ): Promise<PaymentCheckoutResponse> {
   if (chargeRefs.length === 0) {
     throw new Error("Selecciona al menos un cobro");
@@ -102,12 +104,27 @@ export async function startPaymentCheckout(
   const res = await fetch(paymentsApiUrl(`/api/public/pay/${encodeURIComponent(portalToken)}/checkout`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ charge_refs: chargeRefs }),
+    body: JSON.stringify({ charge_refs: chargeRefs, method }),
   });
   if (!res.ok) {
-    throw await parseError(res, "No se pudo iniciar el pago con Webpay");
+    throw await parseError(res, method === "khipu" ? "No se pudo iniciar el pago con Khipu" : "No se pudo iniciar el pago con Webpay");
   }
   return res.json() as Promise<PaymentCheckoutResponse>;
+}
+
+/** Consulta si Khipu ya concilió la transferencia. */
+export async function fetchKhipuStatus(portalToken: string, buyOrder: string): Promise<PaymentCommitResponse> {
+  const orden = buyOrder.trim();
+  if (!orden) {
+    throw new Error("Falta la orden de la transferencia");
+  }
+  const res = await fetch(
+    paymentsApiUrl(`/api/public/pay/${encodeURIComponent(portalToken)}/khipu/status?orden=${encodeURIComponent(orden)}`),
+  );
+  if (!res.ok) {
+    throw await parseError(res, "No se pudo consultar la transferencia");
+  }
+  return res.json() as Promise<PaymentCommitResponse>;
 }
 
 /** Confirma el pago tras el retorno de Transbank (token_ws en query). */

@@ -66,7 +66,8 @@ export default function PlatformCompanies() {
   const [busy, setBusy] = useState(false);
   const [sendingMail, setSendingMail] = useState(false);
   const [openCreateModal, setOpenCreateModal] = useState(false);
-  const [issuedPassword, setIssuedPassword] = useState<{ company: string; email: string } | null>(null);
+  const [issuedPassword, setIssuedPassword] = useState<{ company: string; email: string; plan: string } | null>(null);
+  const [activateTarget, setActivateTarget] = useState<CompanyDTO | null>(null);
   const [openFilters, setOpenFilters] = useState(false);
   const [form, setForm] = useState({ name: "" });
   const [editing, setEditing] = useState<{
@@ -269,6 +270,7 @@ export default function PlatformCompanies() {
         setIssuedPassword({
           company: company?.name ?? "la empresa",
           email: saved.email || company?.contact_email || "",
+          plan: planSummary(company?.requested_plan),
         });
       }
       toast.success(active ? "Empresa activada." : "Empresa desactivada.");
@@ -283,6 +285,23 @@ export default function PlatformCompanies() {
   function labelFor(id: string | undefined): string {
     if (!id) return "";
     return plans.find((plan) => plan.id === id)?.label || PLAN_LABELS[id] || id;
+  }
+
+  function planSummary(id: string | undefined): string {
+    if (!id) return "";
+    const catalog = plans.find((plan) => plan.id === id);
+    if (!catalog) return labelFor(id);
+    const price = catalog.price ? ` · ${catalog.price}${catalog.period ? ` / ${catalog.period}` : ""}` : "";
+    return `${catalog.label}${price}`;
+  }
+
+  function askActivate(company: CompanyDTO, next: boolean) {
+    if (next === isCompanyActive(company)) return;
+    if (next && company.requested_plan && !company.approved) {
+      setActivateTarget(company);
+      return;
+    }
+    void onSetActive(company.id, next);
   }
 
   function openCommercial(company: CompanyDTO) {
@@ -451,9 +470,7 @@ export default function PlatformCompanies() {
             filteredRows.map((c) => {
               const active = isCompanyActive(c);
               const status = c.is_active === false ? (c.requested_plan && !c.approved ? "Pendiente" : "Inactiva") : "Activa";
-              const plan = [labelFor(c.requested_plan), c.price_clp_override != null || c.commission_percent_override != null ? "a medida" : ""]
-                .filter(Boolean)
-                .join(" · ");
+              const customTerms = c.price_clp_override != null || c.commission_percent_override != null;
               const wa = waByCompany[c.id];
               const mail = mailByCompany[c.id]?.from_email;
               return (
@@ -469,15 +486,16 @@ export default function PlatformCompanies() {
                       </p>
                       <p className={`mt-0.5 truncate text-xs font-medium ${active ? "text-brand" : "text-ink-muted"}`}>
                         {status}
-                        {plan ? <span className="font-normal text-ink-muted"> · {plan}</span> : null}
+                        {planSummary(c.requested_plan) ? (
+                          <span className="font-normal text-ink"> · Plan {planSummary(c.requested_plan)}</span>
+                        ) : null}
+                        {customTerms ? <span className="font-normal text-ink-muted"> · a medida</span> : null}
                         {notifyAccessLabel(c) ? <span className="font-normal text-ink-muted"> · {notifyAccessLabel(c)}</span> : null}
                       </p>
                     </button>
                     <ToggleSwitch
                       checked={active}
-                      onCheckedChange={(next) => {
-                        if (next !== active) void onSetActive(c.id, next);
-                      }}
+                      onCheckedChange={(next) => askActivate(c, next)}
                       disabled={busy}
                       aria-label={active ? "Empresa activa" : "Empresa inactiva"}
                     />
@@ -514,20 +532,22 @@ export default function PlatformCompanies() {
           )}
         </ul>
         <div className="hidden min-w-0 overflow-x-auto lg:block">
-          <table className="w-full min-w-[980px] table-fixed border-collapse text-xs sm:text-sm">
+          <table className="w-full min-w-[1100px] table-fixed border-collapse text-xs sm:text-sm">
             <colgroup>
-              <col className="w-[6%]" />
-              <col className="w-[18%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[18%]" />
-              <col className="w-[20%]" />
-              <col className="w-[22%]" />
+              <col className="w-[5%]" />
+              <col className="w-[16%]" />
+              <col className="w-[14%]" />
+              <col className="w-[7%]" />
+              <col className="w-[7%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+              <col className="w-[19%]" />
             </colgroup>
             <thead className="bg-surface/70 text-left text-xs uppercase tracking-wide text-ink-muted">
               <tr>
                 <th className="px-4 py-3 sm:px-6">ID</th>
                 <th className="px-3 py-3 sm:px-5">Nombre</th>
+                <th className="px-3 py-3 sm:px-5">Plan</th>
                 <th className="px-3 py-3 text-center sm:px-5">Clientes</th>
                 <th className="px-3 py-3 text-center sm:px-5">Admins</th>
                 <th className="px-3 py-3 text-center sm:px-5">WhatsApp</th>
@@ -538,7 +558,7 @@ export default function PlatformCompanies() {
             <tbody className="divide-y divide-surface-border">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-ink-muted">
+                  <td colSpan={8} className="px-4 py-10 text-center text-ink-muted">
                     No hay empresas para los filtros aplicados.
                   </td>
                 </tr>
@@ -556,11 +576,16 @@ export default function PlatformCompanies() {
                         {c.contact_phone ? <span className="mt-0.5 block text-xs text-ink-muted">{c.contact_phone}</span> : null}
                         <span className="mt-0.5 block text-xs text-ink-muted">
                           {c.is_active === false ? (c.requested_plan && !c.approved ? "Pendiente" : "Inactiva") : "Activa"}
-                          {labelFor(c.requested_plan) ? ` · ${labelFor(c.requested_plan)}` : ""}
                           {c.price_clp_override != null || c.commission_percent_override != null ? " · a medida" : ""}
                           {notifyAccessLabel(c) ? ` · ${notifyAccessLabel(c)}` : ""}
                         </span>
                       </button>
+                    </td>
+                    <td className="px-3 py-3 sm:px-5">
+                      <span className="block font-medium text-ink">{planSummary(c.requested_plan) || "Sin plan"}</span>
+                      {c.price_clp_override != null || c.commission_percent_override != null ? (
+                        <span className="mt-0.5 block text-xs text-ink-muted">A medida</span>
+                      ) : null}
                     </td>
                     <td className="px-3 py-3 text-center tabular-nums sm:px-5">{c.client_count ?? 0}</td>
                     <td className="px-3 py-3 text-center tabular-nums sm:px-5">{c.admin_count ?? 0}</td>
@@ -587,9 +612,7 @@ export default function PlatformCompanies() {
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         <ToggleSwitch
                           checked={isCompanyActive(c)}
-                          onCheckedChange={(next) => {
-                            if (next !== isCompanyActive(c)) void onSetActive(c.id, next);
-                          }}
+                          onCheckedChange={(next) => askActivate(c, next)}
                           disabled={busy}
                           aria-label={isCompanyActive(c) ? "Empresa activa" : "Empresa inactiva"}
                         />
@@ -759,12 +782,51 @@ export default function PlatformCompanies() {
         </AppModal>
       )}
 
+      {activateTarget && (
+        <AppModal onBackdropClick={() => !busy && setActivateTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold leading-6 text-ink">Activar {activateTarget.name}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-ink">
+              {planSummary(activateTarget.requested_plan)
+                ? `Eligió el plan ${planSummary(activateTarget.requested_plan)}.`
+                : "Esta solicitud no tiene un plan elegido."}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+              Al activarla se envía la clave por correo a {activateTarget.contact_email || "quien pidió la cuenta"}.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-surface-border px-4 py-2 text-sm font-semibold text-ink hover:bg-surface"
+                disabled={busy}
+                onClick={() => setActivateTarget(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+                disabled={busy}
+                onClick={() => {
+                  const target = activateTarget;
+                  setActivateTarget(null);
+                  void onSetActive(target.id, true);
+                }}
+              >
+                Activar
+              </button>
+            </div>
+          </div>
+        </AppModal>
+      )}
+
       {issuedPassword && (
         <AppModal onBackdropClick={() => setIssuedPassword(null)}>
           <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-6 shadow-2xl">
             <h2 className="text-lg font-semibold leading-6 text-ink">Empresa activa</h2>
             <p className="mt-1 text-sm leading-relaxed text-ink-muted">
-              {issuedPassword.company} ya puede entrar. La clave va por correo y hay que cambiarla al ingresar.
+              {issuedPassword.company} ya puede entrar
+              {issuedPassword.plan ? ` con el plan ${issuedPassword.plan}` : ""}. La clave va por correo y hay que cambiarla al ingresar.
             </p>
             {issuedPassword.email && (
               <p className="mt-4 break-all rounded-xl border border-surface-border bg-surface px-3 py-2.5 text-sm font-medium leading-5 text-ink">

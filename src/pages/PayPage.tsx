@@ -240,11 +240,17 @@ function PayMethodBody({ method, instructions }: { method: PayMethod | null; ins
   if (method === "transfer" && instructions?.trim()) {
     return <TransferDetails instructions={instructions} />;
   }
-  if (method === "khipu" || method === "fintoc") {
-    const name = method === "khipu" ? "Khipu" : "Fintoc";
+  if (method === "khipu") {
     return (
       <p className="px-4 pb-4 text-sm leading-relaxed text-ink-muted">
-        {name} todavía no abre su página en este enlace.
+        Te llevamos a Khipu para transferir. El cobro queda pagado cuando Khipu confirma.
+      </p>
+    );
+  }
+  if (method === "fintoc") {
+    return (
+      <p className="px-4 pb-4 text-sm leading-relaxed text-ink-muted">
+        Fintoc todavía no abre su página en este enlace.
       </p>
     );
   }
@@ -375,7 +381,7 @@ export default function PayPage() {
   }, [methods]);
 
   async function onPagar() {
-    if (method !== "webpay" || selectedCharges.length === 0 || paying) return;
+    if ((method !== "webpay" && method !== "khipu") || selectedCharges.length === 0 || paying) return;
     const raw = token?.trim() ?? "";
     let portalToken = raw;
     try {
@@ -389,7 +395,7 @@ export default function PayPage() {
     setPayError(null);
     try {
       const refs = selectedCharges.map((c) => c.ref);
-      const { redirect_url } = await startPaymentCheckout(portalToken, refs);
+      const { redirect_url } = await startPaymentCheckout(portalToken, refs, method);
       window.location.assign(redirect_url);
     } catch (err: unknown) {
       setPayError(err instanceof Error ? err.message : "No se pudo iniciar el pago");
@@ -570,7 +576,7 @@ export default function PayPage() {
                     instructions={data.company.transfer_instructions}
                   />
                   {payError && <p className="mt-3 text-sm font-medium text-danger">{payError}</p>}
-                  {method === "webpay" ? (
+                  {method === "webpay" || method === "khipu" ? (
                     <button
                       type="button"
                       onClick={onPagar}
