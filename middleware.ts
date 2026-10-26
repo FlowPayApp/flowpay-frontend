@@ -1,5 +1,5 @@
 import { next, rewrite } from "@vercel/functions/middleware";
-import { responseHeaders } from "./securityHeaders";
+import { responseHeaders } from "./securityHeaders.js";
 
 declare const process: { env: Record<string, string | undefined> };
 
