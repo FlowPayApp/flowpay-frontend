@@ -14,7 +14,12 @@ import AppModal from "../components/AppModal";
 import LoadingIndicator from "../components/LoadingIndicator";
 import LoadingOverlay from "../components/LoadingOverlay";
 import PageLoading from "../components/PageLoading";
-import { downloadClientImportTemplateXlsx, isExcelImportFile, parseClientImportExcel } from "../lib/clientImportExcel";
+import {
+  EXCEL_IMPORT_ERROR,
+  downloadClientImportTemplateXlsx,
+  isExcelImportFile,
+  parseClientImportExcel,
+} from "../lib/clientImportExcel";
 
 function sourceLabel(s: string) {
   if (s === "excel") return "Excel";
@@ -69,7 +74,7 @@ export default function ClientLoads() {
     setImportBusy(true);
     try {
       if (!isExcelImportFile(file)) {
-        throw new Error("Solo se admiten archivos Excel (.xlsx o .xls).");
+        throw new Error(EXCEL_IMPORT_ERROR);
       }
       const matrix = await parseClientImportExcel(file);
       const r: ImportDistributorResult = await importClientsDistributorRows(matrix, file.name);
@@ -142,7 +147,7 @@ export default function ClientLoads() {
           <input
             ref={importInputRef}
             type="file"
-            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
