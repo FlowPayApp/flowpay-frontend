@@ -29,6 +29,12 @@ function normHeader(s: string): string {
 
 function cellToString(v: unknown): string {
   if (v == null || v === "") return "";
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return "";
+    const day = String(v.getDate()).padStart(2, "0");
+    const month = String(v.getMonth() + 1).padStart(2, "0");
+    return `${day}-${month}-${v.getFullYear()}`;
+  }
   if (typeof v === "number") return String(v);
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
   return String(v).trim();
@@ -75,31 +81,23 @@ export function validateDistributorHeaderRow(headerCells: unknown[]): void {
 /**
  * Lee solo la primera hoja del libro, filas como texto.
  * Valida cabecera y número máximo de filas de datos.
+ * No usa SheetJS: esa librería tiene avisos altos sin parche.
  */
 export async function parseClientImportExcel(file: File): Promise<string[][]> {
-  const XLSX = await import("xlsx");
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array", cellDates: false });
-  if (!wb.SheetNames?.length) {
-    throw new Error("El archivo Excel no tiene ninguna hoja.");
+  if (!isExcelImportFile(file)) {
+    throw new Error(EXCEL_IMPORT_ERROR);
   }
-  const sheetName = wb.SheetNames[0];
-  const sheet = wb.Sheets[sheetName];
-  if (!sheet) {
-    throw new Error("No se pudo leer la primera hoja del archivo.");
+  const { readSheet } = await import("read-excel-file/browser");
+  let matrix: unknown[][];
+  try {
+    matrix = (await readSheet(file)) as unknown[][];
+  } catch {
+    throw new Error("No se pudo leer el archivo Excel.");
   }
 
-  const matrixUnknown = XLSX.utils.sheet_to_json(sheet, {
-    header: 1,
-    defval: "",
-    blankrows: false,
-    raw: false,
-  }) as unknown[][];
-
-  const rows: string[][] = matrixUnknown.map((row) => {
-    if (!Array.isArray(row)) return [];
-    return row.map((c) => cellToString(c));
-  });
+  const rows = matrix
+    .map((row) => (Array.isArray(row) ? row.map((cell) => cellToString(cell)) : []))
+    .filter((row) => row.some((cell) => cell !== ""));
 
   if (rows.length === 0) {
     throw new Error("La primera hoja está vacía.");
@@ -120,28 +118,29 @@ export function distributorTemplateHeaderRow(): string[] {
   return [...FIXED_DISTRIBUTOR_HEADERS, "EMAIL", PAYMENT_HEADER_PRIMARY];
 }
 
+export const EXCEL_IMPORT_ERROR =
+  "Solo se admiten archivos .xlsx. Si tienes un .xls, ábrelo y guárdalo como Libro de Excel (.xlsx).";
+
 /** Descarga plantilla .xlsx con la primera hoja "Clientes" y una fila de ejemplo. */
 export async function downloadClientImportTemplateXlsx(): Promise<void> {
-  const XLSX = await import("xlsx");
+  const { default: writeXlsxFile } = await import("write-excel-file/browser");
   const headerRow = distributorTemplateHeaderRow();
-  const ws = XLSX.utils.aoa_to_sheet([
-    headerRow,
-    [
-      "06185041",
-      "CM",
-      "IRIS CATALINA DEL CARMEN GARRIDO HERRERA",
-      "CALLE 1 N°2300 VILLA LOS HUERTOS, RAUQUEN",
-      "",
-      "",
-      "CONTADO",
-    ],
-  ]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Clientes");
-  XLSX.writeFile(wb, "geldflus-clientes-plantilla.xlsx");
+  const example = [
+    "06185041",
+    "CM",
+    "IRIS CATALINA DEL CARMEN GARRIDO HERRERA",
+    "CALLE 1 N°2300 VILLA LOS HUERTOS, RAUQUEN",
+    "",
+    "",
+    "CONTADO",
+  ];
+  const asText = (value: string) => ({ type: String, value });
+  const book = await writeXlsxFile([headerRow.map(asText), example.map(asText)], {
+    sheet: "Clientes",
+  });
+  await book.toFile("geldflus-clientes-plantilla.xlsx");
 }
 
 export function isExcelImportFile(file: File): boolean {
-  const n = file.name.toLowerCase();
-  return n.endsWith(".xlsx") || n.endsWith(".xls");
+  return file.name.toLowerCase().endsWith(".xlsx");
 }
