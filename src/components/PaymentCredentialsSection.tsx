@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import axios from "axios";
 import { Banknote, CreditCard, KeyRound, Landmark, Repeat } from "lucide-react";
-import { fetchPaymentCredentials, savePaymentCredentials, type PaymentCredentialStatus, type PaymentCredentialUpdate } from "../api";
+import { fetchPaymentCredentials, savePaymentCredentials, type PaymentCredentialPending, type PaymentCredentialStatus, type PaymentCredentialUpdate } from "../api";
+import LoadingIndicator from "../components/LoadingIndicator";
 import { useToast } from "../components/Toast";
 import { useMessagingForm } from "../pages/MessagingSettings";
 
@@ -16,8 +17,10 @@ type Field = {
   secret: boolean;
 };
 
+type ProviderId = Exclude<keyof PaymentCredentialStatus, "transfer_gateway" | "pending">;
+
 const PROVIDERS: {
-  id: keyof PaymentCredentialStatus;
+  id: ProviderId;
   title: string;
   detail: string;
   icon: typeof KeyRound;
@@ -56,7 +59,10 @@ const PROVIDERS: {
     title: "Fintoc",
     detail: "Transferencia",
     icon: Landmark,
-    fields: [{ name: "fintoc_secret_key", label: "Secret key", secret: true }],
+    fields: [
+      { name: "fintoc_secret_key", label: "Secret key", secret: true },
+      { name: "fintoc_webhook_secret", label: "Secreto del webhook", secret: true },
+    ],
   },
 ];
 
@@ -66,6 +72,16 @@ function message(err: unknown) {
     if (typeof text === "string" && text.trim()) return text;
   }
   return "No se pudieron guardar las credenciales.";
+}
+
+function confirmationToast(sentTo: string) {
+  const mailbox = sentTo ? ` a ${sentTo}` : "";
+  return `Enviamos la confirmación${mailbox}. El cambio queda pendiente hasta que el administrador lo acepte.`;
+}
+
+function upsertPending(current: PaymentCredentialPending[] | undefined, next: { provider: string; action: PaymentCredentialPending["action"]; sent_to: string }) {
+  const row: PaymentCredentialPending = { ...next, expires_at: "" };
+  return [...(current ?? []).filter((item) => item.provider !== next.provider), row];
 }
 
 function StatePill({ on, pending }: { on: boolean; pending?: boolean }) {
@@ -235,11 +251,18 @@ function CredentialEditor({
 
 export default function PaymentCredentialsSection({ bare = false }: { bare?: boolean }) {
   const toast = useToast();
+  const { loading: transferLoading } = useMessagingForm();
   const [status, setStatus] = useState<PaymentCredentialStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const credentialsPending = status === null && !error;
+
+  useEffect(() => {
+    if (!transferLoading && !credentialsPending) setRevealed(true);
+  }, [transferLoading, credentialsPending]);
 
   useEffect(() => {
     let active = true;
@@ -255,13 +278,13 @@ export default function PaymentCredentialsSection({ bare = false }: { bare?: boo
     };
   }, []);
 
-  async function save(id: keyof PaymentCredentialStatus, payload: PaymentCredentialUpdate) {
+  async function save(payload: PaymentCredentialUpdate) {
     setBusy(true);
     try {
-      await savePaymentCredentials(payload);
-      setStatus((current) => (current ? { ...current, [id]: true } : current));
+      const result = await savePaymentCredentials(payload);
+      setStatus((current) => (current ? { ...current, pending: upsertPending(current.pending, result) } : current));
       setEditing(null);
-      toast.success("Credencial guardada.");
+      toast.success(confirmationToast(result.sent_to));
     } catch (err) {
       toast.error(message(err));
     } finally {
@@ -273,11 +296,11 @@ export default function PaymentCredentialsSection({ bare = false }: { bare?: boo
     const payload = Object.fromEntries(provider.fields.map((field) => [field.name, ""])) as PaymentCredentialUpdate;
     setBusy(true);
     try {
-      await savePaymentCredentials(payload);
-      setStatus((current) => (current ? { ...current, [provider.id]: false } : current));
+      const result = await savePaymentCredentials(payload);
+      setStatus((current) => (current ? { ...current, pending: upsertPending(current.pending, result) } : current));
       setConfirming(null);
       setEditing(null);
-      toast.success("Credencial quitada.");
+      toast.success(confirmationToast(result.sent_to));
     } catch (err) {
       toast.error(message(err));
     } finally {
@@ -285,22 +308,26 @@ export default function PaymentCredentialsSection({ bare = false }: { bare?: boo
     }
   }
 
-  const body = (
+  const body = !revealed ? (
+    <div className="flex min-h-48 items-center justify-center" role="status" aria-live="polite">
+      <LoadingIndicator message="Cargando medios de pago…" />
+    </div>
+  ) : (
     <>
       {error ? <p className="mb-4 text-sm text-danger">{error}</p> : null}
       <ul className="divide-y divide-surface-border">
             <ManualTransferMethod />
-            {!error && !status ? <li className="py-4 text-sm text-ink-muted">Cargando medios de pago…</li> : null}
             {status
               ? PROVIDERS.map((provider) => {
                   const loaded = status[provider.id];
                   const open = editing === provider.id;
+                  const waiting = status.pending?.some((row) => row.provider === provider.id);
                   return (
                     <MethodRow
                       key={provider.id}
                       icon={provider.icon}
                       title={provider.title}
-                      detail={provider.detail}
+                      detail={waiting ? "Pendiente de confirmación en el correo del administrador" : provider.detail}
                       active={loaded}
                       actionLabel={open ? "Cerrar" : loaded ? "Editar" : "Cargar"}
                       actionDisabled={busy}
@@ -332,7 +359,7 @@ export default function PaymentCredentialsSection({ bare = false }: { bare?: boo
                               toast.error("Completa todos los datos.");
                               return;
                             }
-                            void save(provider.id, payload);
+                            void save(payload);
                           }}
                         />
                       ) : null}
@@ -340,6 +367,12 @@ export default function PaymentCredentialsSection({ bare = false }: { bare?: boo
                   );
                 })
               : null}
+            {status?.khipu && status.fintoc ? (
+              <li className="py-3.5">
+                <p className="text-sm font-semibold text-ink">Transferencia en el enlace</p>
+                <p className="mt-1 text-xs text-ink-muted">El cliente elige si transfiere con Khipu o con Fintoc.</p>
+              </li>
+            ) : null}
         </ul>
     </>
   );

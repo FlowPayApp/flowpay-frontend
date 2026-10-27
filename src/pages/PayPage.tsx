@@ -21,8 +21,8 @@ type PayMethod = "webpay" | "khipu" | "fintoc" | "transfer";
 
 const METHOD_COPY: Record<PayMethod, { title: string }> = {
   webpay: { title: "Webpay" },
-  khipu: { title: "Khipu" },
-  fintoc: { title: "Fintoc" },
+  khipu: { title: "Transferencia por Khipu" },
+  fintoc: { title: "Transferencia por Fintoc" },
   transfer: { title: "Transferencia directa" },
 };
 
@@ -250,7 +250,7 @@ function PayMethodBody({ method, instructions }: { method: PayMethod | null; ins
   if (method === "fintoc") {
     return (
       <p className="px-4 pb-4 text-sm leading-relaxed text-ink-muted">
-        Fintoc todavía no abre su página en este enlace.
+        Te llevamos a Fintoc para transferir. El cobro queda pagado cuando Fintoc confirma.
       </p>
     );
   }
@@ -381,7 +381,7 @@ export default function PayPage() {
   }, [methods]);
 
   async function onPagar() {
-    if ((method !== "webpay" && method !== "khipu") || selectedCharges.length === 0 || paying) return;
+    if ((method !== "webpay" && method !== "khipu" && method !== "fintoc") || selectedCharges.length === 0 || paying) return;
     const raw = token?.trim() ?? "";
     let portalToken = raw;
     try {
@@ -576,7 +576,7 @@ export default function PayPage() {
                     instructions={data.company.transfer_instructions}
                   />
                   {payError && <p className="mt-3 text-sm font-medium text-danger">{payError}</p>}
-                  {method === "webpay" || method === "khipu" ? (
+                  {method === "webpay" || method === "khipu" || method === "fintoc" ? (
                     <button
                       type="button"
                       onClick={onPagar}

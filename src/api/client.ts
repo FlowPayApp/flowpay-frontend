@@ -25,7 +25,7 @@ api.interceptors.response.use(
     const config = err.config as RetryConfig | undefined;
     const path = window.location.pathname;
     const publicAuth =
-      path === "/login" || path === "/register" || path.startsWith("/pay");
+      path === "/login" || path === "/register" || path.startsWith("/pay") || path.startsWith("/confirmar-credencial");
     if (err.response?.status === 401 && config && !config._retry && !publicAuth) {
       config._retry = true;
       const ok = await refreshSession();

@@ -27,7 +27,7 @@ export function PaymentMethodsPanel() {
   return (
     <SettingsFrame
       title="Medios de pago"
-      hint="El cliente solo ve los medios que dejes cargados. Cada llave se cifra y no se vuelve a mostrar."
+      hint="El cliente solo ve los medios que dejes cargados. Cargar, reemplazar o quitar una credencial queda pendiente hasta que el administrador lo confirme en su correo."
     >
       <PaymentCredentialsSection bare />
     </SettingsFrame>
