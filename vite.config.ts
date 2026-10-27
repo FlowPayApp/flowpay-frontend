@@ -20,6 +20,14 @@ export default defineConfig(({ mode }) => {
           target: paymentsURL,
           changeOrigin: true,
         },
+        "/api/public/khipu": {
+          target: paymentsURL,
+          changeOrigin: true,
+        },
+        "/api/public/fintoc": {
+          target: paymentsURL,
+          changeOrigin: true,
+        },
         "/api/payment-tokens": {
           target: paymentsURL,
           changeOrigin: true,
