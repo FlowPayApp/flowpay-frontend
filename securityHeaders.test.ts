@@ -69,6 +69,20 @@ test("el puente permite el envío a Transbank y no hereda la política del panel
   assert.equal(response.headers.get("x-frame-options"), "DENY");
 });
 
+test("la vuelta de Fintoc y Khipu llega al servicio de pagos", () => {
+  process.env.FLOWPAY_PAYMENTS_URL = "https://pay.internal";
+  for (const path of [
+    "/api/public/fintoc/return/token?orden=1",
+    "/api/public/khipu/return/token?orden=1",
+    "/api/public/fintoc/notify",
+    "/api/public/khipu/notify",
+  ]) {
+    const response = middleware(new Request("https://app.geldflus.com" + path));
+    assert.match(response.headers.get("x-middleware-rewrite") ?? "", new RegExp("^https://pay\\.internal" + path.replace(/[?]/g, "\\?") + "$"));
+    assert.match(csp(response), /default-src 'none'/);
+  }
+});
+
 test("una API no recibe la política del HTML", () => {
   process.env.FLOWPAY_BACKEND_URL = "https://api.internal";
   const response = middleware(new Request("https://geldflus.com/api/charges"));

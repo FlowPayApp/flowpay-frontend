@@ -24,6 +24,8 @@ function upstream(pathname: string): { base: string; name: string } | null {
   if (
     pathname.startsWith("/api/public/pay") ||
     pathname.startsWith("/api/public/webpay") ||
+    pathname.startsWith("/api/public/khipu") ||
+    pathname.startsWith("/api/public/fintoc") ||
     pathname === "/api/payment-tokens" ||
     pathname.startsWith("/api/payment-tokens/") ||
     pathname === "/api/payments" ||
