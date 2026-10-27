@@ -87,7 +87,7 @@ export async function fetchPaymentPortal(token: string): Promise<PaymentPortalRe
 export async function startPaymentCheckout(
   portalToken: string,
   chargeRefs: string[],
-  method: "webpay" | "khipu" = "webpay",
+  method: "webpay" | "khipu" | "fintoc" = "webpay",
 ): Promise<PaymentCheckoutResponse> {
   if (chargeRefs.length === 0) {
     throw new Error("Selecciona al menos un cobro");
@@ -107,19 +107,35 @@ export async function startPaymentCheckout(
     body: JSON.stringify({ charge_refs: chargeRefs, method }),
   });
   if (!res.ok) {
-    throw await parseError(res, method === "khipu" ? "No se pudo iniciar el pago con Khipu" : "No se pudo iniciar el pago con Webpay");
+    throw await parseError(
+      res,
+      method === "khipu" ? "No se pudo iniciar el pago con Khipu" : method === "fintoc" ? "No se pudo iniciar el pago con Fintoc" : "No se pudo iniciar el pago con Webpay",
+    );
   }
   return res.json() as Promise<PaymentCheckoutResponse>;
 }
 
 /** Consulta si Khipu ya concilió la transferencia. */
 export async function fetchKhipuStatus(portalToken: string, buyOrder: string): Promise<PaymentCommitResponse> {
+  return fetchTransferStatus(portalToken, buyOrder, "khipu");
+}
+
+/** Lee el estado que dejó el webhook de Fintoc. No marca el cobro. */
+export async function fetchFintocStatus(portalToken: string, buyOrder: string): Promise<PaymentCommitResponse> {
+  return fetchTransferStatus(portalToken, buyOrder, "fintoc");
+}
+
+async function fetchTransferStatus(
+  portalToken: string,
+  buyOrder: string,
+  method: "khipu" | "fintoc",
+): Promise<PaymentCommitResponse> {
   const orden = buyOrder.trim();
   if (!orden) {
     throw new Error("Falta la orden de la transferencia");
   }
   const res = await fetch(
-    paymentsApiUrl(`/api/public/pay/${encodeURIComponent(portalToken)}/khipu/status?orden=${encodeURIComponent(orden)}`),
+    paymentsApiUrl(`/api/public/pay/${encodeURIComponent(portalToken)}/${method}/status?orden=${encodeURIComponent(orden)}`),
   );
   if (!res.ok) {
     throw await parseError(res, "No se pudo consultar la transferencia");

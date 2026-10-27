@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Download, Loader2, Printer, XCircle } from "lucide-react";
 import {
   commitPaymentReturn,
+  fetchFintocStatus,
   fetchKhipuStatus,
   fetchPaymentPortal,
   isPaymentMock,
@@ -66,8 +67,8 @@ export default function PayReturnPage() {
         status: "pending",
         buy_order: searchParams.get("buy_order") ?? undefined,
         amount: searchParams.get("amount") ? Number(searchParams.get("amount")) : undefined,
-        message: searchParams.get("message") ?? "Khipu está confirmando la transferencia",
-        method: "khipu",
+        message: searchParams.get("message") ?? (medio === "fintoc" ? "Fintoc está confirmando la transferencia" : "Khipu está confirmando la transferencia"),
+        method: medio === "fintoc" ? "fintoc" : "khipu",
       });
       setPhase("pending");
       return;
@@ -116,11 +117,12 @@ export default function PayReturnPage() {
         window.clearInterval(id);
         return;
       }
-      void fetchKhipuStatus(portalToken, buyOrder)
+      const readStatus = medio === "fintoc" ? fetchFintocStatus : fetchKhipuStatus;
+      void readStatus(portalToken, buyOrder)
         .then((data) => {
           if (cancelled) return;
           if (data.status === "authorized") {
-            setResult({ ...data, method: data.method || "khipu" });
+            setResult({ ...data, method: data.method || (medio === "fintoc" ? "fintoc" : "khipu") });
             setPhase("done");
           } else if (data.status === "failed") {
             setError(data.message || "La transferencia no se completó.");
@@ -135,7 +137,7 @@ export default function PayReturnPage() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [phase, portalToken, buyOrder]);
+  }, [phase, portalToken, buyOrder, medio]);
 
   useEffect(() => {
     if (phase !== "done" || !portalToken) return;
@@ -161,7 +163,12 @@ export default function PayReturnPage() {
       authorizationCode: result.authorization_code,
       buyOrder: result.buy_order,
       paidAt: new Date(),
-      paymentMethod: result.method === "khipu" || medio === "khipu" ? "Khipu" : "Webpay Plus (Transbank)",
+      paymentMethod:
+        result.method === "fintoc" || medio === "fintoc"
+          ? "Fintoc"
+          : result.method === "khipu" || medio === "khipu"
+            ? "Khipu"
+            : "Webpay Plus (Transbank)",
     };
   }, [result, portal, medio]);
 
@@ -193,8 +200,12 @@ export default function PayReturnPage() {
           <p className="mt-4 text-lg font-semibold text-ink">Confirmando la transferencia</p>
           <p className="mt-2 text-sm text-ink-muted">
             {stalled
-              ? "Khipu todavía no confirma la transferencia. Si ya pagaste, el cobro se actualiza solo en cuanto llegue el aviso."
-              : "Khipu está confirmando la transferencia. No cierres esta ventana."}
+              ? medio === "fintoc"
+                ? "Fintoc todavía no confirma la transferencia. Si ya pagaste, el cobro se actualiza solo en cuanto llegue el aviso."
+                : "Khipu todavía no confirma la transferencia. Si ya pagaste, el cobro se actualiza solo en cuanto llegue el aviso."
+              : medio === "fintoc"
+                ? "Fintoc está confirmando la transferencia. No cierres esta ventana."
+                : "Khipu está confirmando la transferencia. No cierres esta ventana."}
           </p>
           <Link
             to={portalHref}
@@ -211,7 +222,7 @@ export default function PayReturnPage() {
             <CheckCircle2 className="mx-auto h-12 w-12 text-brand" />
             <h1 className="mt-4 text-2xl font-bold text-ink">Pago recibido</h1>
             <p className="mt-2 text-sm text-ink-muted">
-              {result.method === "khipu" || medio === "khipu"
+              {result.method === "khipu" || medio === "khipu" || result.method === "fintoc" || medio === "fintoc"
                 ? "La transferencia quedó confirmada. El comercio verá el cobro actualizado en GeldFlus."
                 : "Tu pago fue autorizado correctamente. El comercio verá el cobro actualizado en GeldFlus."}
             </p>
