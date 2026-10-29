@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
-import { BellRing, ChevronRight, KeyRound, MessageSquareText } from "lucide-react";
+import { BellRing, ChevronRight, KeyRound, Link2, MessageSquareText } from "lucide-react";
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import PaymentCredentialsSection from "../components/PaymentCredentialsSection";
 import SettingsFrame from "../components/SettingsFrame";
@@ -19,6 +19,7 @@ const GROUPS: { label: string; items: { to: string; label: string; hint: string;
     items: [
       { to: "/configuracion/avisos", label: "Cuándo avisar", hint: "Frecuencia de los avisos", icon: BellRing },
       { to: "/configuracion/mensajes", label: "Qué decir", hint: "Correo y WhatsApp", icon: MessageSquareText },
+      { to: "/configuracion/enlace", label: "Enlace de pago", hint: "Dirección del recordatorio", icon: Link2 },
     ],
   },
 ];
