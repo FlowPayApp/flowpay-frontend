@@ -202,3 +202,37 @@ export async function resetCompanyAdminPassword(userId: number) {
     must_change_password: boolean;
   }>;
 }
+
+export type AuditDomain = {
+  id: string;
+  label: string;
+  service: string;
+  hint: string;
+};
+
+export type AuditEvent = {
+  id: number;
+  occurred_at: string;
+  service: string;
+  domain: string;
+  domain_label: string;
+  action: string;
+  outcome: string;
+  actor_user_id?: number;
+  actor_role?: string;
+  company_id?: number;
+  target_type?: string;
+  target_id?: string;
+  ip?: string;
+  summary: string;
+};
+
+export async function listAudit(params: { domain?: string; outcome?: string; companyId?: string }) {
+  const q = new URLSearchParams();
+  if (params.domain) q.set("domain", params.domain);
+  if (params.outcome) q.set("outcome", params.outcome);
+  if (params.companyId && params.companyId.trim()) q.set("company_id", params.companyId.trim());
+  const res = await authorizedFetch(`/auth/platform/audit?${q.toString()}`, { headers: {} });
+  if (!res.ok) throw new Error(await readApiError(res, "No se pudo leer la auditoría"));
+  return res.json() as Promise<{ domains: AuditDomain[]; events: AuditEvent[] }>;
+}
