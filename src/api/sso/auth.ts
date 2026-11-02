@@ -1,6 +1,31 @@
 import { authorizedFetch } from "../../lib/auth";
 import type { CompanyUserDTO, MyProfileDTO } from "../types";
 
+export async function requestPasswordReset(email: string) {
+  const res = await fetch("/auth/password/forgot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+  if (!res.ok) {
+    throw new Error(data.error ?? "No se pudo enviar el código");
+  }
+  return data.message ?? "Si el correo está registrado, enviamos un código para restablecer la contraseña.";
+}
+
+export async function confirmPasswordReset(payload: { email: string; code: string; new_password: string }) {
+  const res = await fetch("/auth/password/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) {
+    throw new Error(data.error ?? "No se pudo restablecer la contraseña");
+  }
+}
+
 export async function firstPasswordChange(payload: {
   email: string;
   password: string;

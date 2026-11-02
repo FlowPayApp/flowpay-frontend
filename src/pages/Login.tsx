@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { Link, useNavigate } from "react-router-dom";
-import { firstPasswordChange } from "../api";
+import { confirmPasswordReset, firstPasswordChange, requestPasswordReset } from "../api";
 import AuthShell from "../components/AuthShell";
 import AuthLoadingOverlay from "../components/AuthLoadingOverlay";
 import PasswordInput from "../components/PasswordInput";
@@ -15,6 +15,11 @@ export default function Login() {
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [view, setView] = useState<"login" | "forgot" | "reset">("login");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [mustChangePassword, setMustChangePassword] = useState(false);
@@ -24,6 +29,7 @@ export default function Login() {
   const [qr, setQr] = useState("");
   const toast = useToast();
   const [loadingRaw, setLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
   const loading = useMinLoading(loadingRaw);
 
   useEffect(() => {
@@ -117,6 +123,71 @@ export default function Login() {
     }
   }
 
+  function openRecovery() {
+    setResetEmail(email.trim());
+    setResetCode("");
+    setResetPassword("");
+    setConfirmResetPassword("");
+    setView("forgot");
+  }
+
+  function backToLogin() {
+    setView("login");
+    setResetCode("");
+    setResetPassword("");
+    setConfirmResetPassword("");
+  }
+
+  async function sendResetCode() {
+    setSendingCode(true);
+    setLoading(true);
+    try {
+      const message = await requestPasswordReset(resetEmail.trim());
+      setResetCode("");
+      setView("reset");
+      toast.show({ text: message, tone: "info" });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "No se pudo enviar el código");
+    } finally {
+      setLoading(false);
+      setSendingCode(false);
+    }
+  }
+
+  function onRequestReset(e: React.FormEvent) {
+    e.preventDefault();
+    void sendResetCode();
+  }
+
+  async function onConfirmReset(e: React.FormEvent) {
+    e.preventDefault();
+    const policyError = getPasswordPolicyError(resetPassword);
+    if (policyError) {
+      toast.error(policyError);
+      return;
+    }
+    if (resetPassword !== confirmResetPassword) {
+      toast.error("La confirmación de contraseña no coincide.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await confirmPasswordReset({
+        email: resetEmail.trim(),
+        code: resetCode,
+        new_password: resetPassword,
+      });
+      setEmail(resetEmail.trim());
+      setPassword("");
+      backToLogin();
+      toast.success("Contraseña actualizada. Ya puedes iniciar sesión.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "No se pudo restablecer la contraseña");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function onFirstChangePassword(e: React.FormEvent) {
     e.preventDefault();
     const policyError = getPasswordPolicyError(newPassword);
@@ -145,7 +216,14 @@ export default function Login() {
 
   return (
     <AuthShell
-      title="Iniciar sesión"
+      title={view === "login" ? "Iniciar sesión" : view === "forgot" ? "Recuperar contraseña" : "Restablecer contraseña"}
+      lede={
+        view === "forgot"
+          ? "Escribe el correo de tu cuenta. Si está registrado, te enviamos un código."
+          : view === "reset"
+            ? "Si el correo está registrado, el código ya va en camino. Vence en 15 minutos y permite 5 intentos."
+            : undefined
+      }
       footer={
         <p className="text-center sm:text-left">
           ¿Primera vez?{" "}
@@ -157,10 +235,99 @@ export default function Login() {
     >
       {loading && (
         <AuthLoadingOverlay
-          message={mustChangePassword ? "Actualizando tu contraseña…" : mfaToken ? "Comprobando el código…" : "Entrando a tu cuenta…"}
+          message={
+            view === "forgot" || sendingCode
+              ? "Enviando el código…"
+              : view === "reset"
+                ? "Actualizando tu contraseña…"
+                : mustChangePassword
+                  ? "Actualizando tu contraseña…"
+                  : mfaToken
+                    ? "Comprobando el código…"
+                    : "Entrando a tu cuenta…"
+          }
         />
       )}
-      {mfaToken ? (
+      {view === "forgot" ? (
+        <form className="space-y-4" onSubmit={onRequestReset}>
+          <label className="block text-sm font-medium text-ink">
+            Email
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-base sm:text-sm"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={loading}
+            className="min-h-12 w-full rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+          >
+            {loading ? "Procesando…" : "Enviar código"}
+          </button>
+          <button type="button" className="w-full text-sm font-semibold text-brand hover:underline" onClick={backToLogin}>
+            Volver a iniciar sesión
+          </button>
+        </form>
+      ) : view === "reset" ? (
+        <form className="space-y-4" onSubmit={onConfirmReset}>
+          <p className="break-all text-sm text-ink-muted">{resetEmail.trim()}</p>
+          <label className="block text-sm font-medium text-ink">
+            Código
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              required
+              minLength={6}
+              maxLength={6}
+              pattern="[0-9]{6}"
+              className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-base tracking-widest sm:text-sm"
+              value={resetCode}
+              onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            />
+          </label>
+          <PasswordInput
+            label="Nueva contraseña"
+            value={resetPassword}
+            onChange={setResetPassword}
+            autoComplete="new-password"
+            required
+            minLength={8}
+          />
+          <p className="-mt-2 text-xs text-ink-muted">{PASSWORD_POLICY_HINT}</p>
+          <PasswordInput
+            label="Confirmar nueva contraseña"
+            value={confirmResetPassword}
+            onChange={setConfirmResetPassword}
+            autoComplete="new-password"
+            required
+            minLength={8}
+          />
+          <button
+            type="submit"
+            disabled={loading || resetCode.length !== 6}
+            className="min-h-12 w-full rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+          >
+            {loading ? "Procesando…" : "Restablecer contraseña"}
+          </button>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <button type="button" className="font-semibold text-brand hover:underline" onClick={backToLogin}>
+              Volver
+            </button>
+            <button
+              type="button"
+              className="font-semibold text-brand hover:underline disabled:opacity-60"
+              disabled={loading}
+              onClick={() => void sendResetCode()}
+            >
+              Reenviar código
+            </button>
+          </div>
+        </form>
+      ) : mfaToken ? (
         <form className="space-y-4" onSubmit={onMfa}>
           {mfaSetup ? (
             <div className="space-y-3 text-sm text-ink-muted">
@@ -244,6 +411,13 @@ export default function Login() {
               minLength={8}
             />
           </>
+        )}
+        {!mustChangePassword && (
+          <div className="flex justify-end">
+            <button type="button" className="text-sm font-semibold text-brand hover:underline" onClick={openRecovery}>
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
         )}
         <button
           type="submit"
