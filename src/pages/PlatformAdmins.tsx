@@ -1,4 +1,4 @@
-import { Check, Filter, KeyRound, Pencil, Plus, Trash2, UserCog, Users, X } from "lucide-react";
+import { Filter, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -263,19 +263,6 @@ export default function PlatformAdmins() {
     });
   }, [platformAdmins, filters]);
 
-  const stats = useMemo(() => {
-    if (view === "platform") {
-      const total = platformAdmins.length;
-      const active = platformAdmins.filter((a) => a.is_active).length;
-      return { total, active, inactive: total - active, companiesCovered: 0 };
-    }
-    const total = admins.length;
-    const active = admins.filter((a) => isAdminActive(a)).length;
-    const inactive = total - active;
-    const companiesCovered = new Set(admins.map((a) => a.company_id)).size;
-    return { total, active, inactive, companiesCovered };
-  }, [admins, platformAdmins, view]);
-
   return (
     <div className="mx-auto w-full max-w-6xl px-0">
       {loading && <PageLoading />}
@@ -293,11 +280,6 @@ export default function PlatformAdmins() {
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-medium tracking-tight text-ink">Admins</h1>
-          <p className="mt-1 max-w-xl text-sm text-ink-muted">
-            {view === "company"
-              ? "Quienes administran cada empresa."
-              : "Cuentas de la plataforma. Puedes crear, desactivar o borrar, y siempre queda una activa."}
-          </p>
         </div>
         <div className="inline-flex w-full rounded-xl bg-surface p-1 ring-1 ring-surface-border sm:w-auto" role="tablist" aria-label="Tipo de cuenta">
           <ViewTab
@@ -314,13 +296,6 @@ export default function PlatformAdmins() {
           />
         </div>
       </div>
-
-      <section className={`mb-4 grid gap-3 sm:grid-cols-2 ${view === "company" ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
-        <MiniKpi icon={<UserCog className="h-4 w-4" />} label={view === "company" ? "Admins" : "Superadmins"} value={String(stats.total)} />
-        <MiniKpi icon={<Check className="h-4 w-4" />} label="Activos" value={String(stats.active)} tone="success" />
-        <MiniKpi icon={<X className="h-4 w-4" />} label="Inactivos" value={String(stats.inactive)} tone="danger" />
-        {view === "company" && <MiniKpi icon={<Users className="h-4 w-4" />} label="Empresas" value={String(stats.companiesCovered)} />}
-      </section>
 
       <div className="mb-4 flex items-center justify-end gap-2">
         <div className="flex w-full items-center gap-2 sm:w-auto">
@@ -350,7 +325,7 @@ export default function PlatformAdmins() {
               </button>
         </div>
       </div>
-      <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+      <section className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
           <FilterTray open={openFilters}>
             <div className={`grid gap-3 sm:grid-cols-2 ${view === "company" ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
               <label className="text-sm text-ink-muted">
@@ -920,34 +895,5 @@ function PlatformAdminList({
 function YouMark() {
   return (
     <span className="shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-semibold text-brand">Tú</span>
-  );
-}
-
-function MiniKpi({
-  icon,
-  label,
-  value,
-  tone = "default",
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  tone?: "default" | "success" | "danger";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-brand/20 bg-brand-soft text-brand"
-      : tone === "danger"
-        ? "border-danger/20 bg-danger-soft text-danger"
-        : "border-surface-border bg-surface-card text-ink-muted";
-
-  return (
-    <div className={`rounded-2xl border px-3 py-3 shadow-soft sm:px-4 ${toneClass}`}>
-      <div className="flex items-center gap-2 text-xs uppercase tracking-wide">
-        <span>{icon}</span>
-        <span>{label}</span>
-      </div>
-      <div className="mt-1 text-xl font-semibold text-ink">{value}</div>
-    </div>
   );
 }
