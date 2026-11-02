@@ -13,6 +13,7 @@ import Clients from '../pages/Clients';
 import ClientLoads from '../pages/ClientLoads';
 import ClientDetail from '../pages/ClientDetail';
 import { WhatPanel, WhenPanel } from '../pages/MessagingSettings';
+import PaymentPortalSettings from '../pages/PaymentPortalSettings';
 import Settings, { PaymentMethodsPanel } from '../pages/Settings';
 import Equipo from '../pages/Equipo';
 import EquipoDetail from '../pages/EquipoDetail';
@@ -72,6 +73,7 @@ const AppRouter = () => {
             <Route path="medios" element={<PaymentMethodsPanel />} />
             <Route path="avisos" element={<WhenPanel />} />
             <Route path="mensajes" element={<WhatPanel />} />
+            <Route path="enlace" element={<PaymentPortalSettings />} />
           </Route>
           <Route path="mensajes" element={<Navigate to="/configuracion" replace />} />
           <Route path="equipo" element={<AdminOnly><Equipo /></AdminOnly>} />
