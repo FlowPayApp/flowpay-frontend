@@ -21,6 +21,7 @@ import FilterTray from "../components/FilterTray";
 import IconActionButton from "../components/IconActionButton";
 import LoadingOverlay from "../components/LoadingOverlay";
 import PageLoading from "../components/PageLoading";
+import PaymentPortalReviews from "../components/PaymentPortalReviews";
 import RowMenu from "../components/RowMenu";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { useToast } from "../components/Toast";
@@ -432,6 +433,7 @@ export default function PlatformCompanies() {
               </button>
         </div>
       </div>
+      <PaymentPortalReviews />
       <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
           <FilterTray open={openFilters}>
             <div className="grid gap-3 sm:grid-cols-2">
