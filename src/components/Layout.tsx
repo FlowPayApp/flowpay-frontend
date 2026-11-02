@@ -18,6 +18,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { getSessionClaims, getToken, logout } from "../lib/auth";
 import { useCompanyChannels } from "../lib/companyChannels";
 import { useScrollLock } from "../lib/useScrollLock";
+import AuthLoadingOverlay from "./AuthLoadingOverlay";
 import BrandLogo from "./BrandLogo";
 import InboxBell from "./InboxBell";
 import { InboxProvider } from "./InboxProvider";
@@ -116,6 +117,7 @@ export default function Layout() {
   const isPlatformAdmin = role === "platform_admin";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   useScrollLock(moreOpen);
   const items = isPlatformAdmin ? platformNav : companyNavItems(role);
   const tabs = mobileTabs(isPlatformAdmin);
@@ -153,6 +155,9 @@ export default function Layout() {
   const label = (text: string) => <span className={`${SIDEBAR_FADE} ${fadeIn(!collapsed)}`}>{text}</span>;
 
   const signOut = () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    setMoreOpen(false);
     void logout().then(() => nav("/login", { replace: true }));
   };
 
@@ -183,9 +188,16 @@ export default function Layout() {
             {label("Configuración")}
           </NavLink>
         )}
-        <button type="button" title={collapsed ? "Cerrar sesión" : undefined} className={rowClass(false)} onClick={signOut}>
+        <button
+          type="button"
+          title={collapsed ? "Cerrar sesión" : undefined}
+          className={`${rowClass(false)} disabled:opacity-60`}
+          onClick={signOut}
+          disabled={signingOut}
+          aria-busy={signingOut}
+        >
           <LogOut className="h-5 w-5 shrink-0" strokeWidth={2} />
-          {label("Cerrar sesión")}
+          {label(signingOut ? "Cerrando…" : "Cerrar sesión")}
         </button>
       </div>
     );
@@ -193,6 +205,7 @@ export default function Layout() {
 
   const content = (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
+      {signingOut && <AuthLoadingOverlay message="Cerrando sesión…" />}
       <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-between border-b border-surface-border bg-surface-card px-4 pt-[env(safe-area-inset-top)] lg:hidden">
         <BrandLogo className="h-7" />
         {showInbox && <InboxBell />}
@@ -315,11 +328,13 @@ export default function Layout() {
             )}
             <button
               type="button"
-              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-ink hover:bg-surface"
+              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-ink hover:bg-surface disabled:opacity-60"
               onClick={signOut}
+              disabled={signingOut}
+              aria-busy={signingOut}
             >
               <LogOut className="h-5 w-5" strokeWidth={2} />
-              Cerrar sesión
+              {signingOut ? "Cerrando…" : "Cerrar sesión"}
             </button>
           </div>
         )}
