@@ -21,6 +21,7 @@ import PlatformOverview from '../pages/PlatformOverview';
 import PlatformCompanies from '../pages/PlatformCompanies';
 import PlatformAdmins from '../pages/PlatformAdmins';
 import PlatformPlans from '../pages/PlatformPlans';
+import PlatformAudit from '../pages/PlatformAudit';
 import PayPage from '../pages/PayPage';
 import PayReturnPage from '../pages/PayReturnPage';
 import CredentialConfirmPage from '../pages/CredentialConfirmPage';
@@ -80,6 +81,7 @@ const AppRouter = () => {
           <Route path="platform/companies" element={<PlatformCompanies />} />
           <Route path="platform/admins" element={<PlatformAdmins />} />
           <Route path="platform/plans" element={<PlatformPlans />} />
+          <Route path="platform/audit" element={<PlatformAudit />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

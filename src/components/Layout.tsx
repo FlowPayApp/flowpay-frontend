@@ -7,6 +7,7 @@ import {
   LogOut,
   MoreHorizontal,
   Receipt,
+  ScrollText,
   Settings,
   UserCog,
   Users,
@@ -68,7 +69,12 @@ function mobileTabs(isPlatformAdmin: boolean): NavItem[] {
 }
 
 function moreLinks(role: string, isPlatformAdmin: boolean): NavItem[] {
-  if (isPlatformAdmin) return [{ to: "/platform/plans", label: "Planes", icon: BadgePercent }];
+  if (isPlatformAdmin) {
+    return [
+      { to: "/platform/plans", label: "Planes", icon: BadgePercent },
+      { to: "/platform/audit", label: "Auditoría", icon: ScrollText },
+    ];
+  }
   if (role !== "admin") return [];
   return [{ to: "/equipo", label: "Equipo", icon: UserCog }];
 }
@@ -78,6 +84,7 @@ const platformNav: NavItem[] = [
   { to: "/platform/companies", label: "Empresas", icon: Building2 },
   { to: "/platform/admins", label: "Admins", icon: UserCog },
   { to: "/platform/plans", label: "Planes", icon: BadgePercent },
+  { to: "/platform/audit", label: "Auditoría", icon: ScrollText },
 ];
 
 function readCollapsed(): boolean {
