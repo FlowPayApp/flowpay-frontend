@@ -25,6 +25,10 @@ function toDraft(plan: SignupPlan): Draft {
   };
 }
 
+function formatPercent(n: number): string {
+  return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(n)}%`;
+}
+
 function parseAmount(raw: string): number {
   const n = Number(raw.replace(/\./g, "").replace(",", ".").trim());
   return Number.isFinite(n) ? n : NaN;
@@ -102,15 +106,55 @@ export default function PlatformPlans() {
     }
   }
 
+  const ladder = plans
+    .map((plan) => {
+      const draft = drafts[plan.id];
+      const price = draft ? parseAmount(draft.price) : (plan.price_clp ?? 0);
+      const commission = draft ? parseAmount(draft.commission) : (plan.commission_percent ?? 0);
+      return {
+        id: plan.id,
+        label: draft?.label || plan.label,
+        price: Number.isFinite(price) ? price : 0,
+        commission: Number.isFinite(commission) ? commission : 0,
+        highlight: draft?.highlight ?? Boolean(plan.highlight),
+      };
+    })
+    .sort((a, b) => a.price - b.price);
+  const maxPrice = Math.max(...ladder.map((item) => item.price), 1);
+
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       {loading && <PageLoading />}
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Planes</h1>
-      <p className="mt-2 max-w-2xl text-sm text-ink-muted">
-        El precio mensual y la comisión de cada pago cobrado. Quien se registra ve estas tarjetas. Si una empresa necesita otra condición, se ajusta en Empresas.
-      </p>
-      {error && <div className="mt-4 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div>}
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+      <div>
+        <h1 className="font-display text-3xl font-medium tracking-tight text-ink">Planes</h1>
+      </div>
+      {ladder.length > 0 && (
+        <section className="rounded-2xl border border-surface-border bg-surface-card p-5 shadow-soft sm:p-6">
+          <h2 className="text-sm font-semibold text-ink">Cómo se comparan</h2>
+          <p className="mt-1 text-xs text-ink-muted">La barra es el precio mensual. La comisión es lo que se queda de cada pago cobrado.</p>
+          <ul className="mt-5 space-y-4">
+            {ladder.map((item) => (
+              <li key={item.id}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-sm font-medium text-ink">
+                    {item.label}
+                    {item.highlight ? <span className="ml-2 text-xs font-semibold text-brand">Recomendado</span> : null}
+                  </p>
+                  <p className="shrink-0 text-sm tabular-nums text-ink">
+                    {formatMoney(item.price)}
+                    <span className="text-ink-muted"> · {formatPercent(item.commission)}</span>
+                  </p>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface">
+                  <div className="h-full rounded-full bg-brand" style={{ width: `${Math.max(4, (item.price / maxPrice) * 100)}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {error && <div className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div>}
+      <div className="grid gap-4 lg:grid-cols-3">
         {plans.map((plan) => {
           const draft = drafts[plan.id];
           if (!draft) return null;

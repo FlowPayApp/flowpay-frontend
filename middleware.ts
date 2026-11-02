@@ -43,6 +43,14 @@ export const config = {
   matcher: ["/((?!assets/|brand/|favicon\\.png).*)"],
 };
 
+function clientAddress(request: Request) {
+  const vercel = (request.headers.get("x-vercel-forwarded-for") ?? "").split(",")[0]?.trim() ?? "";
+  if (vercel) return vercel;
+  const real = request.headers.get("x-real-ip")?.trim() ?? "";
+  if (real) return real;
+  return (request.headers.get("x-forwarded-for") ?? "").split(",")[0]?.trim() ?? "";
+}
+
 function secure(response: Response, request: Request, proxied: boolean): Response {
   responseHeaders(request, proxied).forEach((value, key) => {
     response.headers.set(key, value);
@@ -78,6 +86,12 @@ export default function middleware(request: Request) {
   const publicProto = incoming.protocol.replace(":", "");
   headers.set("x-forwarded-host", publicHost);
   headers.set("x-forwarded-proto", publicProto);
+  headers.delete("x-flowpay-client-ip");
+  headers.delete("x-flowpay-edge");
+  const clientIP = clientAddress(request);
+  if (clientIP) headers.set("x-flowpay-client-ip", clientIP);
+  const edge = (process.env.FLOWPAY_EDGE_SECRET ?? "").trim();
+  if (edge) headers.set("x-flowpay-edge", edge);
   headers.set("x-flowpay-public-host", publicHost);
   headers.set("x-flowpay-public-proto", publicProto);
   return secure(rewrite(dest, { request: { headers } }), request, true);

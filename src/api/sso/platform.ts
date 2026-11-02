@@ -219,16 +219,24 @@ export type AuditEvent = {
   action: string;
   outcome: string;
   actor_user_id?: number;
+  actor_name?: string;
+  actor_email?: string;
   actor_role?: string;
   company_id?: number;
+  company_name?: string;
   target_type?: string;
   target_id?: string;
+  target_label?: string;
   ip?: string;
+  user_agent?: string;
+  client_hint?: string;
   summary: string;
+  metadata?: Record<string, unknown>;
 };
 
-export async function listAudit(params: { domain?: string; outcome?: string; companyId?: string }) {
+export async function listAudit(params: { service?: string; domain?: string; outcome?: string; companyId?: string }) {
   const q = new URLSearchParams();
+  if (params.service) q.set("service", params.service);
   if (params.domain) q.set("domain", params.domain);
   if (params.outcome) q.set("outcome", params.outcome);
   if (params.companyId && params.companyId.trim()) q.set("company_id", params.companyId.trim());

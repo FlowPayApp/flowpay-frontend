@@ -1,6 +1,7 @@
 import axios from "axios";
-import { Building2, Check, Filter, Mail, MessageCircle, Pencil, Plus, Trash2, UserCog, Users, X } from "lucide-react";
+import { Building2, Filter, Mail, MessageCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   assignCompanyMailbox,
   assignCompanyWhatsApp,
@@ -31,6 +32,21 @@ import { useMinLoading } from "../lib/useMinLoading";
 
 function isCompanyActive(c: CompanyDTO): boolean {
   return c.is_active !== false;
+}
+
+function isPendingSignup(c: CompanyDTO): boolean {
+  return c.is_active === false && Boolean(c.requested_plan) && !c.approved;
+}
+
+function isSilent(c: CompanyDTO): boolean {
+  return c.allow_email === false && c.allow_whatsapp === false;
+}
+
+type Vista = "todas" | "pendientes" | "activas" | "inactivas" | "silencio";
+
+function vistaOf(raw: string | null): Vista {
+  if (raw === "pendientes" || raw === "activas" || raw === "inactivas" || raw === "silencio") return raw;
+  return "todas";
 }
 
 function displayWhatsApp(raw: string): string {
@@ -103,6 +119,8 @@ export default function PlatformCompanies() {
     smtp_password: string;
     password_set: boolean;
   } | null>(null);
+  const [params, setParams] = useSearchParams();
+  const vista = vistaOf(params.get("vista"));
   const [filters, setFilters] = useState<{ name: string; status: "all" | "active" | "inactive" }>({
     name: "",
     status: "all",
@@ -359,9 +377,15 @@ export default function PlatformCompanies() {
         filters.status === "all" ||
         (filters.status === "active" && active) ||
         (filters.status === "inactive" && !active);
-      return nameOk && statusOk;
+      const vistaOk =
+        vista === "todas" ||
+        (vista === "pendientes" && isPendingSignup(c)) ||
+        (vista === "activas" && active) ||
+        (vista === "inactivas" && !active) ||
+        (vista === "silencio" && isSilent(c));
+      return nameOk && statusOk && vistaOk;
     });
-  }, [rows, filters]);
+  }, [rows, filters, vista]);
 
   const openWaEdit = (c: CompanyDTO) =>
     setWaEdit({ id: c.id, name: c.name, phone: displayWhatsApp(waByCompany[c.id] ?? "") });
@@ -381,14 +405,16 @@ export default function PlatformCompanies() {
     });
   };
 
-  const stats = useMemo(() => {
-    const total = rows.length;
-    const active = rows.filter((c) => isCompanyActive(c)).length;
-    const inactive = total - active;
-    const clients = rows.reduce((acc, c) => acc + (c.client_count ?? 0), 0);
-    const admins = rows.reduce((acc, c) => acc + (c.admin_count ?? 0), 0);
-    return { total, active, inactive, clients, admins };
-  }, [rows]);
+  function chooseVista(next: Vista) {
+    const copy = new URLSearchParams(params);
+    if (next === "todas") copy.delete("vista");
+    else copy.set("vista", next);
+    setParams(copy, { replace: true });
+    setFilters((current) => ({
+      ...current,
+      status: next === "activas" ? "active" : next === "inactivas" ? "inactive" : "all",
+    }));
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-0">
@@ -396,16 +422,10 @@ export default function PlatformCompanies() {
       <MailWait active={sendingMail} />
       {error && <div className="mb-4 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div>}
 
-      <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <MiniKpi icon={<Building2 className="h-4 w-4" />} label="Empresas" value={String(stats.total)} />
-        <MiniKpi icon={<Check className="h-4 w-4" />} label="Activas" value={String(stats.active)} tone="success" />
-        <MiniKpi icon={<X className="h-4 w-4" />} label="Inactivas" value={String(stats.inactive)} tone="danger" />
-        <MiniKpi icon={<Users className="h-4 w-4" />} label="Clientes" value={String(stats.clients)} />
-        <MiniKpi icon={<UserCog className="h-4 w-4" />} label="Admins" value={String(stats.admins)} />
-      </section>
-
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Empresas</h1>
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-medium tracking-tight text-ink">Empresas</h1>
+        </div>
         <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -434,7 +454,7 @@ export default function PlatformCompanies() {
         </div>
       </div>
       <PaymentPortalReviews />
-      <section className="rounded-2xl border border-surface-border bg-surface-card shadow-soft">
+      <section className="overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-soft">
           <FilterTray open={openFilters}>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm text-ink-muted">
@@ -449,17 +469,14 @@ export default function PlatformCompanies() {
               <label className="text-sm text-ink-muted">
                 Estado
                 <AppSelect
-                  value={filters.status}
-                  onChange={(status) =>
-                    setFilters((f) => ({
-                      ...f,
-                      status: status as "all" | "active" | "inactive",
-                    }))
-                  }
+                  value={vista}
+                  onChange={(next) => chooseVista(next as Vista)}
                   options={[
-                    { value: "all", label: "Todos" },
-                    { value: "active", label: "Activas" },
-                    { value: "inactive", label: "Inactivas" },
+                    { value: "todas", label: "Todas" },
+                    { value: "pendientes", label: "Por activar" },
+                    { value: "activas", label: "Activas" },
+                    { value: "inactivas", label: "Inactivas" },
+                    { value: "silencio", label: "Sin avisos" },
                   ]}
                 />
               </label>
@@ -1103,35 +1120,6 @@ function Input(props: { label: string; value: string; onChange: (v: string) => v
         required
       />
     </label>
-  );
-}
-
-function MiniKpi({
-  icon,
-  label,
-  value,
-  tone = "default",
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  tone?: "default" | "success" | "danger";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-brand/20 bg-brand-soft text-brand"
-      : tone === "danger"
-        ? "border-danger/20 bg-danger-soft text-danger"
-        : "border-surface-border bg-surface-card text-ink-muted";
-
-  return (
-    <div className={`rounded-2xl border px-3 py-3 shadow-soft sm:px-4 ${toneClass}`}>
-      <div className="flex items-center gap-2 text-xs uppercase tracking-wide">
-        <span>{icon}</span>
-        <span>{label}</span>
-      </div>
-      <div className="mt-1 text-xl font-semibold text-ink">{value}</div>
-    </div>
   );
 }
 
