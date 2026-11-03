@@ -78,6 +78,12 @@ export function refreshSession(): Promise<boolean> {
   return refreshInflight;
 }
 
+/** Login y registro no tienen sesión que recuperar. El POST igual respondía 401. */
+function skipsSessionRestore(pathname: string): boolean {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  return path === "/login" || path === "/register";
+}
+
 /** Al recargar no hay token en memoria: se recupera con la cookie, si sigue viva. */
 export function bootstrapAuth(): Promise<void> {
   if (!bootstrapInflight) {
@@ -87,7 +93,9 @@ export function bootstrapAuth(): Promise<void> {
       } catch {
         /* almacenamiento no disponible */
       }
-      await refreshSession();
+      if (!skipsSessionRestore(window.location.pathname)) {
+        await refreshSession();
+      }
       ready = true;
       emit();
     })();
