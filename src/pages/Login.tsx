@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { confirmPasswordReset, firstPasswordChange, requestPasswordReset } from "../api";
 import AuthShell from "../components/AuthShell";
 import AuthLoadingOverlay from "../components/AuthLoadingOverlay";
+import CodeDigits from "../components/CodeDigits";
 import PasswordInput from "../components/PasswordInput";
 import { useToast } from "../components/Toast";
 import { getDefaultHomePath, setToken } from "../lib/auth";
@@ -277,17 +278,7 @@ export default function Login() {
           <p className="break-all text-sm text-ink-muted">{resetEmail.trim()}</p>
           <label className="block text-sm font-medium text-ink">
             Código
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              required
-              minLength={6}
-              maxLength={6}
-              pattern="[0-9]{6}"
-              className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-base tracking-widest sm:text-sm"
-              value={resetCode}
-              onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            />
+            <CodeDigits value={resetCode} onChange={setResetCode} disabled={loading} autoFocus />
           </label>
           <PasswordInput
             label="Nueva contraseña"
@@ -351,17 +342,7 @@ export default function Login() {
           )}
           <label className="block text-sm font-medium text-ink">
             Código
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              required
-              minLength={6}
-              maxLength={6}
-              pattern="[0-9]{6}"
-              className="mt-1 w-full rounded-xl border border-surface-border px-3 py-2 text-base tracking-widest sm:text-sm"
-              value={mfaCode}
-              onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            />
+            <CodeDigits value={mfaCode} onChange={setMfaCode} disabled={loading} autoFocus />
           </label>
           <button
             type="submit"
